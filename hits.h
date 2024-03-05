@@ -5,8 +5,8 @@
 // found on file: root_files/pi_mu_sims/EPIC_KLM_1GeV_pi_50000.edm4hep.root
 //////////////////////////////////////////////////////////
 
-#ifndef epic_klm_base_h
-#define epic_klm_base_h
+#ifndef hits_h
+#define hits_h
 
 #include <TROOT.h>
 #include <TChain.h>
@@ -14,7 +14,7 @@
 
 // Header file for the classes stored in the TTree if any.
 
-class epic_klm_base {
+class hits {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
@@ -182,8 +182,8 @@ public :
    TBranch        *b__doubleMap_first;   //!
    TBranch        *b__doubleMap_second;   //!
 
-   epic_klm_base(TTree *tree=0);
-   virtual ~epic_klm_base();
+   hits(TTree *tree=0);
+   virtual ~hits();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
@@ -195,8 +195,8 @@ public :
 
 #endif
 
-#ifdef epic_klm_base_cxx
-epic_klm_base::epic_klm_base(TTree *tree) : fChain(0) 
+#ifdef hits_cxx
+hits::hits(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
@@ -209,21 +209,22 @@ epic_klm_base::epic_klm_base(TTree *tree) : fChain(0)
 
    }
    Init(tree);
+   Loop();
 }
 
-epic_klm_base::~epic_klm_base()
+hits::~hits()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t epic_klm_base::GetEntry(Long64_t entry)
+Int_t hits::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t epic_klm_base::LoadTree(Long64_t entry)
+Long64_t hits::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -236,7 +237,7 @@ Long64_t epic_klm_base::LoadTree(Long64_t entry)
    return centry;
 }
 
-void epic_klm_base::Init(TTree *tree)
+void hits::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -327,7 +328,7 @@ void epic_klm_base::Init(TTree *tree)
    Notify();
 }
 
-Bool_t epic_klm_base::Notify()
+Bool_t hits::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -338,18 +339,18 @@ Bool_t epic_klm_base::Notify()
    return kTRUE;
 }
 
-void epic_klm_base::Show(Long64_t entry)
+void hits::Show(Long64_t entry)
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
    if (!fChain) return;
    fChain->Show(entry);
 }
-Int_t epic_klm_base::Cut(Long64_t entry)
+Int_t hits::Cut(Long64_t entry)
 {
 // This function may be called from Loop.
 // returns  1 if entry is accepted.
 // returns -1 otherwise.
    return 1;
 }
-#endif // #ifdef epic_klm_base_cxx
+#endif // #ifdef hits_cxx

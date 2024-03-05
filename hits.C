@@ -1,13 +1,13 @@
-#define epic_klm_base_cxx
-#include "epic_klm_base.h"
+#define hits_cxx
+#include "hits.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
 
-void epic_klm_base::Loop()
+void hits::Loop()
 {
    if (fChain == 0) return;
-
+   /*
    //Disable all branches
    fChain->SetBranchStatus("*",0);
 
@@ -15,10 +15,11 @@ void epic_klm_base::Loop()
    fChain->SetBranchStatus("b_HcalBarrelHits_position_x",1);
    fChain->SetBranchStatus("b_HcalBarrelHits_position_y",1);
    fChain->SetBranchStatus("b_HcalBarrelHits_position_z",1);
-
-   double hits_x;
-   double hits_y;
-   double hits_z;
+   */
+   
+   
+   std::vector<double> vx;
+   std::vector<double> vE;
    
    Long64_t nentries = fChain->GetEntriesFast();
 
@@ -28,7 +29,26 @@ void epic_klm_base::Loop()
       if (ientry < 0) break;
       nb = fChain->GetEntry(jentry);   nbytes += nb;
 
-      
-      
+      for(int i = 0; i < HcalBarrelHits_; i++) {
+	vx.push_back(HcalBarrelHits_position_x[i]);//WORKING
+	vE.push_back(HcalBarrelHits_energy[i]);
+      }
    }
+   cout << "vx size " << vx.size() << "\n";
+   int length = vx.size();
+   /*double x[length];
+   cout <<"sizeof(x): "<< sizeof(x) << "\n";
+   x[0] = 1;
+   cout << "x[0]: " << x[0] << "\n";
+   double E[vE.size()];
+   cout << "length: " << length << "\n";
+   for(int i = 0; i < length; i++) {
+     x[i] = vx[i];
+     E[i] = vE[i];
+     cout << "x[" << i << "]: " << x[i] << "\n";
+     }*/
+   TGraph *gr = new TGraph(length,vx,vE);
+   
+   TCanvas *c1 = new TCanvas();
+   gr->Draw();
 }
