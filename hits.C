@@ -20,6 +20,8 @@ void hits::Loop()
    
    std::vector<double> vx;
    std::vector<double> vE;
+
+   long nhits = 0;
    
    Long64_t nentries = fChain->GetEntriesFast();
 
@@ -32,9 +34,10 @@ void hits::Loop()
       for(int i = 0; i < HcalBarrelHits_; i++) {
 	vx.push_back(HcalBarrelHits_position_x[i]);//WORKING
 	vE.push_back(HcalBarrelHits_energy[i]);
+	nhits++;
       }
    }
-   cout << "vx size " << vx.size() << "\n";
+
    int length = vx.size();
    /*double x[length];
    cout <<"sizeof(x): "<< sizeof(x) << "\n";
@@ -47,8 +50,30 @@ void hits::Loop()
      E[i] = vE[i];
      cout << "x[" << i << "]: " << x[i] << "\n";
      }*/
-   TGraph *gr = new TGraph(length,vx,vE);
    
+   double ax[nhits];
+   double aE[nhits];
+   
+   std::copy(vx.begin(),vx.end(),ax);
+   std::copy(vE.begin(),vE.end(),aE);
+
    TCanvas *c1 = new TCanvas();
-   gr->Draw();
+   
+   TGraph *gr = new TGraph(nhits,ax,aE);
+   gr->SetTitle("mu- hits");
+   auto xaxis = gr->GetXaxis();
+   xaxis->SetTitle("Barrel hit x position");
+   auto yaxis = gr->GetYaxis();
+   yaxis->SetTitle("Barrel hit energy");
+   
+   xaxis->SetLimits(1600,3000);
+   gr->SetMarkerStyle(21);
+   gr->SetMarkerSize(0.2);
+   gr->SetMarkerColor(2);
+   gr->Draw("AP");
+   
+   TFile f("root_files/histos/mu_hits.root","recreate");
+   gr->Write();
+   c1->Print("plots/mu_hits.jpeg");
 }
+

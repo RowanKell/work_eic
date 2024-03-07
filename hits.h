@@ -201,9 +201,9 @@ hits::hits(TTree *tree) : fChain(0)
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
    if (tree == 0) {
-      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/pi_mu_sims/EPIC_KLM_1GeV_pi_50000.edm4hep.root");
+      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/EPIC_KLM_1GeV_mu_1000.edm4hep.root");
       if (!f || !f->IsOpen()) {
-         f = new TFile("root_files/pi_mu_sims/EPIC_KLM_1GeV_pi_50000.edm4hep.root");
+         f = new TFile("root_files/EPIC_KLM_1GeV_mu_1000.edm4hep.root");
       }
       f->GetObject("events",tree);
 
