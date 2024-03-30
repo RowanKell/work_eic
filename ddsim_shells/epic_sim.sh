@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/simon_steering.py --compactFile $DETECTOR_PATH/$DETECTOR_CONFIG.xml --runType vis -G -N 100 --gun.particle "mu-"  --outputFile root_files/test_vis_EPIC.edm4hep.root --macroFile ~/eic/work_eic/ddsim_shells/myvis.mac

@@ -60,7 +60,7 @@ void hits::Loop()
    TCanvas *c1 = new TCanvas();
    
    TGraph *gr = new TGraph(nhits,ax,aE);
-   gr->SetTitle("mu- hits");
+   gr->SetTitle("Kaon0L hits");
    auto xaxis = gr->GetXaxis();
    xaxis->SetTitle("Barrel hit x position");
    auto yaxis = gr->GetYaxis();
@@ -72,8 +72,8 @@ void hits::Loop()
    gr->SetMarkerColor(2);
    gr->Draw("AP");
    
-   TFile f("root_files/histos/mu_hits.root","recreate");
+   TFile f("root_files/histos/K_hits.root","recreate");
    gr->Write();
-   c1->Print("plots/mu_hits.jpeg");
+   c1->Print("plots/K_hits.jpeg");
 }
 

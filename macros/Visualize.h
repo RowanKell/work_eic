@@ -1,12 +1,12 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Tue Mar  5 10:43:23 2024 by ROOT version 6.28/10
+// Fri Mar 29 15:27:43 2024 by ROOT version 6.28/10
 // from TTree events/events data tree
-// found on file: root_files/pi_mu_sims/EPIC_KLM_1GeV_pi_50000.edm4hep.root
+// found on file: root_files/test_vis.edm4hep.root
 //////////////////////////////////////////////////////////
 
-#ifndef hits_h
-#define hits_h
+#ifndef Visualize_h
+#define Visualize_h
 
 #include <TROOT.h>
 #include <TChain.h>
@@ -14,20 +14,20 @@
 
 // Header file for the classes stored in the TTree if any.
 
-class hits {
+class Visualize {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
    static constexpr Int_t kMaxEventHeader = 1;
-   static constexpr Int_t kMaxHcalBarrelHits = 270;
-   static constexpr Int_t kMax_HcalBarrelHits_contributions = 813;
-   static constexpr Int_t kMaxHcalBarrelHitsContributions = 813;
-   static constexpr Int_t kMax_HcalBarrelHitsContributions_particle = 813;
-   static constexpr Int_t kMaxMCParticles = 19;
-   static constexpr Int_t kMax_MCParticles_parents = 18;
-   static constexpr Int_t kMax_MCParticles_daughters = 18;
+   static constexpr Int_t kMaxHcalBarrelHits = 47;
+   static constexpr Int_t kMax_HcalBarrelHits_contributions = 229;
+   static constexpr Int_t kMaxHcalBarrelHitsContributions = 229;
+   static constexpr Int_t kMax_HcalBarrelHitsContributions_particle = 229;
+   static constexpr Int_t kMaxMCParticles = 1;
+   static constexpr Int_t kMax_MCParticles_parents = 1;
+   static constexpr Int_t kMax_MCParticles_daughters = 1;
    static constexpr Int_t kMax_intMap = 1;
    static constexpr Int_t kMax_floatMap = 1;
    static constexpr Int_t kMax_stringMap = 1;
@@ -182,8 +182,8 @@ public :
    TBranch        *b__doubleMap_first;   //!
    TBranch        *b__doubleMap_second;   //!
 
-   hits(TTree *tree=0);
-   virtual ~hits();
+   Visualize(TTree *tree=0);
+   virtual ~Visualize();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
@@ -195,15 +195,15 @@ public :
 
 #endif
 
-#ifdef hits_cxx
-hits::hits(TTree *tree) : fChain(0) 
+#ifdef Visualize_cxx
+Visualize::Visualize(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
    if (tree == 0) {
-      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/EPIC_KLM_1GeV_mu_1000.edm4hep.root");
+      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/test_vis_EPIC.edm4hep.root");
       if (!f || !f->IsOpen()) {
-         f = new TFile("root_files/EPIC_KLM_1GeV_mu_1000.edm4hep.root");
+         f = new TFile("root_files/test_vis_EPIC.edm4hep.root");
       }
       f->GetObject("events",tree);
 
@@ -212,19 +212,19 @@ hits::hits(TTree *tree) : fChain(0)
    Loop();
 }
 
-hits::~hits()
+Visualize::~Visualize()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t hits::GetEntry(Long64_t entry)
+Int_t Visualize::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t hits::LoadTree(Long64_t entry)
+Long64_t Visualize::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -237,7 +237,7 @@ Long64_t hits::LoadTree(Long64_t entry)
    return centry;
 }
 
-void hits::Init(TTree *tree)
+void Visualize::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -308,11 +308,11 @@ void hits::Init(TTree *tree)
    fChain->SetBranchAddress("MCParticles.daughters_begin", MCParticles_daughters_begin, &b_MCParticles_daughters_begin);
    fChain->SetBranchAddress("MCParticles.daughters_end", MCParticles_daughters_end, &b_MCParticles_daughters_end);
    fChain->SetBranchAddress("_MCParticles_parents", &_MCParticles_parents_, &b__MCParticles_parents_);
-   fChain->SetBranchAddress("_MCParticles_parents.index", _MCParticles_parents_index, &b__MCParticles_parents_index);
-   fChain->SetBranchAddress("_MCParticles_parents.collectionID", _MCParticles_parents_collectionID, &b__MCParticles_parents_collectionID);
+   fChain->SetBranchAddress("_MCParticles_parents.index", &_MCParticles_parents_index, &b__MCParticles_parents_index);
+   fChain->SetBranchAddress("_MCParticles_parents.collectionID", &_MCParticles_parents_collectionID, &b__MCParticles_parents_collectionID);
    fChain->SetBranchAddress("_MCParticles_daughters", &_MCParticles_daughters_, &b__MCParticles_daughters_);
-   fChain->SetBranchAddress("_MCParticles_daughters.index", _MCParticles_daughters_index, &b__MCParticles_daughters_index);
-   fChain->SetBranchAddress("_MCParticles_daughters.collectionID", _MCParticles_daughters_collectionID, &b__MCParticles_daughters_collectionID);
+   fChain->SetBranchAddress("_MCParticles_daughters.index", &_MCParticles_daughters_index, &b__MCParticles_daughters_index);
+   fChain->SetBranchAddress("_MCParticles_daughters.collectionID", &_MCParticles_daughters_collectionID, &b__MCParticles_daughters_collectionID);
    fChain->SetBranchAddress("_intMap", &_intMap_, &b_PARAMETERS__intMap_);
    fChain->SetBranchAddress("_intMap.first", &_intMap_first, &b__intMap_first);
    fChain->SetBranchAddress("_intMap.second", &_intMap_second, &b__intMap_second);
@@ -328,7 +328,7 @@ void hits::Init(TTree *tree)
    Notify();
 }
 
-Bool_t hits::Notify()
+Bool_t Visualize::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -339,18 +339,18 @@ Bool_t hits::Notify()
    return kTRUE;
 }
 
-void hits::Show(Long64_t entry)
+void Visualize::Show(Long64_t entry)
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
    if (!fChain) return;
    fChain->Show(entry);
 }
-Int_t hits::Cut(Long64_t entry)
+Int_t Visualize::Cut(Long64_t entry)
 {
 // This function may be called from Loop.
 // returns  1 if entry is accepted.
 // returns -1 otherwise.
    return 1;
 }
-#endif // #ifdef hits_cxx
+#endif // #ifdef Visualize_cxx
