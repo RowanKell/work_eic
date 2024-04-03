@@ -1,1 +1,1 @@
-ddsim --steeringFile steering/simon_steering.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "vis" -G -N 100 --gun.particle "pi-"  --outputFile root_files/simon_steer_3_30_pi.edm4hep.root --macroFile ~/eic/work_eic/ddsim_shells/myvis.mac 
+ddsim --steeringFile steering/simon_steering.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "vis" -G -N 1 --gun.particle "pi-"  --outputFile root_files/pi_1_april_1.edm4hep.root --macroFile ~/eic/work_eic/ddsim_shells/myvis.mac --part.userParticleHandler=""

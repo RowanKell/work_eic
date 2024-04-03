@@ -1,0 +1,109 @@
+/run/verbose 2
+/vis/scene/create
+/vis/open OGLSX 1200x900-0+0
+/vis/sceneHandler/create OGLSX
+/vis/sceneHandler/attach
+/vis/viewer/create ! ! 1200x900-0+0
+/vis/viewer/refresh
+/vis/scene/notifyHandlers
+/vis/drawVolume
+/vis/scene/create
+/vis/scene/add/volume world -1 -1 none m 0 0 0 0 0 0
+/vis/sceneHandler/attach
+/vis/viewer/set/style wireframe
+/vis/viewer/refresh
+/vis/viewer/set/auxiliaryEdge false
+/vis/viewer/refresh
+/vis/viewer/set/lineSegmentsPerCircle 100
+/vis/viewer/refresh
+/vis/ogl/set/displayListLimit 500000
+/vis/viewer/panTo -0.1 0.
+/vis/viewer/refresh
+/vis/viewer/addCutawayPlane 0 0 0 m 1 0 0
+/vis/viewer/refresh
+/vis/viewer/zoom 1.2
+/vis/viewer/refresh
+/vis/viewer/flush
+/vis/viewer/refresh viewer-0
+/vis/viewer/update viewer-0
+/tracking/storeTrajectory 1
+/vis/scene/add/hits
+/vis/scene/notifyHandlers
+/vis/scene/add/trajectories smooth
+/tracking/storeTrajectory 2
+/vis/scene/notifyHandlers
+/vis/modeling/trajectories/create/drawByCharge
+/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/create/drawByParticleID
+/vis/modeling/trajectories/drawByParticleID-0/set e- red
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set e+ red
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set mu- orange
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set mu+ orange
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set pi- magenta
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set pi+ magenta
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set kaon- blue
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set kaon+ blue
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set proton cyan
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set anti_proton cyan
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set neutron white
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set anti_neutron white
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set gamma green
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/set opticalphoton yellow
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/modeling/trajectories/drawByParticleID-0/setRGBA opticalphoton 1 0.8 0 0.3
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/filtering/trajectories/create/attributeFilter
+/vis/filtering/trajectories/attributeFilter-0/setAttribute IMag
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/filtering/trajectories/attributeFilter-0/addInterval 2 eV 1000 GeV
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1
+/vis/scene/endOfEventAction accumulate
+/vis/viewer/flush
+/vis/viewer/refresh viewer-0
+/vis/viewer/update viewer-0
+/vis/viewer/pan 2
+/vis/viewer/refresh
+/vis/viewer/zoom 4.5
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 180 0
+/vis/viewer/refresh
+/control/verbose 2
+/run/initialize
+/run/beamOn 1
+/vis/scene/notifyHandlers scene-0
+/vis/scene/notifyHandlers scene-1

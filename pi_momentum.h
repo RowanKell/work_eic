@@ -1,33 +1,33 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Fri Mar 29 15:27:43 2024 by ROOT version 6.28/10
+// Mon Apr  1 13:04:48 2024 by ROOT version 6.28/10
 // from TTree events/events data tree
-// found on file: root_files/test_vis.edm4hep.root
+// found on file: root_files/pi_1_april_1.edm4hep.root
 //////////////////////////////////////////////////////////
 
-#ifndef Visualize_h
-#define Visualize_h
+#ifndef pi_momentum_h
+#define pi_momentum_h
 
 #include <TROOT.h>
 #include <TChain.h>
 #include <TFile.h>
 
-// Header file for the classes stored in the TTreeif any.
+// Header file for the classes stored in the TTree if any.
 
-class Visualize {
+class pi_momentum {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
    static constexpr Int_t kMaxEventHeader = 1;
-   static constexpr Int_t kMaxHcalBarrelHits = 47;
-   static constexpr Int_t kMax_HcalBarrelHits_contributions = 229;
-   static constexpr Int_t kMaxHcalBarrelHitsContributions = 229;
-   static constexpr Int_t kMax_HcalBarrelHitsContributions_particle = 229;
-   static constexpr Int_t kMaxMCParticles = 1;
-   static constexpr Int_t kMax_MCParticles_parents = 1;
-   static constexpr Int_t kMax_MCParticles_daughters = 1;
+   static constexpr Int_t kMaxHcalBarrelHits = 250;
+   static constexpr Int_t kMax_HcalBarrelHits_contributions = 1091;
+   static constexpr Int_t kMaxHcalBarrelHitsContributions = 1091;
+   static constexpr Int_t kMax_HcalBarrelHitsContributions_particle = 1091;
+   static constexpr Int_t kMaxMCParticles = 923;
+   static constexpr Int_t kMax_MCParticles_parents = 922;
+   static constexpr Int_t kMax_MCParticles_daughters = 922;
    static constexpr Int_t kMax_intMap = 1;
    static constexpr Int_t kMax_floatMap = 1;
    static constexpr Int_t kMax_stringMap = 1;
@@ -182,8 +182,8 @@ public :
    TBranch        *b__doubleMap_first;   //!
    TBranch        *b__doubleMap_second;   //!
 
-   Visualize(TTree *tree=0);
-   virtual ~Visualize();
+   pi_momentum(TTree *tree=0);
+   virtual ~pi_momentum();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
@@ -195,8 +195,8 @@ public :
 
 #endif
 
-#ifdef Visualize_cxx
-Visualize::Visualize(TTree *tree) : fChain(0) 
+#ifdef pi_momentum_cxx
+pi_momentum::pi_momentum(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
@@ -212,19 +212,19 @@ Visualize::Visualize(TTree *tree) : fChain(0)
    Loop();
 }
 
-Visualize::~Visualize()
+pi_momentum::~pi_momentum()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t Visualize::GetEntry(Long64_t entry)
+Int_t pi_momentum::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t Visualize::LoadTree(Long64_t entry)
+Long64_t pi_momentum::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -237,7 +237,7 @@ Long64_t Visualize::LoadTree(Long64_t entry)
    return centry;
 }
 
-void Visualize::Init(TTree *tree)
+void pi_momentum::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -308,11 +308,11 @@ void Visualize::Init(TTree *tree)
    fChain->SetBranchAddress("MCParticles.daughters_begin", MCParticles_daughters_begin, &b_MCParticles_daughters_begin);
    fChain->SetBranchAddress("MCParticles.daughters_end", MCParticles_daughters_end, &b_MCParticles_daughters_end);
    fChain->SetBranchAddress("_MCParticles_parents", &_MCParticles_parents_, &b__MCParticles_parents_);
-   fChain->SetBranchAddress("_MCParticles_parents.index", &_MCParticles_parents_index, &b__MCParticles_parents_index);
-   fChain->SetBranchAddress("_MCParticles_parents.collectionID", &_MCParticles_parents_collectionID, &b__MCParticles_parents_collectionID);
+   fChain->SetBranchAddress("_MCParticles_parents.index", _MCParticles_parents_index, &b__MCParticles_parents_index);
+   fChain->SetBranchAddress("_MCParticles_parents.collectionID", _MCParticles_parents_collectionID, &b__MCParticles_parents_collectionID);
    fChain->SetBranchAddress("_MCParticles_daughters", &_MCParticles_daughters_, &b__MCParticles_daughters_);
-   fChain->SetBranchAddress("_MCParticles_daughters.index", &_MCParticles_daughters_index, &b__MCParticles_daughters_index);
-   fChain->SetBranchAddress("_MCParticles_daughters.collectionID", &_MCParticles_daughters_collectionID, &b__MCParticles_daughters_collectionID);
+   fChain->SetBranchAddress("_MCParticles_daughters.index", _MCParticles_daughters_index, &b__MCParticles_daughters_index);
+   fChain->SetBranchAddress("_MCParticles_daughters.collectionID", _MCParticles_daughters_collectionID, &b__MCParticles_daughters_collectionID);
    fChain->SetBranchAddress("_intMap", &_intMap_, &b_PARAMETERS__intMap_);
    fChain->SetBranchAddress("_intMap.first", &_intMap_first, &b__intMap_first);
    fChain->SetBranchAddress("_intMap.second", &_intMap_second, &b__intMap_second);
@@ -328,7 +328,7 @@ void Visualize::Init(TTree *tree)
    Notify();
 }
 
-Bool_t Visualize::Notify()
+Bool_t pi_momentum::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -339,18 +339,18 @@ Bool_t Visualize::Notify()
    return kTRUE;
 }
 
-void Visualize::Show(Long64_t entry)
+void pi_momentum::Show(Long64_t entry)
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
    if (!fChain) return;
    fChain->Show(entry);
 }
-Int_t Visualize::Cut(Long64_t entry)
+Int_t pi_momentum::Cut(Long64_t entry)
 {
 // This function may be called from Loop.
 // returns  1 if entry is accepted.
 // returns -1 otherwise.
    return 1;
 }
-#endif // #ifdef Visualize_cxx
+#endif // #ifdef pi_momentum_cxx
