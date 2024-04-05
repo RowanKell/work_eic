@@ -1,12 +1,12 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Fri Apr  5 11:54:44 2024 by ROOT version 6.28/10
+// Thu Apr  4 20:06:32 2024 by ROOT version 6.28/10
 // from TTree events/events data tree
-// found on file: root_files/pi_10000_april_5_run1_1_GeV.edm4hep.root
+// found on file: root_files/pi_10000_april_4_run1.edm4hep.root
 //////////////////////////////////////////////////////////
 
-#ifndef pi_10000_april_5_1_GeV_h
-#define pi_10000_april_5_1_GeV_h
+#ifndef pi_5GeV_energy_run1_h
+#define pi_5GeV_energy_run1_h
 
 #include <TROOT.h>
 #include <TChain.h>
@@ -14,20 +14,20 @@
 
 // Header file for the classes stored in the TTree if any.
 
-class pi_10000_april_5_1_GeV {
+class pi_5GeV_energy_run1 {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
    static constexpr Int_t kMaxEventHeader = 1;
-   static constexpr Int_t kMaxHcalBarrelHits = 667;
-   static constexpr Int_t kMax_HcalBarrelHits_contributions = 2468;
-   static constexpr Int_t kMaxHcalBarrelHitsContributions = 2468;
-   static constexpr Int_t kMax_HcalBarrelHitsContributions_particle = 2468;
-   static constexpr Int_t kMaxMCParticles = 1171;
-   static constexpr Int_t kMax_MCParticles_parents = 1170;
-   static constexpr Int_t kMax_MCParticles_daughters = 1170;
+   static constexpr Int_t kMaxHcalBarrelHits = 699;
+   static constexpr Int_t kMax_HcalBarrelHits_contributions = 2550;
+   static constexpr Int_t kMaxHcalBarrelHitsContributions = 2550;
+   static constexpr Int_t kMax_HcalBarrelHitsContributions_particle = 2550;
+   static constexpr Int_t kMaxMCParticles = 1166;
+   static constexpr Int_t kMax_MCParticles_parents = 1165;
+   static constexpr Int_t kMax_MCParticles_daughters = 1165;
    static constexpr Int_t kMax_intMap = 1;
    static constexpr Int_t kMax_floatMap = 1;
    static constexpr Int_t kMax_stringMap = 1;
@@ -182,8 +182,8 @@ public :
    TBranch        *b__doubleMap_first;   //!
    TBranch        *b__doubleMap_second;   //!
 
-   pi_10000_april_5_1_GeV(TTree *tree=0);
-   virtual ~pi_10000_april_5_1_GeV();
+   pi_5GeV_energy_run1(TTree *tree=0);
+   virtual ~pi_5GeV_energy_run1();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
@@ -195,15 +195,15 @@ public :
 
 #endif
 
-#ifdef pi_10000_april_5_1_GeV_cxx
-pi_10000_april_5_1_GeV::pi_10000_april_5_1_GeV(TTree *tree) : fChain(0) 
+#ifdef pi_5GeV_energy_run1_cxx
+pi_5GeV_energy_run1::pi_5GeV_energy_run1(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
    if (tree == 0) {
-      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/pi_10000_april_5_run1_1_GeV.edm4hep.root");
+      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/pi_10000_april_4_run1.edm4hep.root");
       if (!f || !f->IsOpen()) {
-         f = new TFile("root_files/pi_10000_april_5_run1_1_GeV.edm4hep.root");
+         f = new TFile("root_files/pi_10000_april_4_run1.edm4hep.root");
       }
       f->GetObject("events",tree);
 
@@ -212,19 +212,19 @@ pi_10000_april_5_1_GeV::pi_10000_april_5_1_GeV(TTree *tree) : fChain(0)
    Loop();
 }
 
-pi_10000_april_5_1_GeV::~pi_10000_april_5_1_GeV()
+pi_5GeV_energy_run1::~pi_5GeV_energy_run1()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t pi_10000_april_5_1_GeV::GetEntry(Long64_t entry)
+Int_t pi_5GeV_energy_run1::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t pi_10000_april_5_1_GeV::LoadTree(Long64_t entry)
+Long64_t pi_5GeV_energy_run1::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -237,7 +237,7 @@ Long64_t pi_10000_april_5_1_GeV::LoadTree(Long64_t entry)
    return centry;
 }
 
-void pi_10000_april_5_1_GeV::Init(TTree *tree)
+void pi_5GeV_energy_run1::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -328,7 +328,7 @@ void pi_10000_april_5_1_GeV::Init(TTree *tree)
    Notify();
 }
 
-Bool_t pi_10000_april_5_1_GeV::Notify()
+Bool_t pi_5GeV_energy_run1::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -339,18 +339,18 @@ Bool_t pi_10000_april_5_1_GeV::Notify()
    return kTRUE;
 }
 
-void pi_10000_april_5_1_GeV::Show(Long64_t entry)
+void pi_5GeV_energy_run1::Show(Long64_t entry)
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
    if (!fChain) return;
    fChain->Show(entry);
 }
-Int_t pi_10000_april_5_1_GeV::Cut(Long64_t entry)
+Int_t pi_5GeV_energy_run1::Cut(Long64_t entry)
 {
 // This function may be called from Loop.
 // returns  1 if entry is accepted.
 // returns -1 otherwise.
    return 1;
 }
-#endif // #ifdef pi_10000_april_5_1_GeV_cxx
+#endif // #ifdef pi_5GeV_energy_run1_cxx
