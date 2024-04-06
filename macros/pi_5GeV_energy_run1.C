@@ -65,7 +65,7 @@ void pi_5GeV_energy_run1::Loop()
    gr->SetMarkerColor(4); //4 is blue, 2 is red
    gr->Draw("AP");
    
-   TFile f("root_files/graphs/pi_10000_april_4_5_GeV.root","recreate");
+   TFile f("root_files/graphs/april_5/pi_5GeV_energy_run1.root","recreate");
    gr->Write();
-   c1->Print("plots/april_4/pi_10000_5_GeV.svg");
+   c1->Print("plots/april_5/pi_5GeV_energy_run1.svg");
 }

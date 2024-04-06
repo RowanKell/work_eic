@@ -29,6 +29,7 @@ void mu_5GeV_energy_run1::Loop()
       nb = fChain->GetEntry(jentry);   nbytes += nb;
       for(int i = 0; i < HcalBarrelHits_; i++) {
 	Float_t curr_x = HcalBarrelHits_position_x[i];
+	//cout << "curr_x: " << curr_x << "\n";
 	for(int j = 0; j < num_layers; j++) {
 	  //need to find the layer of this particular hit
 	  if(layer_map[j] == curr_x) {
@@ -36,7 +37,7 @@ void mu_5GeV_energy_run1::Loop()
 	    break; //can break after we found the layer
 	  }
 	}
-	if(curr_layer == -1){continue;}
+	if(curr_layer == -1){cout << "no layer found: " << curr_x<< "\n";continue;}
 	energy_arr[curr_layer] += HcalBarrelHits_energy[i]; //sum up all hits that correspond to 1 layer
 	
 	curr_layer = -1; //used to check if the hit corresponds to a layer or not. May want to bin instead
@@ -68,7 +69,7 @@ void mu_5GeV_energy_run1::Loop()
    gr->SetMarkerColor(4);
    gr->Draw("AP");
    
-   TFile f("root_files/graphs/mu_5GeV_energy_run1.root","recreate");
-   gr->Write();
-   c1->Print("plots/april_4/mu_5GeV_energy_run1.svg");
+   //TFile f("root_files/graphs/april_5/mu_5GeV_energy_run1.root","recreate");
+   //gr->Write();
+   //c1->Print("plots/april_5/mu_5GeV_energy_run1.svg");
 }

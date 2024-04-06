@@ -65,7 +65,7 @@ void mu_1GeV_energy::Loop()
    gr->SetMarkerColor(2);
    gr->Draw("AP");
    
-   TFile f("root_files/graphs/mu_10000_april_4_1GeV.root","recreate");
+   TFile f("root_files/graphs/april_5/mu_1GeV_energy_run1.root","recreate");
    gr->Write();
-   c1->Print("plots/april_4/mu_10000_mu_1GeV.pdf");
+   c1->Print("plots/april_5/mu_1GeV_energy_run1.pdf");
 }
