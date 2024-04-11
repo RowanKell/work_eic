@@ -1,5 +1,6 @@
 #define pi_5GeV_energy_run1_cxx
 #include "pi_5GeV_energy_run1.h"
+#include "histo.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -8,6 +9,7 @@ void pi_5GeV_energy_run1::Loop()
 
 {
     if (fChain == 0) return;
+    TFile hfile("layers_energy_5GeV_pi_.root","RECREATE","file with tree for pion  energy by layer");
 
     /*DEBUG*/
     Float_t max = -999999;
@@ -28,6 +30,8 @@ void pi_5GeV_energy_run1::Loop()
    Long64_t nbytes = 0, nb = 0;
    
    for (Long64_t jentry=0; jentry<nentries;jentry++) {
+     
+       Float_t histo_energy_arr[28] = {};
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
       nb = fChain->GetEntry(jentry);   nbytes += nb;
@@ -41,9 +45,10 @@ void pi_5GeV_energy_run1::Loop()
 	  }
 	}
 	if(curr_layer == -1){continue;}
-	//if(curr_layer == -1){cont++; cout << "continuing #" << cont << "\n"; continue;} //skip any hits that don't correspond to a layer (assumes that hits are always at the same position)
 	energy_arr[curr_layer] += HcalBarrelHits_energy[i]; //sum up all hits that correspond to 1 layer
 
+	// for filling histo by layer
+	histo_energy_arr[curr_layer] += HcalBarrelHits_energy[i];
 	
 	/*DEBUG*/
 	if(HcalBarrelHits_energy[i] > max) {max = HcalBarrelHits_energy[i];}
@@ -54,6 +59,13 @@ void pi_5GeV_energy_run1::Loop()
 	   
 	curr_layer = -1; //used to check if the hit corresponds to a layer or not. May want to bin instead
       }
+      
+      // Filling histograms
+      for(int hist_layer = 0; hist_layer < 28; hist_layer++) {
+          tree_energy[hist_layer] = histo_energy_arr[hist_layer];
+      }
+      fill_error = layer_tree.Fill();
+      if(fill_error < 0) {cout << "fil_error: " << fill_error << "\n";}
       curr_event++;
    }
    
@@ -114,6 +126,11 @@ void pi_5GeV_energy_run1::Loop()
    gr->SetMarkerColor(4); //4 is blue, 2 is red
    gr->Draw("AP");
    
+   //Histogram stuff
+   layer_tree.Write();
+   hfile.Write();
+
+   //Graph Stuff
    TFile f("root_files/graphs/april_6/pi_5GeV_energy_run1.root","recreate");
    gr->Write();
    c1->Print("plots/april_6/pi_5GeV_energy_run1.svg");

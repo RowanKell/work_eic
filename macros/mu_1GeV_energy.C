@@ -9,7 +9,7 @@ void mu_1GeV_energy::Loop()
 
 {
     if (fChain == 0) return;
-    TFile hfile("layers_energy_1GeV_mu.root","RECREATE","file with tree for muon energy by layer");
+    TFile hfile("layers_energy_1GeV_mu_100000.root","RECREATE","file with tree for muon energy by layer");
     
     
     /*DEBUG*/
@@ -30,7 +30,7 @@ void mu_1GeV_energy::Loop()
    Long64_t nbytes = 0, nb = 0;
    
    for (Long64_t jentry=0; jentry<nentries;jentry++) {
-       Float_t histo_energy_arr[28] = {};
+     Float_t histo_energy_arr[28] = {};
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
       nb = fChain->GetEntry(jentry);   nbytes += nb;
@@ -56,9 +56,10 @@ void mu_1GeV_energy::Loop()
 
 	/*ENDDEBUG*/
 
-	// Filling histograms
 	curr_layer = -1; //used to check if the hit corresponds to a layer or not. May want to bin instead
       }
+      
+      // Filling histograms
       for(int hist_layer = 0; hist_layer < 28; hist_layer++) {
           tree_energy[hist_layer] = histo_energy_arr[hist_layer];
       }
@@ -130,7 +131,7 @@ void mu_1GeV_energy::Loop()
 
 
    //Graph stuff
-   TFile f("root_files/graphs/april_11/mu_1GeV_energy_run1_with_histo.root","recreate");
+   TFile f("root_files/graphs/april_11/mu_1GeV_energy_100000_run1_with_histo.root","recreate");
    gr->Write();
-   c1->Print("plots/april_11/mu_1GeV_energy_run1.svg");
+   c1->Print("plots/april_11/mu_1GeV_energy_100000_run1.svg");
 }
