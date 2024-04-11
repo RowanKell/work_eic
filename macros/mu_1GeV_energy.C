@@ -1,5 +1,6 @@
 #define mu_1GeV_energy_cxx
 #include "mu_1GeV_energy.h"
+#include "histo.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -8,40 +9,8 @@ void mu_1GeV_energy::Loop()
 
 {
     if (fChain == 0) return;
-    TFile hfile("layers_energy_1GeV_muon.root","RECREATE","file with tree for muon energy by layer");
-    TTree tree("t_layers_energy","tree with energy deposited by 1GeV muon by layer");
-    Float_t tree_energy;
+    TFile hfile("layers_energy_1GeV_mu.root","RECREATE","file with tree for muon energy by layer");
     
-    TBranch *b_layer_0 = tree->Branch("layer_0",&tree_energy);
-    TBranch *b_layer_1 = tree->Branch("layer_1",&tree_energy);
-    TBranch *b_layer_2 = tree->Branch("layer_2",&tree_energy);
-    TBranch *b_layer_3 = tree->Branch("layer_3",&tree_energy);
-    TBranch *b_layer_4 = tree->Branch("layer_4",&tree_energy);
-    TBranch *b_layer_5 = tree->Branch("layer_5",&tree_energy);
-    TBranch *b_layer_6 = tree->Branch("layer_6",&tree_energy);
-    TBranch *b_layer_7 = tree->Branch("layer_7",&tree_energy);
-    TBranch *b_layer_8 = tree->Branch("layer_8",&tree_energy);
-    TBranch *b_layer_9 = tree->Branch("layer_9",&tree_energy);
-    TBranch *b_layer_10 = tree->Branch("layer_10",&tree_energy);
-    TBranch *b_layer_11 = tree->Branch("layer_11",&tree_energy);
-    TBranch *b_layer_12 = tree->Branch("layer_12",&tree_energy);
-    TBranch *b_layer_13 = tree->Branch("layer_13",&tree_energy);
-    TBranch *b_layer_14 = tree->Branch("layer_14",&tree_energy);
-    TBranch *b_layer_15 = tree->Branch("layer_15",&tree_energy);
-    TBranch *b_layer_16 = tree->Branch("layer_16",&tree_energy);
-    TBranch *b_layer_17 = tree->Branch("layer_17",&tree_energy);
-    TBranch *b_layer_18 = tree->Branch("layer_18",&tree_energy);
-    TBranch *b_layer_19 = tree->Branch("layer_19",&tree_energy);
-    TBranch *b_layer_20 = tree->Branch("layer_20",&tree_energy);
-    TBranch *b_layer_21 = tree->Branch("layer_21",&tree_energy);
-    TBranch *b_layer_22 = tree->Branch("layer_22",&tree_energy);
-    TBranch *b_layer_23 = tree->Branch("layer_23",&tree_energy);
-    TBranch *b_layer_24 = tree->Branch("layer_24",&tree_energy);
-    TBranch *b_layer_25 = tree->Branch("layer_25",&tree_energy);
-    TBranch *b_layer_26 = tree->Branch("layer_26",&tree_energy);
-    TBranch *b_layer_27 = tree->Branch("layer_27",&tree_energy);
-
-    auto b_layer_arr[28] = {b_layer_0,b_layer_1,b_layer_2,b_layer_3,b_layer_4,b_layer_5,b_layer_6,b_layer_7,b_layer_8,b_layer_9,b_layer_10,b_layer_11,b_layer_12,b_layer_13,b_layer_14,b_layer_15,b_layer_16,b_layer_17,b_layer_18,b_layer_19,b_layer_20,b_layer_21,b_layer_22,b_layer_23,b_layer_24,b_layer_25,b_layer_26,b_layer_27};
     
     /*DEBUG*/
     Float_t max = -999999;
@@ -75,11 +44,10 @@ void mu_1GeV_energy::Loop()
 	  }
 	}
 	if(curr_layer == -1){continue;}
-	//if(curr_layer == -1){cont++; cout << "continuing #" << cont << "\n"; continue;} //skip any hits that don't correspond to a layer (assumes that hits are always at the same position)
 	energy_arr[curr_layer] += HcalBarrelHits_energy[i]; //sum up all hits that correspond to 1 layer
           
-    // for filling histo by layer
-    histo_energy_arr[curr_layer] += HcalBarrelHits_energy[i];
+	// for filling histo by layer
+	histo_energy_arr[curr_layer] += HcalBarrelHits_energy[i];
 
 	
 	/*DEBUG*/
@@ -92,9 +60,10 @@ void mu_1GeV_energy::Loop()
 	curr_layer = -1; //used to check if the hit corresponds to a layer or not. May want to bin instead
       }
       for(int hist_layer = 0; hist_layer < 28; hist_layer++) {
-          tree_energy = histo_energy_arr[hist_layer];
-          b_layer_arr[hist_layer]->Fill();
+          tree_energy[hist_layer] = histo_energy_arr[hist_layer];
       }
+      fill_error = layer_tree.Fill();
+      if(fill_error < 0) {cout << "fil_error: " << fill_error << "\n";}
       curr_event++;
    }
    
@@ -154,9 +123,14 @@ void mu_1GeV_energy::Loop()
    gr->SetMarkerSize(0.5);
    gr->SetMarkerColor(2);
    gr->Draw("AP");
-   
+
+   //Histogram stuff
+   layer_tree.Write();
+   hfile.Write();
+
+
+   //Graph stuff
    TFile f("root_files/graphs/april_11/mu_1GeV_energy_run1_with_histo.root","recreate");
-   tree->Write();
    gr->Write();
    c1->Print("plots/april_11/mu_1GeV_energy_run1.svg");
 }
