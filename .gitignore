@@ -1,3 +1,4 @@
 *~
 *.root
 *notes.md
+.ipynb_checkpoints/
