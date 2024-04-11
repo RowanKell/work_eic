@@ -1,0 +1,118 @@
+<?xml version="1.0" standalone="no"?>
+<svg width="567.429" height="342.561" viewBox="0 0 567.429 342.561" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+<title>
+plots/april_4/n_10000__april_5_5_GeV.svg
+</title>
+<desc>
+Creator: ROOT Version 6.28/06
+CreationDate: Fri Apr  5 11:14:58 2024</desc>
+<defs>
+</defs>
+<rect x="0.5" y="0" width="566.929" height="342.061" fill="white"/>
+<rect x="62.8622" y="34.2061" width="481.89" height="273.649" fill="white"/>
+<rect x="62.8622" y="34.2061" width="481.89" height="273.649" fill="none" stroke="black"/>
+<path d="M62.8622,307.855h 481.89" fill="none" stroke="black"/>
+<path d="M62.8622,299.132v 8.72256" fill="none" stroke="black"/>
+<path d="M80.0726,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M97.2829,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M114.493,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M131.704,299.132v 8.72256" fill="none" stroke="black"/>
+<path d="M148.914,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M166.124,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M183.335,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M200.545,299.132v 8.72256" fill="none" stroke="black"/>
+<path d="M217.755,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M234.966,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M252.176,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M269.386,299.132v 8.72256" fill="none" stroke="black"/>
+<path d="M286.597,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M303.807,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M321.017,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M338.228,299.132v 8.72256" fill="none" stroke="black"/>
+<path d="M355.438,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M372.648,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M389.859,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M407.069,299.132v 8.72256" fill="none" stroke="black"/>
+<path d="M424.28,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M441.49,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M458.7,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M475.911,299.132v 8.72256" fill="none" stroke="black"/>
+<path d="M493.121,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M510.331,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M527.542,303.494v 4.36128" fill="none" stroke="black"/>
+<path d="M544.752,299.132v 8.72256" fill="none" stroke="black"/>
+<text xml:space="preserve" x="49.8758" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">1600</text>
+<text xml:space="preserve" x="118.883" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">1800</text>
+<text xml:space="preserve" x="187.89" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">2000</text>
+<text xml:space="preserve" x="256.302" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">2200</text>
+<text xml:space="preserve" x="325.309" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">2400</text>
+<text xml:space="preserve" x="394.316" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">2600</text>
+<text xml:space="preserve" x="463.324" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">2800</text>
+<text xml:space="preserve" x="531.736" y="318.86" fill="black" font-size="11.4836" font-family="Helvetica">3000</text>
+<text xml:space="preserve" x="419.302" y="329.568" fill="black" font-size="11.4836" font-family="Helvetica">Barrel hit x position (mm)</text>
+<path d="M62.8622,307.855v -273.649" fill="none" stroke="black"/>
+<path d="M76.4685,307.855h -13.6063" fill="none" stroke="black"/>
+<path d="M69.6654,295.588h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,283.32h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,271.053h -6.80315" fill="none" stroke="black"/>
+<path d="M76.4685,258.785h -13.6063" fill="none" stroke="black"/>
+<path d="M69.6654,246.518h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,234.25h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,221.983h -6.80315" fill="none" stroke="black"/>
+<path d="M76.4685,209.715h -13.6063" fill="none" stroke="black"/>
+<path d="M69.6654,197.448h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,185.18h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,172.913h -6.80315" fill="none" stroke="black"/>
+<path d="M76.4685,160.645h -13.6063" fill="none" stroke="black"/>
+<path d="M69.6654,148.378h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,136.11h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,123.843h -6.80315" fill="none" stroke="black"/>
+<path d="M76.4685,111.576h -13.6063" fill="none" stroke="black"/>
+<path d="M69.6654,99.3081h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,87.0406h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,74.7731h -6.80315" fill="none" stroke="black"/>
+<path d="M76.4685,62.5057h -13.6063" fill="none" stroke="black"/>
+<path d="M76.4685,62.5057h -13.6063" fill="none" stroke="black"/>
+<path d="M69.6654,50.2382h -6.80315" fill="none" stroke="black"/>
+<path d="M69.6654,37.9707h -6.80315" fill="none" stroke="black"/>
+<text xml:space="preserve" x="54.04" y="311.722" fill="black" font-size="11.4836" font-family="Helvetica">0</text>
+<text xml:space="preserve" x="32.0291" y="262.941" fill="black" font-size="11.4836" font-family="Helvetica">0.002</text>
+<text xml:space="preserve" x="32.0291" y="213.565" fill="black" font-size="11.4836" font-family="Helvetica">0.004</text>
+<text xml:space="preserve" x="32.0291" y="164.784" fill="black" font-size="11.4836" font-family="Helvetica">0.006</text>
+<text xml:space="preserve" x="32.0291" y="115.408" fill="black" font-size="11.4836" font-family="Helvetica">0.008</text>
+<text xml:space="preserve" x="40.3576" y="66.6276" fill="black" font-size="11.4836" font-family="Helvetica">0.01</text>
+<g transform="rotate(-90,17.7518,204.642)">
+<text xml:space="preserve" x="17.7518" y="204.642" fill="black" font-size="11.4836" font-family="Helvetica">Energy deposited per event (GeV)</text>
+</g>
+<text xml:space="preserve" x="102.226" y="16.062" fill="black" font-size="14.4353" font-family="Helvetica">avg energy deposition in each layer 10000 events (n gun)</text>
+<g fill="#0000ff">
+<polygon points=" 142.305, 117.469 144.209, 121.276 140.402, 121.276"/>
+<polygon points=" 145.954, 115.309 147.857, 119.116 144.05, 119.116"/>
+<polygon points=" 168.706, 57.1796 170.609, 60.9869 166.802, 60.9869"/>
+<polygon points=" 172.354, 305.951 174.258, 309.759 170.451, 309.759"/>
+<polygon points=" 195.107, 64.8556 197.01, 68.6629 193.203, 68.6629"/>
+<polygon points=" 198.755, 66.1909 200.659, 69.9982 196.851, 69.9982"/>
+<polygon points=" 221.507, 87.1293 223.411, 90.9366 219.604, 90.9366"/>
+<polygon points=" 225.156, 88.0753 227.059, 91.8826 223.252, 91.8826"/>
+<polygon points=" 247.908, 112.791 249.812, 116.598 246.004, 116.598"/>
+<polygon points=" 251.556, 116.339 253.46, 120.146 249.653, 120.146"/>
+<polygon points=" 274.309, 142.211 276.212, 146.019 272.405, 146.019"/>
+<polygon points=" 277.957, 142.335 279.861, 146.142 276.053, 146.142"/>
+<polygon points=" 300.709, 169.293 302.613, 173.1 298.806, 173.1"/>
+<polygon points=" 304.358, 171.928 306.262, 175.736 302.454, 175.736"/>
+<polygon points=" 327.11, 198.611 329.014, 202.418 325.206, 202.418"/>
+<polygon points=" 330.759, 196.066 332.662, 199.873 328.855, 199.873"/>
+<polygon points=" 353.511, 221.471 355.414, 225.278 351.607, 225.278"/>
+<polygon points=" 357.159, 221.283 359.063, 225.09 355.256, 225.09"/>
+<polygon points=" 379.911, 238.136 381.815, 241.943 378.008, 241.943"/>
+<polygon points=" 383.56, 238.26 385.463, 242.067 381.656, 242.067"/>
+<polygon points=" 406.312, 251.899 408.216, 255.706 404.408, 255.706"/>
+<polygon points=" 409.96, 251.173 411.864, 254.981 408.057, 254.981"/>
+<polygon points=" 432.713, 260.925 434.616, 264.732 430.809, 264.732"/>
+<polygon points=" 436.361, 259.154 438.265, 262.961 434.458, 262.961"/>
+<polygon points=" 459.113, 272.702 461.017, 276.509 457.21, 276.509"/>
+<polygon points=" 462.762, 273.944 464.666, 277.752 460.858, 277.752"/>
+<polygon points=" 485.514, 284.733 487.418, 288.541 483.61, 288.541"/>
+<polygon points=" 489.163, 285.893 491.066, 289.7 487.259, 289.7"/>
+</g>
+<text xml:space="preserve" x="102.226" y="16.062" fill="black" font-size="14.4353" font-family="Helvetica">avg energy deposition in each layer 10000 events (n gun)</text></svg>

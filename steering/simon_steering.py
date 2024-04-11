@@ -17,4 +17,4 @@ SIM.gun.momentumMax = 1.0*GeV
 SIM.physics.list = "FTFP_BERT"
 SIM.physics.decays = False
 #SIM.part.saveProcesses = ['conv','Decay']
-SIM.output.part = "VERBOSE"
+#SIM.output.part = "VERBOSE"
