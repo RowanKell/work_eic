@@ -8,6 +8,39 @@ void mu_1GeV_energy::Loop()
 
 {
     if (fChain == 0) return;
+    TFile hfile("layers_energy_1GeV_muon.root","RECREATE","file with tree for muon energy by layer");
+    TTree tree("t_layers_energy","tree with energy deposited by 1GeV muon by layer");
+    Float_t tree_energy;
+    
+    TBranch *b_layer_0 = tree->Branch("layer_0",&tree_energy,);
+    TBranch *b_layer_1 = tree->Branch("layer_1",&tree_energy,);
+    TBranch *b_layer_2 = tree->Branch("layer_2",&tree_energy,);
+    TBranch *b_layer_3 = tree->Branch("layer_3",&tree_energy,);
+    TBranch *b_layer_4 = tree->Branch("layer_4",&tree_energy,);
+    TBranch *b_layer_5 = tree->Branch("layer_5",&tree_energy,);
+    TBranch *b_layer_6 = tree->Branch("layer_6",&tree_energy,);
+    TBranch *b_layer_7 = tree->Branch("layer_7",&tree_energy,);
+    TBranch *b_layer_8 = tree->Branch("layer_8",&tree_energy,);
+    TBranch *b_layer_9 = tree->Branch("layer_8",&tree_energy,);
+    TBranch *b_layer_10 = tree->Branch("layer_9",&tree_energy,);
+    TBranch *b_layer_11 = tree->Branch("layer_10",&tree_energy,);
+    TBranch *b_layer_12 = tree->Branch("layer_11",&tree_energy,);
+    TBranch *b_layer_13 = tree->Branch("layer_12",&tree_energy,);
+    TBranch *b_layer_14 = tree->Branch("layer_13",&tree_energy,);
+    TBranch *b_layer_15 = tree->Branch("layer_14",&tree_energy,);
+    TBranch *b_layer_16 = tree->Branch("layer_15",&tree_energy,);
+    TBranch *b_layer_17 = tree->Branch("layer_16",&tree_energy,);
+    TBranch *b_layer_18 = tree->Branch("layer_17",&tree_energy,);
+    TBranch *b_layer_19 = tree->Branch("layer_18",&tree_energy,);
+    TBranch *b_layer_20 = tree->Branch("layer_19",&tree_energy,);
+    TBranch *b_layer_21 = tree->Branch("layer_20",&tree_energy,);
+    TBranch *b_layer_22 = tree->Branch("layer_21",&tree_energy,);
+    TBranch *b_layer_23 = tree->Branch("layer_22",&tree_energy,);
+    TBranch *b_layer_24 = tree->Branch("layer_23",&tree_energy,);
+    TBranch *b_layer_25 = tree->Branch("layer_24",&tree_energy,);
+    TBranch *b_layer_26 = tree->Branch("layer_25",&tree_energy,);
+    TBranch *b_layer_27 tree->Branch("layer_26",&tree_energy,);
+    TBranch *b_layer_1 tree->Branch("layer_27",&tree_energy,);
 
     /*DEBUG*/
     Float_t max = -999999;
