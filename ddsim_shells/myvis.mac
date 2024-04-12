@@ -64,6 +64,7 @@
 /vis/modeling/trajectories/drawByParticleID-0/set gamma green
 /vis/modeling/trajectories/drawByParticleID-0/set opticalphoton yellow
 /vis/modeling/trajectories/drawByParticleID-0/setRGBA opticalphoton 1 0.8 0 0.3
+/vis/modeling/trajectories/drawByParticleID-0/set nu_mu pink
 # remove low energy stuff
 /vis/filtering/trajectories/create/attributeFilter
 /vis/filtering/trajectories/attributeFilter-0/setAttribute IMag
