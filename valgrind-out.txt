@@ -1,0 +1,51 @@
+==66403== Memcheck, a memory error detector
+==66403== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==66403== Using Valgrind-3.20.0-5147d671e4-20221024 and LibVEX; rerun with -h for copyright info
+==66403== Command: ./ddsim_shells/sim.sh
+==66403== Parent PID: 63904
+==66403== 
+--66403-- 
+--66403-- Valgrind options:
+--66403--    --leak-check=full
+--66403--    --show-leak-kinds=all
+--66403--    --track-origins=yes
+--66403--    --verbose
+--66403--    --log-file=valgrind-out.txt
+--66403-- Contents of /proc/version:
+--66403--   Linux version 6.5.0-27-generic (buildd@lcy02-amd64-031) (x86_64-linux-gnu-gcc-12 (Ubuntu 12.3.0-1ubuntu1~22.04) 12.3.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #28~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Mar 15 10:51:06 UTC 2
+--66403-- 
+--66403-- Arch and hwcaps: AMD64, LittleEndian, amd64-cx16-lzcnt-rdtscp-sse3-ssse3-avx-avx2-bmi-f16c-rdrand-rdseed
+--66403-- Page sizes: currently 4096, max supported 4096
+--66403-- Valgrind library directory: /opt/software/linux-debian12-x86_64_v2/gcc-12.2.0/valgrind-3.20.0-tj2b5lryc5aynpdqefhguqo32y73jp5c/libexec/valgrind
+--66403-- Reading syms from /usr/bin/dash
+--66403--    object doesn't have a symbol table
+--66403-- Reading syms from /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+--66403--    object doesn't have a symbol table
+
+valgrind:  Fatal error at startup: a function redirection
+valgrind:  which is mandatory for this platform-tool combination
+valgrind:  cannot be set up.  Details of the redirection are:
+valgrind:  
+valgrind:  A must-be-redirected function
+valgrind:  whose name matches the pattern:      strlen
+valgrind:  in an object with soname matching:   ld-linux-x86-64.so.2
+valgrind:  was not found whilst processing
+valgrind:  symbols from the object with soname: ld-linux-x86-64.so.2
+valgrind:  
+valgrind:  Possible fixes: (1, short term): install glibc's debuginfo
+valgrind:  package on this machine.  (2, longer term): ask the packagers
+valgrind:  for your Linux distribution to please in future ship a non-
+valgrind:  stripped ld.so (or whatever the dynamic linker .so is called)
+valgrind:  that exports the above-named function using the standard
+valgrind:  calling conventions for this platform.  The package you need
+valgrind:  to install for fix (1) is called
+valgrind:  
+valgrind:    On Debian, Ubuntu:                 libc6-dbg
+valgrind:    On SuSE, openSuSE, Fedora, RHEL:   glibc-debuginfo
+valgrind:  
+valgrind:  Note that if you are debugging a 32 bit process on a
+valgrind:  64 bit system, you will need a corresponding 32 bit debuginfo
+valgrind:  package (e.g. libc6-dbg:i386).
+valgrind:  
+valgrind:  Cannot continue -- exiting now.  Sorry.
+

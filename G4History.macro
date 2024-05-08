@@ -107,6 +107,6 @@
 /vis/viewer/refresh
 /control/verbose 2
 /run/initialize
-/run/beamOn 100
+/run/beamOn 1
 /vis/scene/notifyHandlers scene-0
 /vis/scene/notifyHandlers scene-1
