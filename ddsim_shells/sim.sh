@@ -1,1 +1,1 @@
-npsim --steeringFile steering/simon_steering.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 1  --outputFile root_files/mu_1GeV_energy_run1_1_april_20.edm4hep.root --macroFile ~/eic/work_eic/ddsim_shells/myvis.mac --part.userParticleHandler=""
+npsim --steeringFile ../epic_klm/simulations/steering/npsim_local3.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 1  --outputFile root_files/pi_5GeV_energy_run1_1_may_7_new_steer.edm4hep.root --macroFile ~/eic/work_eic/ddsim_shells/myvis.mac --part.userParticleHandler=""
