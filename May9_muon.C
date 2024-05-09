@@ -1,11 +1,10 @@
-#define Muon_optical_100_cxx 
-#include "Muon_optical_100.h"
+#define May9_muon_cxx
+#include "May9_muon.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
 
-void Muon_optical_100::Loop()
-
+void May9_muon::Loop()
 {
     if (fChain == 0) return;
     TFile hfile("layers_energy_1GeV_mu_100000.root","RECREATE","file with tree for muon energy by layer");
@@ -43,7 +42,9 @@ void Muon_optical_100::Loop()
 	Float_t curr_x = HcalBarrelHits_position_x[i];
 	for(int j = 0; j < num_layers; j++) {
 	  //need to find the layer of this particular hit
-	  if((curr_x > layer_map[j]) && (curr_x <= layer_map[j+1])) {
+	  Float_t lower = layer_map_28[j] - 5;
+	  Float_t upper = layer_map_28[j] + 5;
+	  if((curr_x > lower) && (curr_x <= upper)) {
 	    count_map[j]++;
 	    count_total++;
 	    break; //can break after we found the layer
@@ -59,8 +60,10 @@ void Muon_optical_100::Loop()
 	mc_count_total++;
 	Float_t curr_x = MCParticles_vertex_x[i];
 	for(int j = 0; j < num_layers; j++) {
+	  Float_t lower = layer_map_28[j] - 5;
+	  Float_t upper = layer_map_28[j] + 5;
 	  //need to find the layer of this particular hit
-	  if((curr_x > layer_map[j]) && (curr_x <= layer_map[j+1])) {
+	  if((curr_x > lower) && (curr_x <= upper)) {
 	    mc_count_map[j]++;
 	    break; //can break after we found the layer
 	  }
@@ -107,8 +110,10 @@ void Muon_optical_100::Loop()
      for(int i = 0; i < HcalBarrelHits_; i++) {
        Float_t curr_x = HcalBarrelHits_position_x[i];
        for(int j = 0; j < num_layers; j++) {
+	 Float_t lower = layer_map_28[j] - 5;
+	 Float_t upper = layer_map_28[j] + 5;
 	  //need to find the layer of this particular hit
-	  if((curr_x > layer_map[j]) && (curr_x <= layer_map[j+1])) {
+	  if((curr_x > lower) && (curr_x <= upper)) {
 	    error_hits_arr[j]++;
 	    error_counts_total++;
 	    break; //can break after we found the layer
@@ -126,8 +131,10 @@ void Muon_optical_100::Loop()
        mc_error_counts_total++;
        Float_t curr_x = MCParticles_vertex_x[i];
        for(int j = 0; j < num_layers; j++) {
+	 Float_t lower = layer_map_28[j] - 5;
+	 Float_t upper = layer_map_28[j] + 5;
 	 //need to find the layer of this particular hit
-	 if((curr_x > layer_map[j]) && (curr_x <= layer_map[j+1])) {
+	 if((curr_x > lower) && (curr_x <= upper)) {
 	   error_mc_count_arr[j]++;
 	   break; //can break after we found the layer
 	 }
@@ -208,7 +215,7 @@ void Muon_optical_100::Loop()
    //Graph stuff
    //TFile f("root_files/graphs/May_7/mu_1GeV_energy_100_run1.root","recreate");
    //gr->Write();
-   c1->Print("plots/May_7/mu_5GeV_energy_100_run1.svg");
+   c1->Print("plots/May_9/mu_5GeV_energy_100_run1.svg");
    cout << "There were a total of " << avg_count_total << " optical photon hits\n";
    cout << "There were a total of " << mc_avg_count_total << " -22 PDG MCParticles\n";
 }
