@@ -1,14 +1,14 @@
-#define Muon_counts_1000_May_9_cxx
-#include "Muon_counts_1000_May_9.h"
+#define May10_pion_count_10_cxx
+#include "May10_pion_count_10.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
 
-void Muon_counts_1000_May_9::Loop()
+void May10_pion_count_10::Loop()
 {
     if (fChain == 0) return;
-    TFile hfile("layers_energy_1GeV_mu_100000.root","RECREATE","file with tree for muon energy by layer");
-
+    //TFile hfile("layers_energy_1GeV_mu_100000.root","RECREATE","file with tree for muon energy by layer");
+    
     
     /*DEBUG*/
     Float_t max = -999999;
@@ -169,20 +169,22 @@ void Muon_counts_1000_May_9::Loop()
    c1->Divide(2,1);
    c1->cd(1);
    
-   TGraphErrors *gr = new TGraphErrors(num_layers,layer_map_28, avg_count, {}, y_err);
-   TGraphErrors *mc_gr = new TGraphErrors(num_layers,layer_map_28, mc_avg_count, {}, mc_y_err);
+   //TGraphErrors *gr = new TGraphErrors(num_layers,layer_map_28, avg_count, {}, y_err);
+   //TGraphErrors *mc_gr = new TGraphErrors(num_layers,layer_map_28, mc_avg_count, {}, mc_y_err);
 
+   TGraph *gr = new TGraph(num_layers,layer_map_28, avg_count);
+   TGraph *mc_gr = new TGraph(num_layers,layer_map_28, mc_avg_count);
 
-   std::string text = "avg # of hits in each layer 1000 events (5GeV mu- gun) | total: ";
+   std::string text = "avg # of hits in each layer 10 events (5GeV pi- gun) | total: ";
    text += std::to_string(avg_count_total);
-   text += "+/-";
-   text += std::to_string(y_err_total);
+   //   text += "+/-";
+   //text += std::to_string(y_err_total);
    cout << "text: " << text << "\n";
    
-   std::string mc_text = "avg # of -22 PDG in each layer 1000 events (5GeV mu- gun) | total: ";
+   std::string mc_text = "avg # of -22 PDG in each layer 10 events (5GeV pi- gun) | total: ";
    mc_text += std::to_string(mc_avg_count_total);
-   mc_text += "+/-";
-   mc_text += std::to_string(mc_y_err_total);
+   //mc_text += "+/-";
+   //mc_text += std::to_string(mc_y_err_total);
    cout << "mc_text: " << mc_text << "\n";
    
    gr->SetTitle(text.c_str());
@@ -215,8 +217,7 @@ void Muon_counts_1000_May_9::Loop()
    //Graph stuff
    //TFile f("root_files/graphs/May_7/mu_1GeV_energy_100_run1.root","recreate");
    //gr->Write();
-   c1->Print("plots/May_9/mu_5GeV_energy_1000_run1.svg");
+   c1->Print("plots/May_10/pi_5GeV_energy_10_run1_no_error.svg");
    cout << "There were a total of " << avg_count_total << " optical photon hits\n";
    cout << "There were a total of " << mc_avg_count_total << " -22 PDG MCParticles\n";
 }
-

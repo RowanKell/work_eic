@@ -1,12 +1,12 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Wed May  8 17:26:35 2024 by ROOT version 6.28/10
+// Fri May 10 14:04:26 2024 by ROOT version 6.28/10
 // from TTree events/events data tree
-// found on file: root_files/May8_pi_5GeV_100events_run_1.edm4hep.root
+// found on file: root_files/May10_pi_5GeV_10event_run_1.edm4hep.root
 //////////////////////////////////////////////////////////
 
-#ifndef Pi_optical_100_h
-#define Pi_optical_100_h
+#ifndef May10_pion_count_10_h
+#define May10_pion_count_10_h
 
 #include <TROOT.h>
 #include <TChain.h>
@@ -14,18 +14,18 @@
 
 // Header file for the classes stored in the TTree if any.
 
-class Pi_optical_100 {
+class May10_pion_count_10 {
 public :
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
    Int_t           fCurrent; //!current Tree number in a TChain
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
    static constexpr Int_t kMaxEventHeader = 1;
-   static constexpr Int_t kMaxHcalBarrelHits = 9276;
-   static constexpr Int_t kMax_HcalBarrelHits_MCParticle = 9276;
-   static constexpr Int_t kMaxMCParticles = 82015;
-   static constexpr Int_t kMax_MCParticles_parents = 82014;
-   static constexpr Int_t kMax_MCParticles_daughters = 82014;
+   static constexpr Int_t kMaxHcalBarrelHits = 710688;
+   static constexpr Int_t kMax_HcalBarrelHits_MCParticle = 710688;
+   static constexpr Int_t kMaxMCParticles = 4005151;
+   static constexpr Int_t kMax_MCParticles_parents = 4005150;
+   static constexpr Int_t kMax_MCParticles_daughters = 4005150;
    static constexpr Int_t kMax_intMap = 1;
    static constexpr Int_t kMax_floatMap = 1;
    static constexpr Int_t kMax_stringMap = 1;
@@ -168,8 +168,8 @@ public :
    TBranch        *b__doubleMap_first;   //!
    TBranch        *b__doubleMap_second;   //!
 
-   Pi_optical_100(TTree *tree=0);
-   virtual ~Pi_optical_100();
+   May10_pion_count_10(TTree *tree=0);
+   virtual ~May10_pion_count_10();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
    virtual Long64_t LoadTree(Long64_t entry);
@@ -181,15 +181,15 @@ public :
 
 #endif
 
-#ifdef Pi_optical_100_cxx
-Pi_optical_100::Pi_optical_100(TTree *tree) : fChain(0) 
+#ifdef May10_pion_count_10_cxx
+May10_pion_count_10::May10_pion_count_10(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
    if (tree == 0) {
-      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/May8_pi_5GeV_100events_run_1.edm4hep.root");
+      TFile *f = (TFile*)gROOT->GetListOfFiles()->FindObject("root_files/May10_pi_5GeV_10event_run_1.edm4hep.root");
       if (!f || !f->IsOpen()) {
-         f = new TFile("root_files/May8_pi_5GeV_100events_run_1.edm4hep.root");
+         f = new TFile("root_files/May10_pi_5GeV_10event_run_1.edm4hep.root");
       }
       f->GetObject("events",tree);
 
@@ -198,19 +198,19 @@ Pi_optical_100::Pi_optical_100(TTree *tree) : fChain(0)
    Loop();
 }
 
-Pi_optical_100::~Pi_optical_100()
+May10_pion_count_10::~May10_pion_count_10()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t Pi_optical_100::GetEntry(Long64_t entry)
+Int_t May10_pion_count_10::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t Pi_optical_100::LoadTree(Long64_t entry)
+Long64_t May10_pion_count_10::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -223,7 +223,7 @@ Long64_t Pi_optical_100::LoadTree(Long64_t entry)
    return centry;
 }
 
-void Pi_optical_100::Init(TTree *tree)
+void May10_pion_count_10::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -308,7 +308,7 @@ void Pi_optical_100::Init(TTree *tree)
    Notify();
 }
 
-Bool_t Pi_optical_100::Notify()
+Bool_t May10_pion_count_10::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -319,18 +319,18 @@ Bool_t Pi_optical_100::Notify()
    return kTRUE;
 }
 
-void Pi_optical_100::Show(Long64_t entry)
+void May10_pion_count_10::Show(Long64_t entry)
 {
 // Print contents of entry.
 // If entry is not specified, print current entry
    if (!fChain) return;
    fChain->Show(entry);
 }
-Int_t Pi_optical_100::Cut(Long64_t entry)
+Int_t May10_pion_count_10::Cut(Long64_t entry)
 {
 // This function may be called from Loop.
 // returns  1 if entry is accepted.
 // returns -1 otherwise.
    return 1;
 }
-#endif // #ifdef Pi_optical_100_cxx
+#endif // #ifdef May10_pion_count_10_cxx
