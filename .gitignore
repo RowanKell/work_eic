@@ -2,3 +2,8 @@
 *.root
 *notes.md
 .ipynb_checkpoints/
+output/
+error/
+*.err
+*.out
+shells/
