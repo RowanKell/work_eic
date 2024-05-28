@@ -39,3 +39,13 @@ sbatch shells/file_36.sh
 sbatch shells/file_37.sh
 sbatch shells/file_38.sh
 sbatch shells/file_39.sh
+sbatch shells/file_40.sh
+sbatch shells/file_41.sh
+sbatch shells/file_42.sh
+sbatch shells/file_43.sh
+sbatch shells/file_44.sh
+sbatch shells/file_45.sh
+sbatch shells/file_46.sh
+sbatch shells/file_47.sh
+sbatch shells/file_48.sh
+sbatch shells/file_49.sh
