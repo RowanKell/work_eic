@@ -1,0 +1,1 @@
+npsim --steeringFile ../epic_klm/simulations/steering/npsim_local3.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --macroFile ddsim_shells/myvis.mac --runType "vis" -G -N 10  --outputFile root_files/may_29_one_layer_10events_run_2.edm4hep.root --part.userParticleHandler=""

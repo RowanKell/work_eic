@@ -1,0 +1,4 @@
+KLM sensitive volume
+1. Y width: thickness of sensitive plane (prob very thin)
+2. X width: width of segments
+3. Z width: width of two segments with air in between (total layer width
