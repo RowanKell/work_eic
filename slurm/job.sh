@@ -1,7 +1,7 @@
 #!/bin/bash  
 #SBATCH --job-name=KLM_sim
-#SBATCH --output=/hpc/group/vossenlab/rck32/eic/work_eic/slurm/output/outputMay20/%x.out
-#SBATCH --error=/hpc/group/vossenlab/rck32/eic/work_eic/slurm/error/errorMay20/%x.err
+#SBATCH --output=/hpc/group/vossenlab/rck32/eic/work_eic/slurm/output/outputMay30/%x.out
+#SBATCH --error=/hpc/group/vossenlab/rck32/eic/work_eic/slurm/error/errorMay30/%x.err
 #SBATCH -p vossenlab-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
