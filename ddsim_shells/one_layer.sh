@@ -1,0 +1,1 @@
+npsim --steeringFile ../epic_klm/simulations/steering/npsim_local3.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 10  --outputFile root_files/may_28_one_layer_10events.edm4hep.root --part.userParticleHandler=""
