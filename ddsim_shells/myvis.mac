@@ -74,8 +74,8 @@
 
 #Rowan's added viewer stuff
 /vis/viewer/pan 2
-/vis/viewer/zoom 4.5
-/vis/viewer/set/viewpointThetaPhi 180 0
+/vis/viewer/zoom 2
+/vis/viewer/set/viewpointThetaPhi 10 20
 
 /control/verbose 2
 /run/initialize
