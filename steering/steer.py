@@ -28,7 +28,7 @@ SIM.gun.phiMin = 0*deg #use 22.5 to hit corner
 SIM.gun.phiMax = 0*deg
 SIM.gun.momentumMin = 5.0*GeV
 SIM.gun.momentumMax = 5.0*GeV
-SIM.gun.particle = "pi-"
+#SIM.gun.particle = "pi-"
 
 
 # Ensure that Cerenkov and optical physics are always loaded
