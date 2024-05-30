@@ -1,0 +1,5 @@
+cmake -B build -S . -DCMAKE_INSTALL_PREFIX=install
+cmake --build build
+cmake --install build
+source install/setup.sh
+dd_web_display --export epic_klmws_only.xml

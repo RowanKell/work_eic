@@ -1,1 +1,2 @@
-npsim --steeringFile ../epic_klm/simulations/steering/npsim_local3.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 10  --outputFile root_files/may_28_one_layer_10events.edm4hep.root --part.userParticleHandler=""
+
+npsim --steeringFile ./steering/steer.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --macroFile ddsim_shells/myvis.mac --runType "batch" -G -N 1000  --outputFile root_files/may_30_one_layer/mu_1000events.edm4hep.root --part.userParticleHandler=""
