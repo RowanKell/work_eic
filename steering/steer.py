@@ -26,8 +26,8 @@ SIM.gun.thetaMax = 90*deg
 SIM.gun.distribution = "cos(theta)"
 SIM.gun.phiMin = 0*deg #use 22.5 to hit corner
 SIM.gun.phiMax = 0*deg
-SIM.gun.momentumMin = 1.0*GeV
-SIM.gun.momentumMax = 1.0*GeV
+SIM.gun.momentumMin = 5.0*GeV
+SIM.gun.momentumMax = 5.0*GeV
 #SIM.gun.particle = "pi-"
 
 
@@ -62,6 +62,8 @@ def setupCerenkov(kernel):
 
 SIM.physics.setupUserPhysics(setupCerenkov)
 
+#If true, keeps MCParticles for all photons that don't hit sensor
+#Set to false to keep file size much smaller
 SIM.part.keepAllParticles = False
 
   # Allow energy depositions to 0 energy in trackers (which include optical detectors)
