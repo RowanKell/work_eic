@@ -1,0 +1,2 @@
+The files in no_q_eff were run without the quantum efficiency on
+Files in wrong_q_eff were run either with the quantum efficiency not working or at a much lower photon yield. Files in this directory should be up to date
