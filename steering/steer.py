@@ -24,8 +24,8 @@ SIM.enableGun
 SIM.gun.thetaMin = 90*deg
 SIM.gun.thetaMax = 90*deg
 SIM.gun.distribution = "cos(theta)"
-SIM.gun.phiMin = -45*deg #use 22.5 to hit corner, -45 to hit bottom right in middle
-SIM.gun.phiMax = -45*deg
+SIM.gun.phiMin = 0*deg #use 22.5 to hit corner, -45 to hit bottom right in middle
+SIM.gun.phiMax = 0*deg
 SIM.gun.momentumMin = 5.0*GeV
 SIM.gun.momentumMax = 5.0*GeV
 #SIM.gun.particle = "pi-"
