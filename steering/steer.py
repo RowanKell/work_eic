@@ -60,7 +60,7 @@ def setupCerenkov(kernel):
   return None
 
 
-SIM.physics.setupUserPhysics(setupCerenkov)
+#SIM.physics.setupUserPhysics(setupCerenkov)
 
 #If true, keeps MCParticles for all photons that don't hit sensor
 #Set to false to keep file size much smaller
