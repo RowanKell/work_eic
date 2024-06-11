@@ -19,7 +19,7 @@ SIM.physics.decays = False
 #SIM.part.saveProcesses = ['conv','Decay']
 #SIM.output.part = "VERBOSE"
 
-SIM.part.keepAllParticles = True
+# SIM.part.keepAllParticles = True
 '''
 def setupCerenkov(kernel):
   from DDG4 import PhysicsList
