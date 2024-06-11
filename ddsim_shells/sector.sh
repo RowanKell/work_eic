@@ -1,1 +1,1 @@
-ddsim --steeringFile steering/sector.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 10000 --gun.particle "mu-" --outputFile root_files/June_10/mu_5GeV_10k.edm4hep.root --macroFile ~/eic/work_eic/ddsim_shells/myvis.mac
+ddsim --steeringFile steering/sector.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "vis" -G -N 10000 --gun.particle "pi-" --outputFile root_files/June_10_tracker/pi_1GeV_1_full_layer_vis.edm4hep.root --macroFile ddsim_shells/myvis.mac 
