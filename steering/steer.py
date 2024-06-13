@@ -39,7 +39,7 @@ SIM.gun.momentumMax = 5.0*GeV
 def setupCerenkov(kernel):
   from DDG4 import PhysicsList
   seq = kernel.physicsList()
-
+  '''
   cerenkov = PhysicsList(kernel, 'Geant4CerenkovPhysics/CerenkovPhys')
   cerenkov.MaxNumPhotonsPerStep = 10
   cerenkov.MaxBetaChangePerStep = 10.0
@@ -47,7 +47,7 @@ def setupCerenkov(kernel):
   cerenkov.VerboseLevel = 0
   cerenkov.enableUI()
   seq.adopt(cerenkov)
-
+  '''
   ph = PhysicsList(kernel, 'Geant4OpticalPhotonPhysics/OpticalGammaPhys')
   ph.addParticleConstructor('G4OpticalPhoton')
   ph.VerboseLevel = 0
@@ -67,7 +67,7 @@ SIM.physics.setupUserPhysics(setupCerenkov)
 
 #If true, keeps MCParticles for all photons that don't hit sensor
 #Set to false to keep file size much smaller
-SIM.part.keepAllParticles = False
+SIM.part.keepAllParticles = True
   # Allow energy depositions to 0 energy in trackers (which include optical detectors)
 SIM.filter.tracker = 'edep0'
 
@@ -91,7 +91,7 @@ SIM.action.mapActions['HcalBarrel'] = 'Geant4OpticalTrackerAction'
   # Use the optical photon efficiency stacking action for hpDIRC
   #for one layer: slice2seg0
 '''
-SIM.action.stack = [
+  SIM.action.stack = [
   {
     "name": "OpticalPhotonEfficiencyStackingAction",
     "parameter": {
@@ -129,4 +129,8 @@ SIM.action.stack = [
     }
   }
 ]
+<<<<<<< HEAD
+=======
+
+>>>>>>> e50683d (updates)
 '''

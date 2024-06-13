@@ -1,0 +1,1 @@
+These files were generated with the geometry as originally intended for "one_segment". There is one segment, no iron, the ps is not sensitive and the sensor bar is sensitive. All optical photons are generated.
