@@ -107,8 +107,50 @@
 /vis/viewer/refresh
 /control/verbose 2
 /run/initialize
-/vis/viewer/zoom 4
-/vis/viewer/refresh
-/run/beamOn 1
+/run/beamOn 2
 /vis/scene/notifyHandlers scene-0
 /vis/scene/notifyHandlers scene-1
+/vis/viewer/set/viewpointThetaPhi 10 110
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 0 110
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 020 110
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 020 85
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 40 85
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 10 85
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi -40 85
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi -40 100
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 10 90
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 10 100
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 10 130
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 10 145
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 10 180
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 10 160
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 5 160
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 15 160
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 25 160
+/vis/viewer/refresh
+/vis/viewer/set/viewpointThetaPhi 35 160
+/vis/viewer/refresh
+/vis/viewer/zoom 1.3
+/vis/viewer/refresh
+/vis/viewer/pan -0.5
+/vis/viewer/refresh
+/vis/viewer/zoom 1.3
+/vis/viewer/refresh
+/run/beamOn 10
+/run/beamOn 4
