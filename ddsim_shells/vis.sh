@@ -1,1 +1,1 @@
-npsim --steeringFile ./steering/steer.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --macroFile ddsim_shells/myvis.mac  --runType "batch" -G -N 100 --gun.particle "mu-"  --outputFile root_files/vis/June_10/test.edm4hep.root --part.userParticleHandler=""
+npsim --steeringFile ./steering/steer.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --macroFile ddsim_shells/myvis.mac  --runType "vis" -G -N 1 --gun.particle "mu-"  --outputFile root_files/vis/June_13/test.edm4hep.root --part.userParticleHandler=""
