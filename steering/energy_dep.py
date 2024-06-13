@@ -20,7 +20,7 @@ from g4units import mm, GeV, MeV, deg, eV
 SIM = DD4hepSimulation()
 
   # Specify particle gun:
-SIM.gun.enableGun
+SIM.enableGun
 SIM.gun.position = (0, 15, 0)
 
 SIM.gun.thetaMin = 90*deg
