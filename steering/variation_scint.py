@@ -23,16 +23,16 @@ SIM = DD4hepSimulation()
 SIM.enableGun
 SIM.gun.position = (0, 0, 0)
 
-SIM.gun.thetaMin = 68*deg #68 min
-SIM.gun.thetaMax = 112*deg #112 max
-SIM.gun.distribution = "uniform"
-SIM.gun.phiMin = -22*deg #-22 min
-SIM.gun.phiMax = 22*deg #22 max
+SIM.gun.thetaMin = 68*deg
+SIM.gun.thetaMax = 112*deg
+SIM.gun.distribution = "cos(theta)"
+SIM.gun.phiMin = -22*deg #use 22.5 to hit corner, -45 to hit bottom right in middle
+SIM.gun.phiMax = 22*deg
 SIM.gun.momentumMin = 5.0*GeV
 SIM.gun.momentumMax = 5.0*GeV
 #SIM.gun.particle = "pi-"
 
-
+'''
 # Ensure that Cerenkov and optical physics are always loaded
 # Added Scintillation to that list
 def setupCerenkov(kernel):
@@ -87,7 +87,7 @@ SIM.action.mapActions['DRICH'] = 'Geant4OpticalTrackerAction'
 SIM.action.mapActions['RICHEndcapN'] = 'Geant4OpticalTrackerAction'
 SIM.action.mapActions['DIRC'] = 'Geant4OpticalTrackerAction'
 SIM.action.mapActions['HcalBarrel'] = 'Geant4OpticalTrackerAction'
-
+'''
   # Use the optical photon efficiency stacking action for hpDIRC
   #for one layer: slice2seg0
 

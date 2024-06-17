@@ -22,7 +22,7 @@ SIM = DD4hepSimulation()
   # Specify particle gun:
 SIM.enableGun
 
-SIM.gun.position = (0.0, 15, 0.0)
+SIM.gun.position = (0.0, 0.0, 0.0)
 
 SIM.gun.thetaMin = 90*deg
 SIM.gun.thetaMax = 90*deg
@@ -33,13 +33,13 @@ SIM.gun.momentumMin = 5.0*GeV
 SIM.gun.momentumMax = 5.0*GeV
 #SIM.gun.particle = "pi-"
 
-
+'''
 # Ensure that Cerenkov and optical physics are always loaded
 # Added Scintillation to that list
 def setupCerenkov(kernel):
   from DDG4 import PhysicsList
   seq = kernel.physicsList()
-  '''
+  
   cerenkov = PhysicsList(kernel, 'Geant4CerenkovPhysics/CerenkovPhys')
   cerenkov.MaxNumPhotonsPerStep = 10
   cerenkov.MaxBetaChangePerStep = 10.0
@@ -47,7 +47,7 @@ def setupCerenkov(kernel):
   cerenkov.VerboseLevel = 0
   cerenkov.enableUI()
   seq.adopt(cerenkov)
-  '''
+  
   ph = PhysicsList(kernel, 'Geant4OpticalPhotonPhysics/OpticalGammaPhys')
   ph.addParticleConstructor('G4OpticalPhoton')
   ph.VerboseLevel = 0
@@ -90,6 +90,7 @@ SIM.action.mapActions['HcalBarrel'] = 'Geant4OpticalTrackerAction'
 
   # Use the optical photon efficiency stacking action for hpDIRC
   #for one layer: slice2seg0
+'''
 '''
   SIM.action.stack = [
   {

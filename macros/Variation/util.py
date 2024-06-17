@@ -366,3 +366,30 @@ def energy_dep_hit(x_pos_branch,EDep_branch,Hits_MC_idx_branch,gen_status_branch
     fig.show()
     fig.savefig(save_path = f"{particle}_{energy}GeV_{scope}_avg_hit.jpeg")
     return (energy_means,super_layer_means)
+
+'''
+fitting
+'''
+
+#fit functions
+def exp_curve(x,a,b,c):
+    return a * np.exp(-x * b) + c
+def poly_8d(x,a,b,c,d,e,f,g,h,i):
+    return a * x ** 8 + b * x ** 7 + c * x ** 6 + d * x ** 5 + e * x ** 4 + f * x ** 3 + g * x ** 2 + h * x + i 
+def poly_2d(x,a,b,c):
+    return a * x ** 2 + b * x + c
+def inverse(x,a,b,c):
+    return a  / (x + b) + c
+
+#process
+def fit_to_angle(xdata, ydata, function):
+    return curve_fit(function,xdata,ydata)
+
+#plot
+def plot_fit(xdata, ydata,function, popt):
+    fig_theta, ax_theta = plot.subplots(1,1)
+    ax_theta.plot(xdata, function(xdata,*popt), 'g--')
+    fig_theta.suptitle("Theta dependence of % photons reaching sensor")
+    ax_theta.scatter(xdata,ydata,color="red")
+    ax_theta.set_xlabel("theta (deg)")
+    ax_theta.set_ylabel("% photons reaching sensor")
