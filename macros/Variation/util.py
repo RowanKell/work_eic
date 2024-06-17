@@ -85,7 +85,8 @@ def get_internal_layer(x_pos,super_layer_idx,s_map):
     rel_dist = x_pos - s_map[super_layer_idx]
     return int((math.copysign(1,rel_dist) + 1) /2)
 
-def get_layer(x_pos,s_map = super_layer_map, s_dis = dis_between_super_layers):
+def get_layer(x_pos,s_map = super_layer_map):
+    s_dis = s_map[1] - s_map[0]
     super_layer_idx = get_super_layer(x_pos,s_map,s_dis)
     internal_layer_idx = get_internal_layer(x_pos,super_layer_idx,s_map)
     return int(super_layer_idx * 2 + internal_layer_idx)
@@ -133,7 +134,8 @@ class PVect:
         self.E = Efunc(px,py,pz,m)
         self.theta = theta_func(px,py,pz)
         self.phi = phi_func(px,py,pz)
-        
+def r_func(x,y,z):
+    return np.sqrt(x**2 + y**2 + z**2)
 #Currently used max and min angles        
 theta_min = 67
 theta_max = 113
@@ -192,7 +194,7 @@ def findBin(val,bins):
 
 #Big function / loop to calculate the % of photons hitting and bin these values
 #RETURNS (<list of phi percentage values>,<list of theta percent values>)
-def bin_percent_theta_phi(EDep_branch,MC_px,MC_py,MC_pz)
+def bin_percent_theta_phi(EDep_branch,MC_px,MC_py,MC_pz):
     theta_percent = [[] for i in range(n_bins)]
     phi_percent = [[] for i in range(n_bins)]
 
@@ -248,7 +250,7 @@ def bin_percent_theta_phi(EDep_branch,MC_px,MC_py,MC_pz)
     return (theta_percent,phi_percent)
 
 #Plot percentages
-def plot_percent(phi_bin_centers,theta_bin_centers,phi_percent,theta_percent, output_path = "plots/percentage/June_14_mu_5GeV_10k_phi_theta_20_bins.jpeg")
+def plot_percent(phi_bin_centers,theta_bin_centers,phi_percent,theta_percent, output_path = "plots/percentage/June_14_mu_5GeV_10k_phi_theta_20_bins.jpeg"):
     fig, (ax1,ax2) = plot.subplots(1,2, figsize=(10,4))
     fig.suptitle("Percentage of photons reaching sensor as a fraction of total photons generated")
     ax1.scatter(phi_bin_centers,phi_percent,color="red")
@@ -258,3 +260,109 @@ def plot_percent(phi_bin_centers,theta_bin_centers,phi_percent,theta_percent, ou
     ax2.set_xlabel("theta (deg)")
     fig.show()
     fig.savefig(output_path)
+    
+'''
+Energy deposited
+'''
+#Find total energy deposited by primary or all particles in each layer avg by EVENT
+# RETURNS (layer_EDep,super_layer_EDep)
+def energy_dep_event(x_pos_branch,EDep_branch,Hits_MC_idx_branch,particle = "mu",energy = 5,scope = "primary",save_path = "plots/June_13/avg_event_dep/"):
+    #initialize list that we will fill with # of layers traversed for each event
+    layers_traversed = []
+    skip_count = 0
+    #loop over each event
+    layer_EDep = np.zeros(28)
+
+    for event_idx in range(len(x_pos_branch)):
+        event_x_pos = x_pos_branch[event_idx]
+        event_layer_hits = []
+        event_EDep = EDep_branch[event_idx]
+        layer_hit_bool = np.zeros(28)
+        #for each event, loop over the particles to find mu/pi
+        for hit_idx in range(len(event_x_pos)):
+            if(scope == "primary" and (Hits_MC_idx_branch[event_idx][hit_idx] != 0)):
+                continue
+            current_x_pos = event_x_pos[hit_idx]
+            current_EDep = event_EDep[hit_idx]
+            layer_hit = get_num_layers_traversed(current_x_pos)
+    #         if(layer_hit_bool[hit_idx] == 1):
+    #             continue
+    #         layer_hit_bool[hit_idx] = 1
+            if(layer_hit == -1):
+                skip_count += 1
+                continue
+            layer_EDep[layer_hit] += current_EDep
+    super_layer_EDep = np.zeros(14)
+    for i in range(len(layer_EDep)):
+        super_layer_num = int(np.floor(i / 2))
+        super_layer_EDep[super_layer_num] += layer_EDep[i]
+    super_layer_EDep = super_layer_EDep / len(x_pos_branch)
+    layer_EDep = layer_EDep / len(x_pos_branch)
+    print(f"skipped {skip_count} events")
+
+    fig,(ax1,ax2) = plot.subplots(1,2,figsize=(12,6))
+    fig.suptitle(f"{energy}GeV {particle}-: energy deposited by layer avg over 5k events by {scope}")
+    ax1.set_title("Super layer energy deposition")
+    ax2.set_title("Individual layer energy deposition")
+
+    ax1.set_xlabel("superlayer number")
+    ax2.set_xlabel("layer number")
+
+    ax1.set_ylabel("avg energy deposited per event (GeV)")
+    ax1.scatter(range(14),super_layer_EDep,10)
+    ax2.scatter(layer_map,layer_EDep,10,color = 'r',marker='o')
+    fig.show()
+    fig.savefig(save_path + f"{particle}_{energy}GeV_{scope}_avg_event.jpeg")
+    return (layer_EDep,super_layer_EDep)
+
+# Energy deposited by particle avg by HIT
+# RETURNS (energy_means,super_layer_means)
+def energy_dep_hit(x_pos_branch,EDep_branch,Hits_MC_idx_branch,gen_status_branch,particle = "mu",energy = 5,scope = "primary",save_path = "plots/June_13/avg_event_dep/"):
+
+    #initialize list that we will fill with # of layers traversed for each event
+    layers_traversed = []
+    skip_count = 0
+    #loop over each event
+    layer_EDep = np.zeros(28)
+    energies = [[] for i in range(28)]
+    energy_means = np.empty(28)
+    for event_idx in range(len(x_pos_branch)):
+        event_x_pos = x_pos_branch[event_idx]
+        event_layer_hits = []
+        event_EDep = EDep_branch[event_idx]
+        layer_hit_bool = np.zeros(28)
+        #for each event, loop over the particles to find mu/pi
+        for hit_idx in range(len(event_x_pos)):
+            if(scope == "primary" and (not gen_status_branch[event_idx][Hits_MC_idx_branch[event_idx][hit_idx]])):continue
+            current_x_pos = event_x_pos[hit_idx]
+            current_EDep = event_EDep[hit_idx]
+            layer_hit = get_num_layers_traversed(current_x_pos)
+            if(layer_hit == -1):
+                skip_count += 1
+                continue
+            energies[layer_hit].append(current_EDep)
+    print(f"skipped {skip_count}")
+    for i in range(len(energies)):
+        if(len(energies[i]) == 0):
+            energy_means[i] = 0
+            print(f"skipped layer #{i}")
+        else:
+            energy_means[i] = np.mean(energies[i])
+    super_layer_means = np.zeros(14)
+    for i in range(len(layer_EDep)):
+        super_layer_num = int(np.floor(i / 2))
+        super_layer_means[super_layer_num] += energy_means[i]
+    fig,(ax1,ax2) = plot.subplots(1,2,figsize=(12,6))
+    fig.suptitle(f"{energy}GeV {particle}-: energy deposited by layer avg over hits by {scope}")
+    ax1.set_title("Super layer energy deposition")
+    ax2.set_title("Individual layer energy deposition")
+
+    ax1.set_xlabel("superlayer number")
+    ax2.set_xlabel("layer number")
+
+    ax1.set_ylabel("avg energy deposited per event (GeV)")
+    ax1.scatter(range(14),super_layer_means,10,color = 'b',marker='o')
+    ax2.scatter(layer_map,energy_means,10,color = 'r',marker='o')
+    fig.show()
+    fig.savefig(save_path = f"{particle}_{energy}GeV_{scope}_avg_hit.jpeg")
+    return (energy_means,super_layer_means)
