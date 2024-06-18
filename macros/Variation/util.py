@@ -25,6 +25,8 @@ import time
 #Misc
 from scipy.stats import norm
 
+#ML
+import torch.nn as nn
 '''
 VARIABLES AND FILES
 '''
@@ -393,3 +395,83 @@ def plot_fit(xdata, ydata,function, popt):
     ax_theta.scatter(xdata,ydata,color="red")
     ax_theta.set_xlabel("theta (deg)")
     ax_theta.set_ylabel("% photons reaching sensor")
+    
+'''
+Machine Learning Stuff
+'''
+
+#Input root file path and get tensor with first index event and second index feature with the labels being index 56 (last)
+def create_data(uproot_path):
+    events = up.open(uproot_path)
+
+    x_pos_branch = events["HcalBarrelHits/HcalBarrelHits.position.x"].array(library='np')
+    EDep_branch = events["HcalBarrelHits.EDep"].array(library='np')
+    Hits_MC_idx_branch = events["_HcalBarrelHits_MCParticle.index"].array(library='np')
+    PDG_branch = events["MCParticles.PDG"].array(library='np')
+
+    num_events = len(x_pos_branch)
+    num_features = 56
+    num_layers = 28
+
+    hits_per_layer = np.zeros((num_events,28))
+    EDep_per_layer = np.zeros((num_events,28))
+    label = np.zeros((num_events,1))
+    skip_count = 0
+    for event_idx in range(len(x_pos_branch)):
+        if(not event % (len(x_pos_branch / 100))):
+            print(f"on event #{event_idx} for current file")
+        event_x_pos = x_pos_branch[event_idx]
+        event_EDep = EDep_branch[event_idx]
+        #for each event, loop over the particles to find mu/pi
+        for hit_idx in range(len(event_x_pos)):
+            current_x_pos = event_x_pos[hit_idx]
+            current_EDep = event_EDep[hit_idx]
+            layer_hit = get_layer(current_x_pos,super_layer_map)
+            if(layer_hit == -1):
+                skip_count += 1
+                continue
+            EDep_per_layer[event_idx][layer_hit] += current_EDep
+            hits_per_layer[event_idx][layer_hit] += 1
+        label[event_idx][0] = part_dict[PDG_branch[event_idx][0]]
+    return torch.cat((torch.tensor(hits_per_layer),torch.tensor(EDep_per_layer),torch.tensor(label)),1)
+
+#Classifier network from NF project - works for doubles
+class Classifier(nn.Module):
+    """
+    Classifier for normalized tensors
+    """
+    def __init__(self, input_size=56, num_classes=2, hidden_dim = 256, num_layers = 5):
+        super(Classifier, self).__init__()
+        self.layer = nn.Sequential()
+        for i in range(num_layers):
+            if(i == 0):
+                self.layer.append(
+                nn.Linear(input_size, hidden_dim)
+                )
+                self.layer.append(
+                    nn.ReLU(inplace=True)
+                )
+            elif(i == num_layers - 1):
+                self.layer.append(
+                nn.Linear(hidden_dim, num_classes)
+                )
+            else:
+                self.layer.append(
+                    nn.Linear(hidden_dim, hidden_dim)
+                )
+                self.layer.append(
+                    nn.ReLU(inplace=True)
+                )
+        self.name = "Classifier"
+        self.double()
+        
+    def forward(self, h):
+        c = self.layer(h)
+        return c
+    
+    # @property
+    def name(self):
+        """
+        Name of model.
+        """
+        return self.name
