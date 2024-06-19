@@ -26,7 +26,18 @@ import time
 from scipy.stats import norm
 
 #ML
+import torch
 import torch.nn as nn
+
+from tqdm import tqdm
+
+#roc-curve calculations
+from sklearn.metrics import roc_auc_score, roc_curve
+
+# Fetching the device that will be used throughout this notebook
+device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda:0")
+print("Using device", device)
+
 '''
 VARIABLES AND FILES
 '''
@@ -144,6 +155,16 @@ theta_max = 113
 phi_min = -22
 phi_max = 22
 
+def p_func(x,y,z):
+    return np.sqrt((x ** 2) + (y ** 2) + (z ** 2))
+def calculate_num_pixels(energy_dep):
+    efficiency = 0.005
+    return 10 * energy_dep * (1000 * 1000) * efficiency
+
+part_dict = {
+    -211 : 1,
+    13 : 0
+}
 '''
 Loops
 '''
@@ -188,6 +209,7 @@ for i in range(len(theta_bins) - 1):
     phi_bin_centers[i] = (phi_bins[i] + phi_bins[i+1]) / 2
 
 #Find the bin from the value - works only for evenly spaced bins
+# bins is the bin edges
 def findBin(val,bins):
     diff = bins[1] - bins[0]
     rel_dist = val - bins[0]
@@ -262,6 +284,8 @@ def plot_percent(phi_bin_centers,theta_bin_centers,phi_percent,theta_percent, ou
     ax2.set_xlabel("theta (deg)")
     fig.show()
     fig.savefig(output_path)
+    
+
     
 '''
 Energy deposited
@@ -434,13 +458,78 @@ def create_data(uproot_path):
             hits_per_layer[event_idx][layer_hit] += 1
         label[event_idx][0] = part_dict[PDG_branch[event_idx][0]]
     return torch.cat((torch.tensor(hits_per_layer),torch.tensor(EDep_per_layer),torch.tensor(label)),1)
+def create_data_depth(uproot_path, file_num = 0, particle = "pion"):
+    events = up.open(uproot_path)
+
+    x_pos_branch = events["HcalBarrelHits/HcalBarrelHits.position.x"].array(library='np')
+    EDep_branch = events["HcalBarrelHits.EDep"].array(library='np')
+    Hits_MC_idx_branch = events["_HcalBarrelHits_MCParticle.index"].array(library='np')
+    PDG_branch = events["MCParticles.PDG"].array(library='np')
+
+    x_momentum_branch = events["MCParticles.momentum.x"].array(library='np')
+    y_momentum_branch = events["MCParticles.momentum.y"].array(library='np')
+    z_momentum_branch = events["MCParticles.momentum.z"].array(library='np')
+    num_events = len(x_pos_branch)
+    num_features = 56
+    num_layers = 28
+
+    hits_per_layer = np.zeros((num_events,28))
+    EDep_per_layer = np.zeros((num_events,28))
+    pixels_per_layer = np.zeros((num_events,28))
+    label = np.zeros((num_events,1))
+    layers_traversed = np.zeros((num_events,1))
+    primary_momentum = np.zeros((num_events,1))
+    primary_theta = np.zeros((num_events,1))
+    primary_phi = np.zeros((num_events,1))
+    skip_count = 0
+    for event_idx in range(len(x_pos_branch)):
+        if(not event_idx % (len(x_pos_branch) // 10)):
+            clear_output(wait = True)
+            print(f"on event #{event_idx} for file #{file_num} for {particle}")
+        event_x_pos = x_pos_branch[event_idx]
+        event_EDep = EDep_branch[event_idx]
+        
+        current_px = x_momentum_branch[event_idx][0]
+        current_py = y_momentum_branch[event_idx][0]
+        current_pz = z_momentum_branch[event_idx][0]
+        current_theta = theta_func(current_px,current_py,current_pz)
+        current_phi = phi_func(current_px,current_py,current_pz)
+
+        primary_momentum[event_idx][0] = p_func(current_px,current_py,current_pz)
+        primary_theta[event_idx][0] = theta_func(current_px,current_py,current_pz)
+        primary_phi[event_idx][0] = phi_func(current_px,current_py,current_pz)
+        #for each event, loop over the particles to find mu/pi
+        hit_layers = np.zeros(28)
+        for hit_idx in range(len(event_x_pos)):
+            current_x_pos = event_x_pos[hit_idx]
+            current_EDep = event_EDep[hit_idx]
+
+            layer_hit = get_layer(current_x_pos,super_layer_map)
+            if(layer_hit == -1):
+                skip_count += 1
+                continue
+            hit_layers[layer_hit] += 1
+            EDep_per_layer[event_idx][layer_hit] += current_EDep
+            hits_per_layer[event_idx][layer_hit] += 1
+        for i in range(28):
+            pixels_per_layer[event_idx][i] = calculate_num_pixels(EDep_per_layer[event_idx][i])
+        for i in range(29):
+            if(i == 28):
+                layers_traversed[event_idx][0] = 28
+                break
+            curr_pixels = calculate_num_pixels(EDep_per_layer[event_idx][i])
+            if(curr_pixels < 2):
+                layers_traversed[event_idx][0] = i
+                break
+        label[event_idx][0] = part_dict[PDG_branch[event_idx][0]]
+    return torch.cat((torch.tensor(pixels_per_layer),torch.tensor(primary_momentum),torch.tensor(primary_theta),torch.tensor(primary_phi),torch.tensor(layers_traversed),torch.tensor(label)),1)
 
 #Classifier network from NF project - works for doubles
 class Classifier(nn.Module):
     """
     Classifier for normalized tensors
     """
-    def __init__(self, input_size=56, num_classes=2, hidden_dim = 256, num_layers = 5):
+    def __init__(self, input_size=28, num_classes=2, hidden_dim = 512, num_layers = 10):
         super(Classifier, self).__init__()
         self.layer = nn.Sequential()
         for i in range(num_layers):
@@ -449,7 +538,7 @@ class Classifier(nn.Module):
                 nn.Linear(input_size, hidden_dim)
                 )
                 self.layer.append(
-                    nn.ReLU(inplace=True)
+                    nn.LeakyReLU(inplace=True)
                 )
             elif(i == num_layers - 1):
                 self.layer.append(
@@ -460,7 +549,7 @@ class Classifier(nn.Module):
                     nn.Linear(hidden_dim, hidden_dim)
                 )
                 self.layer.append(
-                    nn.ReLU(inplace=True)
+                    nn.LeakyReLU(inplace=True)
                 )
         self.name = "Classifier"
         self.double()
@@ -475,3 +564,106 @@ class Classifier(nn.Module):
         Name of model.
         """
         return self.name
+    
+def train(classifier, train_data,optimizer, num_epochs = 18, batch_size = 100, show_progress = True):
+    criterion = nn.CrossEntropyLoss()
+    classifier.train()
+    num_it = train_data.shape[0] // batch_size
+
+    show_progress = True
+    loss_hist = []
+    curr_losses = []
+    for i in range(num_epochs):
+        clear_output(wait=True)
+        print(f"Training epoch #{i}")
+        epoch_hist = np.array([])
+        val_epoch_hist = np.array([])
+        with tqdm(total=num_it, position=0, leave=True) as pbar:
+            for it in range(num_it):
+                optimizer.zero_grad()
+                #randomly sample the latent space
+                begin = it * batch_size
+                end = (it + 1) * batch_size
+                it_data = train_data[begin:end]
+                samples = it_data[:,:28]
+                labels = it_data[:,28]#.unsqueeze(1)
+    #             print(labels)
+                samples = samples.to(device)
+                labels = (labels.type(torch.LongTensor)).to(device)
+                # forward + backward + optimize
+                outputs = classifier(samples)
+    #             print(outputs)
+                loss = criterion(outputs, labels)
+                # Do backprop and optimizer step
+                if ~(torch.isnan(loss) | torch.isinf(loss)):
+                    loss.backward()
+                    optimizer.step()
+                # Log loss
+                if~(torch.isnan(loss)):
+                    curr_losses.append(loss.to('cpu').data.numpy())
+                    if(not (it % 5)):
+                        loss_hist.append(sum(curr_losses) / len(curr_losses))
+                        curr_losses = []
+                if(show_progress):
+                    pbar.update(1)
+        
+
+    print('Finished Training')
+    return loss_hist
+    
+def test(classifier, test_data, test_batch_size = 10, show_progress = True, return_outputs = False):
+    
+    test_batch_size = 10
+    test_num_it = test_data.shape[0] // test_batch_size
+    classifier.eval()
+
+    outputs = torch.empty(test_data.shape[0],2)    
+    with tqdm(total=test_num_it, position=0, leave=True) as pbar:
+        for it in range(test_num_it):
+            #randomly sample the latent space
+            begin = it * test_batch_size
+            end = (it + 1) * test_batch_size
+            it_data = test_data[begin:end]
+            samples = it_data[:,:28]
+            labels = it_data[:,28]#.unsqueeze(1)
+            samples = samples.to(device)
+            labels = (labels.type(torch.LongTensor)).to(device)
+            # forward + backward + optimize
+            output_batch = classifier(samples)
+            for i in range(test_batch_size):
+                outputs[it*test_batch_size + i] = output_batch[i]
+            if(show_progress):
+                pbar.update(1)
+    test_Y     = test_data[:,28].clone().detach().float().view(-1, 1).to("cpu")
+    probs_Y = torch.softmax(outputs, 1)
+    argmax_Y = torch.max(probs_Y, 1)[1].view(-1,1)
+    test_acc = (test_Y == argmax_Y.float()).sum().item() / len(test_Y)
+    print(f"Accuracy: {test_acc * 100}")  
+    if(return_outputs):
+        return test_Y,probs_Y
+    else:
+        return
+def plot_roc_curve(test_Y, probs_Y):
+    verbose = True
+    # Get ROC curve
+    pfn_fp, pfn_tp, threshs = roc_curve(test_Y, probs_Y[:,1].detach().numpy())
+
+    auc = roc_auc_score(np.squeeze(test_Y), probs_Y[:,1].detach().numpy())
+    print(f'AUC = {auc:.4f}')
+    f = plot.figure()
+
+    plot.plot(pfn_tp, 1-pfn_fp, '-', color='black')
+
+    # axes labels
+    plot.xlabel('True positive efficiency')
+    plot.ylabel('False positive Rejection')
+
+    # axes limits
+    plot.xlim(0, 1)
+    plot.ylim(0, 1)
+
+    f.show()
+    
+'''
+mu, pi histograms
+'''
