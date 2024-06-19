@@ -18,7 +18,7 @@ touch $runJobs
 chmod +x $runJobs
 echo " " > $runJobs
 echo $daydir
-i=10
+i=0
 
 if [ ! -d "$daydir" ]; then
   mkdir -p "$daydir"
@@ -36,15 +36,15 @@ if [ ! -d "$error_folder" ]; then
   mkdir -p "$error_folder"
 fi
 
-for num in $(seq 10 30)
+for num in $(seq 0 10)
 do
     file="${workdir}/slurm/shells/${rootname}${i}.sh"
     touch $file
     content="#!/bin/bash\n" 
     content+="#SBATCH --chdir=/cwork/rck32/eic/epic_klm\n"
     content+="#SBATCH --job-name=${rootname}${i}\n"
-    content+="#SBATCH --output=${out_folder}/%x_pi.out\n"
-    content+="#SBATCH --error=${error_folder}/%x_pi.err\n"
+    content+="#SBATCH --output=${out_folder}/%x_mu.out\n"
+    content+="#SBATCH --error=${error_folder}/%x_mu.err\n"
     content+="#SBATCH -p common\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
@@ -53,7 +53,7 @@ do
     content+="echo began job\n"
     content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
     content+="source install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_scint.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 10000 --gun.particle \"pi-\" --outputFile ../work_eic/root_files/June_18/variation_sector_scint_uniform/pi/variation_10kevents_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_scint.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 10000 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/June_18/variation_sector_scint_uniform/mu/variation_10kevents_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells/${rootname}${i}.sh" >> $runJobs

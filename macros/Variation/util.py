@@ -155,10 +155,24 @@ theta_max = 113
 phi_min = -22
 phi_max = 22
 
+#fit functions
+def exp_curve(x,a,b,c):
+    return a * np.exp(-x * b) + c
+def poly_8d(x,a,b,c,d,e,f,g,h,i):
+    return a * x ** 8 + b * x ** 7 + c * x ** 6 + d * x ** 5 + e * x ** 4 + f * x ** 3 + g * x ** 2 + h * x + i 
+def poly_2d(x,a,b,c):
+    return a * x ** 2 + b * x + c
+def inverse(x,a,b,c):
+    return a  / (x + b) + c
+
 def p_func(x,y,z):
     return np.sqrt((x ** 2) + (y ** 2) + (z ** 2))
 def calculate_num_pixels(energy_dep):
     efficiency = 0.005
+    return 10 * energy_dep * (1000 * 1000) * efficiency
+
+def calculate_num_pixels_z_dependence(energy_dep, z_hit):
+    efficiency = inverse(770 - z_hit,494.98,9.9733,-0.16796)
     return 10 * energy_dep * (1000 * 1000) * efficiency
 
 part_dict = {
@@ -397,15 +411,7 @@ def energy_dep_hit(x_pos_branch,EDep_branch,Hits_MC_idx_branch,gen_status_branch
 fitting
 '''
 
-#fit functions
-def exp_curve(x,a,b,c):
-    return a * np.exp(-x * b) + c
-def poly_8d(x,a,b,c,d,e,f,g,h,i):
-    return a * x ** 8 + b * x ** 7 + c * x ** 6 + d * x ** 5 + e * x ** 4 + f * x ** 3 + g * x ** 2 + h * x + i 
-def poly_2d(x,a,b,c):
-    return a * x ** 2 + b * x + c
-def inverse(x,a,b,c):
-    return a  / (x + b) + c
+
 
 #process
 def fit_to_angle(xdata, ydata, function):
@@ -462,6 +468,7 @@ def create_data_depth(uproot_path, file_num = 0, particle = "pion"):
     events = up.open(uproot_path)
 
     x_pos_branch = events["HcalBarrelHits/HcalBarrelHits.position.x"].array(library='np')
+    z_pos_branch = events["HcalBarrelHits/HcalBarrelHits.position.z"].array(library='np')
     EDep_branch = events["HcalBarrelHits.EDep"].array(library='np')
     Hits_MC_idx_branch = events["_HcalBarrelHits_MCParticle.index"].array(library='np')
     PDG_branch = events["MCParticles.PDG"].array(library='np')
@@ -503,6 +510,7 @@ def create_data_depth(uproot_path, file_num = 0, particle = "pion"):
         for hit_idx in range(len(event_x_pos)):
             current_x_pos = event_x_pos[hit_idx]
             current_EDep = event_EDep[hit_idx]
+            current_z_pos = z_pos_branch[event_idx][hit_idx]
 
             layer_hit = get_layer(current_x_pos,super_layer_map)
             if(layer_hit == -1):
@@ -511,8 +519,7 @@ def create_data_depth(uproot_path, file_num = 0, particle = "pion"):
             hit_layers[layer_hit] += 1
             EDep_per_layer[event_idx][layer_hit] += current_EDep
             hits_per_layer[event_idx][layer_hit] += 1
-        for i in range(28):
-            pixels_per_layer[event_idx][i] = calculate_num_pixels(EDep_per_layer[event_idx][i])
+            pixels_per_layer[event_idx][layer_hit] += calculate_num_pixels(current_EDep,current_z_pos)
         for i in range(29):
             if(i == 28):
                 layers_traversed[event_idx][0] = 28
