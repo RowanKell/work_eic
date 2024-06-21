@@ -106,3 +106,48 @@ layer_map = [1830.8000, 1841.4000, 1907.5, 1918.1,1984.1999, 1994.8000, 2060.899
    1. We can get timing from # of photons and position probably
    2. Need to know the barrel length and if we will have 2 separate sensors on each side or not - this will affect the distribution
       1. if we have two separate sensors, and cannot actually build a geometry with two, we should just be able to split the sensor in half and act like the sensor is on the closer half? so take x distance to sensor to be the lower of the two distances to the two sensors
+
+# Tuesday June 18
+
+1. Maybe try a basic classification network?
+   1. Need one_sector geometry
+   2. run 10k events for both mu and pi?
+   3. vary the angle and energy
+
+### Meeting
+
+Pre-notes
+
+1. Goal: take hcalbarrelhit on scintillator and get all information from that
+   1. In particular use the position, angle of incidence, and energy
+2. Need to know how to relate these variables to actual detector output
+   1. Easy to count number of photons generated - 10 per KeV deposited
+   2. Harder to count number of photons that reach detector - seems to be a function of the position it hits the bar (the further the lower the percentage) - find empirically
+   3. angles can also factor into this as the predict position, so they share the same dependence
+3. Timing
+   1. We can get timing from # of photons and position probably
+   2. Need to know the barrel length and if we will have 2 separate sensors on each side or not - this will affect the distribution
+      1. if we have two separate sensors, and cannot actually build a geometry with two, we should just be able to split the sensor in half and act like the sensor is on the closer half? so take x distance to sensor to be the lower of the two distances to the two sensors
+4. Classification - what methods?b 
+   1. Can try a NN - basic linear + ReLU activation, trying right now with 300,000 events each for mu pi
+      1. input:
+      2. for each layer, # of hits and total energy deposited - 56 total features
+      3. 2 classes - pion or muon
+      4. 10 hidden layers, h_dim = 256, output dim = 2
+   2. First preliminary result - 93.15% accuracy?
+
+
+
+##### In meeting notes
+
+1. optimization - optimize pion muon separation, maybe cost / size of detector
+2. Start Ian with basic separation
+   1. Use hcalbarrelhits edep and x pos to find energy dep per layer, convert to # of photons and then convert to # of pixels
+   2. Use 2 pixel threshold to count # of layers traversed
+   3. Cut on # of layers traversed to separate pions and muons
+
+
+
+Note
+
+1. We have momentum info from tracker
