@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/variation_pos.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 100 --gun.particle "mu-" --outputFile root_files/June_24/variation_pos/mu_5GeV_100events_test_400.edm4hep.root --macroFile ddsim_shells/myvis.mac --part.userParticleHandler="" --gun.position "(0.0, 0.0, -400.0)" --gun.thetaMin "102.73" --gun.thetaMax "102.73"

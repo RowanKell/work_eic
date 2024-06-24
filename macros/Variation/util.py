@@ -573,6 +573,8 @@ class Classifier(nn.Module):
         return self.name
     
 def train(classifier, train_data,optimizer, num_epochs = 18, batch_size = 100, show_progress = True):
+    max_index = train_data.shape[1] - 1
+    
     criterion = nn.CrossEntropyLoss()
     classifier.train()
     num_it = train_data.shape[0] // batch_size
@@ -592,8 +594,8 @@ def train(classifier, train_data,optimizer, num_epochs = 18, batch_size = 100, s
                 begin = it * batch_size
                 end = (it + 1) * batch_size
                 it_data = train_data[begin:end]
-                samples = it_data[:,:28]
-                labels = it_data[:,28]#.unsqueeze(1)
+                samples = it_data[:,:max_index]
+                labels = it_data[:,max_index]#.unsqueeze(1)
     #             print(labels)
                 samples = samples.to(device)
                 labels = (labels.type(torch.LongTensor)).to(device)
@@ -619,6 +621,7 @@ def train(classifier, train_data,optimizer, num_epochs = 18, batch_size = 100, s
     return loss_hist
     
 def test(classifier, test_data, test_batch_size = 10, show_progress = True, return_outputs = False):
+    max_index = test_data.shape[1] - 1
     
     test_batch_size = 10
     test_num_it = test_data.shape[0] // test_batch_size
@@ -631,8 +634,8 @@ def test(classifier, test_data, test_batch_size = 10, show_progress = True, retu
             begin = it * test_batch_size
             end = (it + 1) * test_batch_size
             it_data = test_data[begin:end]
-            samples = it_data[:,:28]
-            labels = it_data[:,28]#.unsqueeze(1)
+            samples = it_data[:,:max_index]
+            labels = it_data[:,max_index]#.unsqueeze(1)
             samples = samples.to(device)
             labels = (labels.type(torch.LongTensor)).to(device)
             # forward + backward + optimize
@@ -641,7 +644,7 @@ def test(classifier, test_data, test_batch_size = 10, show_progress = True, retu
                 outputs[it*test_batch_size + i] = output_batch[i]
             if(show_progress):
                 pbar.update(1)
-    test_Y     = test_data[:,28].clone().detach().float().view(-1, 1).to("cpu")
+    test_Y     = test_data[:,max_index].clone().detach().float().view(-1, 1).to("cpu")
     probs_Y = torch.softmax(outputs, 1)
     argmax_Y = torch.max(probs_Y, 1)[1].view(-1,1)
     test_acc = (test_Y == argmax_Y.float()).sum().item() / len(test_Y)

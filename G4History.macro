@@ -1,0 +1,5 @@
+/run/verbose 2
+/vis/scene/create
+/vis/open OGLSX 1200x900-0+0
+/vis/sceneHandler/create OGLSX
+/run/beamOn 1
