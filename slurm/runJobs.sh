@@ -10,3 +10,13 @@ sbatch shells/file_7.sh
 sbatch shells/file_8.sh
 sbatch shells/file_9.sh
 sbatch shells/file_10.sh
+sbatch shells/file_11.sh
+sbatch shells/file_12.sh
+sbatch shells/file_13.sh
+sbatch shells/file_14.sh
+sbatch shells/file_15.sh
+sbatch shells/file_16.sh
+sbatch shells/file_17.sh
+sbatch shells/file_18.sh
+sbatch shells/file_19.sh
+sbatch shells/file_20.sh

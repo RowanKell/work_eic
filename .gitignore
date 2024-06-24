@@ -7,3 +7,4 @@ error/
 *.err
 *.out
 shells/
+G4History.macro
