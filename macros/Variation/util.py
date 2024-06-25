@@ -49,7 +49,7 @@ color_dict = {
     "pi" : "red",
     "mu" : "blue"
 }
-
+'''
 #general uproot path
 uproot_path = f"/cwork/rck32/eic/work_eic/root_files/June_13/variation/full_{particle}_{energy}GeV_10k.edm4hep.root:events"
 events = up.open(uproot_path)
@@ -67,7 +67,7 @@ MC_px = events["MCParticles.momentum.x"].array(library='np')
 MC_py = events["MCParticles.momentum.y"].array(library='np')
 MC_pz = events["MCParticles.momentum.z"].array(library='np')
 MC_m = events["MCParticles.mass"].array(library='np')
-
+'''
 '''
 LAYER CODE
 '''

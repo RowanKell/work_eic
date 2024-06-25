@@ -69,7 +69,7 @@ do
     content+="echo began job\n"
     content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
     content+="source install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 10 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/June_24/variation_pos/mu/test_${i}.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta}\" --gun.thetaMax \"${theta}\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 2000 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/June_24/variation_pos/mu/varied_theta_same_pos_${i}.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta}\" --gun.thetaMax \"${theta}\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells/${rootname}${i}.sh" >> $runJobs
