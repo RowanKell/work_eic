@@ -198,3 +198,72 @@ Other idea
 
 1. Idea: shoot from diff x positions where the time it takes for the mu to travel to the scintillator is measurable so we can make sure emission time is shifted according to this distance
    1. If we move the particle gun back, the emission time should be shifted x / v nanoseconds
+2. Currently investigating with 0.1 GeV muon gun to see if there is any dependence on gun x position
+
+![image-20240627121347119](/home/rowan/.config/Typora/typora-user-images/image-20240627121347119.png)
+
+From this we can clearly see that the emission time (means) are linear to the x_pos. Thus, we must parameterize the emission time by taking a distribution of the emission times and shifting it based on the hit time
+
+##### Current parameterization overview
+
+Overview
+
+1. Main aspects
+   1.  \# of photons
+      1. Calculated using $\frac{1}{x}$​​ where x is the z position of hit
+         1. Variation_percent.ipynb
+      2. Take fraction of photons that reach sensor based on hit position
+   2. Timing
+      1. Draw from distribution of emission times
+         1. x_pos.ipynb
+      2. Draw from distribution of travel times
+         1. Variation_time.ipynb
+      3. Use one bar simulation to get these distributions
+         1. Only use photons that reach sensor
+         2. Emission time after hit has distribution, time between gun and hit can be calculated using energy and distance
+   3. Together, should give us timing for every pixel, and we can use this to calculate the pulse shape of the SiPM output.
+
+# AID2E
+
+1. Objectives
+   1. FOM
+      1. Use AUC of roc_curve as metric
+   2. 4 or 5 maximum, 3 would be better
+2. Parameters
+   1. Overall iron 
+   2. Overall scintillator
+   3. number of layers
+   4. Barrel Length? need to somehow offset this
+   5. Inner + outer radius
+      1. outer radius as objective - made it as small as possible
+3. May want to divide up by different momentum ranges
+   1. 2 momentum ranges
+   2. 0.5-3 and 3-10
+4. Change # layers and ratio of iron to scintillator
+5. Variable iron thickness?
+6. Once we have shower shape we can do more
+
+
+
+Framework code
+
+1. Botorch tutorials are useful
+2. parameters.config
+   1. JSON for defining each parameter in xml that can be edited
+   2. min, max, nominal values, units
+   3. Need reasonable values for # of layers (easy) and ratio of iron to scint
+3. wrapper.py
+   1. loads botorch (bayesian optimization) and axe (experiment management) libraries
+   2. Only needs small edits
+   3. Suggests a design point
+   4. edits xml, creates new geometry
+4. runTestsAndObjectiveCalc.py (maybe)
+   1. Run simulation jobs
+      1. Run 2 jobs per design point (one per momentum range)
+   2. Calculates objectives
+
+Plan
+
+1. setting up parameters.config
+2. Manually run stuff
+3. set lowerbound on objective as 10% lower than expected lower
