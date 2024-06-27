@@ -1,6 +1,22 @@
-
-sbatch shells/file_16.sh
-sbatch shells/file_17.sh
-sbatch shells/file_18.sh
-sbatch shells/file_19.sh
-sbatch shells/file_20.sh
+ 
+sbatch shells/x_pos_vary_file_0.sh
+sbatch shells/x_pos_vary_file_1.sh
+sbatch shells/x_pos_vary_file_2.sh
+sbatch shells/x_pos_vary_file_3.sh
+sbatch shells/x_pos_vary_file_4.sh
+sbatch shells/x_pos_vary_file_5.sh
+sbatch shells/x_pos_vary_file_6.sh
+sbatch shells/x_pos_vary_file_7.sh
+sbatch shells/x_pos_vary_file_8.sh
+sbatch shells/x_pos_vary_file_9.sh
+sbatch shells/x_pos_vary_file_10.sh
+sbatch shells/x_pos_vary_file_11.sh
+sbatch shells/x_pos_vary_file_12.sh
+sbatch shells/x_pos_vary_file_13.sh
+sbatch shells/x_pos_vary_file_14.sh
+sbatch shells/x_pos_vary_file_15.sh
+sbatch shells/x_pos_vary_file_16.sh
+sbatch shells/x_pos_vary_file_17.sh
+sbatch shells/x_pos_vary_file_18.sh
+sbatch shells/x_pos_vary_file_19.sh
+sbatch shells/x_pos_vary_file_20.sh
