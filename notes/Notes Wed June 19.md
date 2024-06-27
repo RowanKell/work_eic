@@ -159,3 +159,42 @@ EIC sim
 ![](/home/rowan/Downloads/travel_time_num_photons_10k_20_bins.jpeg)
 
 1. Need to run simulation where we get different angles / diff energy deposit and diff # of photons without the # photons being correlated with the position (and hence the travel time)
+
+## New sim: same hit position with different angles / energy deposits
+
+1. Needed some data where the travel distance of the photons is constant (to not affect timing) but the energy deposit (and hence # of photons) is varied. By just changing theta we change the hit position too, so we need to adjust the gun position such that we always hit the same position (like a focal point). Data is running as of 6/24 5pm, needs to be analyzed tomorrow
+   1. Should make similar plots to the ones before, this time with # of optical photons or energy dep or theta angle as the x axis (and binning) and the travel time on the y axis
+
+# June 25
+
+1. Ran the simulations and now have plots for those
+   1. Seems like theres a correlation with angle but this seems to just be related to the position of the hit, not the energy dep/# of photons as the range of deviation is so small
+   2. Likely what happened (and this seems to be true) is that the angles + gun positions line up the entry point of the particle, but the track goes through different points, so the average z value across all hits is directly proportional to the angle, hence we see a linear slope
+
+# June 26
+
+1. Investigating second peak
+   1. Maybe from photons produced by secondaries? Now cutting out photons produced by secondaries
+   2. Appears that cutting out secondaries fixes the issue, we now get a pretty clean distribution
+
+## Normalizing flows to model the timing pdf
+
+1. Can use regular normalizing flow and bin by position
+2. Can try conditional flow where the conditional variable is the position
+
+First test
+
+1. Normalizing flow with 1 feature, travel time
+
+Other idea
+
+1. Use one travel time distribution from middle of bar, then add or subtract time as a function of the z position
+
+### Emission time
+
+1. Travel time is needed, but emission time is also needed if photons are emitted at different times from the hit time of the charged track 
+
+##### Need to calculate
+
+1. Idea: shoot from diff x positions where the time it takes for the mu to travel to the scintillator is measurable so we can make sure emission time is shifted according to this distance
+   1. If we move the particle gun back, the emission time should be shifted x / v nanoseconds
