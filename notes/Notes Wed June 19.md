@@ -223,47 +223,45 @@ Overview
          2. Emission time after hit has distribution, time between gun and hit can be calculated using energy and distance
    3. Together, should give us timing for every pixel, and we can use this to calculate the pulse shape of the SiPM output.
 
-# AID2E
+# June 28
 
-1. Objectives
-   1. FOM
-      1. Use AUC of roc_curve as metric
-   2. 4 or 5 maximum, 3 would be better
-2. Parameters
-   1. Overall iron 
-   2. Overall scintillator
-   3. number of layers
-   4. Barrel Length? need to somehow offset this
-   5. Inner + outer radius
-      1. outer radius as objective - made it as small as possible
-3. May want to divide up by different momentum ranges
-   1. 2 momentum ranges
-   2. 0.5-3 and 3-10
-4. Change # layers and ratio of iron to scintillator
-5. Variable iron thickness?
-6. Once we have shower shape we can do more
+## Timing Parameterization
 
+##### Emission times
 
+1. Data preparation
+   1. Need to shift distribution to have lower limit of 0, maybe just shoot from 0.1 mm away
+      1. Seems that the first optical photons are generated at 1770.3, so maybe shoot at 1770.29
+   2. Model distribution with normalizing flow (one dimension/feature)
 
-Framework code
+##### Travel Times
 
-1. Botorch tutorials are useful
-2. parameters.config
-   1. JSON for defining each parameter in xml that can be edited
-   2. min, max, nominal values, units
-   3. Need reasonable values for # of layers (easy) and ratio of iron to scint
-3. wrapper.py
-   1. loads botorch (bayesian optimization) and axe (experiment management) libraries
-   2. Only needs small edits
-   3. Suggests a design point
-   4. edits xml, creates new geometry
-4. runTestsAndObjectiveCalc.py (maybe)
-   1. Run simulation jobs
-      1. Run 2 jobs per design point (one per momentum range)
-   2. Calculates objectives
+1. Data preparation
+   1. Need to run simulations on a range of theta and positions (try to run multiple batches at diff positions then vary theta for each position to avoid correlation)
+2. model
+   1. Conditional nf, 2d gaussian
+   2. Train with 2 features, z  position and travel time (time between emission and arrival time)
 
-Plan
+## NEED TO CHECK
 
-1. setting up parameters.config
-2. Manually run stuff
-3. set lowerbound on objective as 10% lower than expected lower
+1. Need to check the hit time of the muon when scint. is sensitive vs the beginning of the emission distribution
+   1. If these have same value, start emission distribution at the hit time
+   2. If the emission dist. is shifted, need to account for this somehow in parameterization
+   3. My thought is that the hit might be in the center of the scint material, so it is unclear if the time is when it hits the center, at the beginning, the end, etc. So we can check by shooting from same place and comparing optph emission and mu hit time across many diff events even if we can't check event by event
+
+##### Don't need two sep runs, can just use the run with scint sensitive
+
+1. If scint sensitive, we know the muon hit time and the optph emission time, so long as we simulate optph
+   1. We can use this info to get a distribution for the emission time as a function of the mu hit time
+
+## Mu track time and position
+
+Each muon produces about 7 hits per mm, so in 10 mm we get 70 (sometimes 71 or 72) hits, and the time and position is exactly what you expect:
+
+![image-20240628155335827](/home/rowan/.config/Typora/typora-user-images/image-20240628155335827.png)
+
+This plot shows the average track hit time and x position for the 0th, 1st, etc mu track hit
+
+Below we can see that the photon emission time is delayed compared to the track time hit, and the hit position doesn't correlate with the emission time:
+
+![image-20240628161324306](/home/rowan/.config/Typora/typora-user-images/image-20240628161324306.png)

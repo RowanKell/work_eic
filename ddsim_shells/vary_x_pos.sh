@@ -1,1 +1,1 @@
-ddsim --steeringFile ../work_eic/steering/variation_pos.py --compactFile ../epic_klm/epic_klmws_only.xml -G -N 500 --gun.particle "mu-" --outputFile root_files/June_26/variation_x_pos/mu_run_2/varied_x_7.edm4hep.root --part.userParticleHandler="" --gun.position "(1720, 0.0, 0.0)"
+ddsim --steeringFile ../work_eic/steering/variation_pos.py --compactFile ../epic_klm/epic_klmws_only.xml -G -N 1 --gun.particle "mu-" --outputFile root_files/June_26/test.edm4hep.root --part.userParticleHandler="" --gun.position "(1720, 0.0, 0.0)"

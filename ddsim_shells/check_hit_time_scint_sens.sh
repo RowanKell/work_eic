@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/sector.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 2000 --gun.particle "mu-" --outputFile root_files/June_26/check_hit_time_scint_sens/mu/5GeV_2k_1720_w_optph.edm4hep.root --macroFile ddsim_shells/myvis.mac --part.userParticleHandler="" --gun.position "(1720, 0.0, 0.0)"
