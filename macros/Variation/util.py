@@ -139,12 +139,14 @@ class PVect:
         self.phi = 0
         self.E = 0
         self.M = 0
+        self.P = 0
     def setVector(self,px,py,pz,m):
         self.px = px
         self.py = py
         self.pz = pz
         self.M = m
         self.E = Efunc(px,py,pz,m)
+        self.P = r_func(self.px,self.py,self.pz)
         self.theta = theta_func(px,py,pz)
         self.phi = phi_func(px,py,pz)
 def r_func(x,y,z):
