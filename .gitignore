@@ -8,3 +8,4 @@ error/
 *.out
 shells/
 G4History.macro
+slurm/shells_full_theta_vary/
