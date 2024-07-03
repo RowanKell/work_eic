@@ -1,0 +1,22 @@
+ 
+sbatch shells_parallel/preproccess_data_parallel_0.sh
+sbatch shells_parallel/preproccess_data_parallel_1.sh
+sbatch shells_parallel/preproccess_data_parallel_2.sh
+sbatch shells_parallel/preproccess_data_parallel_3.sh
+sbatch shells_parallel/preproccess_data_parallel_4.sh
+sbatch shells_parallel/preproccess_data_parallel_5.sh
+sbatch shells_parallel/preproccess_data_parallel_6.sh
+sbatch shells_parallel/preproccess_data_parallel_7.sh
+sbatch shells_parallel/preproccess_data_parallel_8.sh
+sbatch shells_parallel/preproccess_data_parallel_9.sh
+sbatch shells_parallel/preproccess_data_parallel_10.sh
+sbatch shells_parallel/preproccess_data_parallel_11.sh
+sbatch shells_parallel/preproccess_data_parallel_12.sh
+sbatch shells_parallel/preproccess_data_parallel_13.sh
+sbatch shells_parallel/preproccess_data_parallel_14.sh
+sbatch shells_parallel/preproccess_data_parallel_15.sh
+sbatch shells_parallel/preproccess_data_parallel_16.sh
+sbatch shells_parallel/preproccess_data_parallel_17.sh
+sbatch shells_parallel/preproccess_data_parallel_18.sh
+sbatch shells_parallel/preproccess_data_parallel_19.sh
+sbatch shells_parallel/preproccess_data_parallel_20.sh
