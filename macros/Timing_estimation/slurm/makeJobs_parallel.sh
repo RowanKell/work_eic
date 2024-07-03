@@ -13,7 +13,7 @@ error_folder="/cwork/rck32/eic/work_eic/macros/Timing_estimation/slurm/error/err
 
 infiledir="/cwork/rck32/eic/work_eic/root_files/July_1/slurm/mu_vary_z_theta_no_save_all/"
 
-rootname="preproccess_data_parallel"
+rootname="preproccess_data_parallel_cuts"
 processdir="/cwork/rck32/eic/work_eic/macros/Timing_estimation/"
 runJobs="${workdir}/slurm/runJobs.sh"
 touch $runJobs
@@ -51,10 +51,9 @@ do
     content+="#SBATCH --cpus-per-task=1\n"
     content+="#SBATCH --mem=8G\n"
     content+="#SBATCH --mail-user=rck32@duke.edu\n"
-    content+="#SBATCH --mail-type=END\n"
     content+="echo began job\n"
     content+="source /cwork/rck32/ML_venv/bin/activate\n"
-    content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess.py --outfile ${outputdir}Full_2000events_file_${num}.pt --parallel 1 --file_num ${num}\n"
+    content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess.py --outfile ${outputdir}Full_4000events_file_${num}_w_cuts.pt --parallel 1 --file_num ${num}\n"
     echo -e "$content" > $file 
     echo "sbatch shells_parallel/${rootname}_${num}.sh" >> $runJobs
 #     bash "./runJobs.sh"

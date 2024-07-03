@@ -26,7 +26,7 @@ else:
     num_files_process_end = args.file_num + args.num_files
 
 data_save_path = args.outfile
-break_limit = 2000 #max 4000
+break_limit = 4000 #max 4000
 num_files_process = 21 #max 21
 theta_test = False
 
@@ -45,12 +45,16 @@ from util import PVect, theta_func, r_func,z_func,time_func
 from IPython.display import clear_output
 # Get device to be used
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print("finished imports")
 
 
 '''
 Data preprocessing
 '''
-
+err_z = []
+err_theta = []
+err_mu_time = []
+err_P = []
 init = False
 inputs = torch.ones(1,5) if not theta_test else torch.ones(1,4)
 for file_num in range(num_files_process_start,num_files_process_end):
@@ -77,7 +81,6 @@ for file_num in range(num_files_process_start,num_files_process_end):
         daughter_begin_branch = events["MCParticles/MCParticles.daughters_begin"].array(library='np')
         
         for event_idx in range(len(PDG_branch)):
-            os.system("clear")
             print(f"Working on file #{file_num}: {event_idx} events done")
             if(break_limit > 0 and event_idx > break_limit):
                 break
@@ -92,6 +95,23 @@ for file_num in range(num_files_process_start,num_files_process_end):
             vertex_z = z_pos_branch[event_idx][0]
             mu_incident_time = time_func(px,m,1770.3 - vertex_x) #for one_segment, bar starts at 1770.3 mm
             hit_z = z_func(vertex_z, theta)
+            
+            '''
+            cuts to avoid wacky data
+            '''
+            if (hit_z > 770 or hit_z < -735):#should be between -732->767
+                err_z.append(hit_z)
+                continue
+            if(theta > 180 or theta < 0): #should be between 0 180
+                err_theta.append(theta)
+                continue
+            if(mu_incident_time < 0): #only positive times...
+                err_mu_time.append(mu_incident_time)
+                continue
+            if(P < 0.1 or P > 10): #rn only shooting between 0.1 and 1
+                err_P.append(P)
+                continue
+            
             if(not theta_test):
                 for hit_idx in range(len(hit_z_pos_branch[event_idx])):
                     if(PDG_branch[event_idx][Hits_MC_idx_branch[event_idx][hit_idx]] != -22):
@@ -122,4 +142,18 @@ for file_num in range(num_files_process_start,num_files_process_end):
                 else:
                     inputs = torch.cat((inputs,hit_tensor),0)
 torch.save(inputs,data_save_path)
-        
+print(f"error P values: {len(err_P)}\n")
+for i in range(len(err_P)):
+    print(f"P val #{i}: {err_P[i]}")
+    
+print(f"error z values: {len(err_z)}\n")
+for i in range(len(err_z)):
+    print(f"z val #{i}: {err_z[i]}")
+    
+print(f"error theta values: {len(err_theta)}\n")
+for i in range(len(err_theta)):
+    print(f"theta val #{i}: {err_theta[i]}")
+    
+print(f"error mu_time values: {len(err_mu_time)}\n")
+for i in range(len(err_mu_time)):
+    print(f"mu_time val #{i}: {err_mu_time[i]}")

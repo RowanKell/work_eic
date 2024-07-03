@@ -684,7 +684,7 @@ mu, pi histograms
 Preprocessing data for timing NF
 '''
 def z_func(z_vertex, theta):
-    return z_vertex + 1 * math.tan(math.pi / 2 - theta)
+    return z_vertex + 1 * math.tan(math.pi / 2 - theta * np.pi / 180)
 # return time in ns for GeV/c, GeV/c^2 and mm inputs
 c = 299792458 # 2.998 * 10 ^ 8 m/s
 c_n = 1 #c = 1 in natural units

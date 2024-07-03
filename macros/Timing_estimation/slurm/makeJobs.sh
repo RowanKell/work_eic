@@ -48,10 +48,9 @@ content+="#SBATCH --account=vossenlab\n"
 content+="#SBATCH --cpus-per-task=1\n"
 content+="#SBATCH --mem=8G\n"
 content+="#SBATCH --mail-user=rck32@duke.edu\n"
-content+="#SBATCH --mail-type=END\n"
 content+="echo began job\n"
 content+="source /cwork/rck32/ML_venv/bin/activate\n"
-content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess.py --outfile ${outputdir}Full_21file_2000events.pt\n"
+content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess.py --outfile ${outputdir}Full_21file_200events.pt\n"
 echo -e "$content" > $file 
 echo "sbatch shells/${rootname}.sh" >> $runJobs
 bash "./runJobs.sh"

@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --chdir=/cwork/rck32/eic/epic_klm
 #SBATCH --job-name=file_2
-#SBATCH --output=/cwork/rck32/eic/work_eic/slurm/output/outputJuly_02/%x_mu.out
-#SBATCH --error=/cwork/rck32/eic/work_eic/slurm/error/errorJuly_02/%x_mu.err
+#SBATCH --output=/cwork/rck32/eic/work_eic/slurm/output/outputJuly_03/%x_mu.out
+#SBATCH --error=/cwork/rck32/eic/work_eic/slurm/error/errorJuly_03/%x_mu.err
 #SBATCH -p common
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
@@ -11,6 +11,6 @@
 echo began job
 cat << EOF | /cwork/rck32/eic/eic-shell
 source install/setup.sh
-/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 4000 --gun.particle "mu-" --outputFile ../work_eic/root_files/July_2/slurm/mu_vary_z_theta_no_save_all/5GeV_4000events_2.edm4hep.root --part.userParticleHandler="" --gun.position "(1769.3, 0.0, -582.100000)" --gun.thetaMin "0.00742" --gun.thetaMax "3.07498"
+/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 8000 --gun.particle "mu-" --outputFile ../work_eic/root_files/July_2/slurm/mu_vary_p_z_theta_no_save_all/vary_p_8000events_2.edm4hep.root --part.userParticleHandler="" --gun.position "(1769.3, 0.0, -582.100000)" --gun.thetaMin "0.00742" --gun.thetaMax "3.07498"
 EOF
 
