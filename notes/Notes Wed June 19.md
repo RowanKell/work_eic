@@ -265,3 +265,121 @@ This plot shows the average track hit time and x position for the 0th, 1st, etc 
 Below we can see that the photon emission time is delayed compared to the track time hit, and the hit position doesn't correlate with the emission time:
 
 ![image-20240628161324306](/home/rowan/.config/Typora/typora-user-images/image-20240628161324306.png)
+
+##### End of day note
+
+1. running 10k events at 1769 x gun pos, 5GeV, scint sens and optph on. Can then use this to train NN supposedly
+   1. Now we know that the charged track hits in scint are realistic both in time and position, so we just need to relate the hits to the optical photons produced, maybe just shorted the bar to the minimum for a single hit so that we know that the photons are being generated from the hit; otherwise not sure we can tell which photons come from which hits.
+   2. Then we can see the distribution of photon emission times for a hit (and get a relative emission time spectrum)
+   3. Then we just need to fit the travel time which know photon by photon, so we can just bin by z position of the track hit, and then integrate over everything else
+      1. For the z hit position, need to make sure that we know the z position
+         1. Either shoot directly orthogonal to z axis, or shoot at thin bar with only 1 hit
+
+# Notes July 1st
+
+### Parameterization
+
+big picture: two things to parameterize
+
+1. Emission time 
+2. Travel time
+
+Original idea: use a 2d normalizing flow to learn the travel time, and 1d NF to learn the emission time
+
+1. Travel time:
+   1. 2d flow: first variable is the conditional: z position; second is the travel time
+   2. 
+2. Emission time:
+   1. 1d flow: just flow from gaussian to a distribution of the emission times
+
+Combination idea
+
+1. Combine all into one flow:
+   1. Take the z hit position, and model the pdf of the time between hcalhit and sensor hit
+   2. one feature: time
+   3. one conditional: z hit position
+2. This only works if the hcalbarrelhit time is deterministic
+   1. Seems from a quick look at the data that 99.5% of the hits are at the exact same time
+   2. However, seems like there is no way to tell which optical photons are created by which hits
+      1. May need to use thin bar where there is only 1 hit to parameterize the optical photon generation as a function of the charged track hit time
+
+##### New idea
+
+1. Use the kinematics as our conditionals, go directly to time of arrival of photons on sensor
+2. Conditionals
+   1. hit z position (maybe x and y?)
+   2. hit time
+   3. hit angle (phi and theta or just theta?) start with theta, can investigate phi later
+   4. hit momentum
+3. Features
+   1. photon hit time on sensor
+   2. 
+
+###### New sim run
+
+1. Need range of angles, z hit pos, energies, constant x pos (1760.3)
+2. z pos: 767->-732
+3. theta: based on z pos
+4. Calculate time of hit by using momentum
+   1. velocity = momentum / mass (GeV/c divided by GeV/c^2)
+   2. E = gamma * m
+      1. 
+      2. p = 5 GeV/c
+      3. m = 0.1056 GeV/c^2
+   3. This gives 
+   4. 
+
+Calculating time of travel for a relativistic particle given mass, momentum, and distance traveled:
+
+$P = \gamma * mv = \frac{mv}{\sqrt{1-\frac{v^2}{c^2}}}$
+
+$P/m = \frac{v}{\sqrt{1 - \frac{v^2}{c^2}}} \rightarrow (1 - \frac{v^2}{c^2})*(P/m)^2 = v^2 \rightarrow (P/m)^2 - (P/m)^2 * (\frac{v}{c})^2 = v^2$
+
+$v^2(1 + (\frac{P}{mc})^2) = (P/m)^2 \rightarrow v^2 = \frac{(P/m)^2}{1 + (P/m)^2 * \frac{1}{c^2}}$
+
+$v = (P/m) * \sqrt{\frac{1}{1 + (P/m)^2 * \frac{1}{c^2}}}$
+
+$v = \frac{dx}{dt} \rightarrow dt = \frac{dx}{v}$
+\\
+\\
+example: 5GeV/c momentum, 0.105658 GeV/$c^2$ mass (mu-), 1mm traveled:
+
+$P/m = 47.322 c \rightarrow v = (P/m) * \alpha $ for $\alpha = \sqrt{\frac{1}{1 + (P/m)^2 * \frac{1}{c^2}}} $\\
+convert to m/s, assuming v = 0.2c:
+
+$v = 0.2c = 0.2 * 2.998*10^8 m/s = 5.996*10^7 m/s$\\
+convert to mm/s:
+
+$v = 5.996*10^7 m/s * \frac{1000 mm}{m} = 5.996 * 10^10 mm/s$\\
+convert to mm/ns:
+
+$v = 5.996 * 10^10 mm/s * \frac{1 s}{10^9 ns} = 59.96 mm/ns$\\
+now find dt:
+
+$dt = \frac{1 mm}{59.96 mm/ns} = 0.01668 ns$
+
+# Affinity
+
+## Big picture
+
+Plots for tomorrow
+
+1. Affinity binned by x, z_h, qTQ
+   1. Box affinity original
+   2. Box affinity with new R2?
+   3. Estimation affinity original
+   4. Driver affinity original
+   5. Driver affinity with new R2 (R_2 = qT/Q ^2)
+2. Histograms
+   1. Ratios for driver and box
+   2. Masses
+
+## Affinity plots
+
+1. Options
+   1. Partonic variables
+      1. Driver
+      2. MC
+   2. R2 calculation
+      1. Original
+      2. qT\^2/Q\^2
