@@ -13,7 +13,7 @@ error_folder="/cwork/rck32/eic/work_eic/macros/Timing_estimation/slurm/error/err
 
 infiledir="/cwork/rck32/eic/work_eic/root_files/July_1/slurm/mu_vary_z_theta_no_save_all/"
 
-rootname="preproccess_data_parallel_cuts"
+rootname="july_5_preproccess_data_parallel_50_z_vals"
 processdir="/cwork/rck32/eic/work_eic/macros/Timing_estimation/"
 runJobs="${workdir}/slurm/runJobs.sh"
 touch $runJobs
@@ -37,7 +37,7 @@ fi
 if [ ! -d "$error_folder" ]; then
   mkdir -p "$error_folder"
 fi
-for num in $(seq 0 20)
+for num in $(seq 0 50)
 do
     file="${workdir}/slurm/shells_parallel/${rootname}_${num}.sh"
     touch $file
@@ -49,11 +49,11 @@ do
     content+="#SBATCH -p common\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
-    content+="#SBATCH --mem=8G\n"
+    content+="#SBATCH --mem=16G\n"
     content+="#SBATCH --mail-user=rck32@duke.edu\n"
     content+="echo began job\n"
     content+="source /cwork/rck32/ML_venv/bin/activate\n"
-    content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess.py --outfile ${outputdir}Full_4000events_file_${num}_w_cuts.pt --parallel 1 --file_num ${num}\n"
+    content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess_fast.py --outfile ${outputdir}Vary_p_2000events_file_${num}_July_5_50_z_pos.pt --parallel 1 --file_num ${num}\n"
     echo -e "$content" > $file 
     echo "sbatch shells_parallel/${rootname}_${num}.sh" >> $runJobs
 #     bash "./runJobs.sh"

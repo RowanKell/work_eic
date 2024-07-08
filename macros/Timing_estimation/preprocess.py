@@ -26,7 +26,7 @@ else:
     num_files_process_end = args.file_num + args.num_files
 
 data_save_path = args.outfile
-break_limit = 4000 #max 4000
+break_limit = 2000 #max 4000
 num_files_process = 21 #max 21
 theta_test = False
 
@@ -59,7 +59,7 @@ init = False
 inputs = torch.ones(1,5) if not theta_test else torch.ones(1,4)
 for file_num in range(num_files_process_start,num_files_process_end):
     print(f"Beginning file #{file_num}")
-    uproot_path = f"/cwork/rck32/eic/work_eic/root_files/July_2/slurm/mu_vary_z_theta_no_save_all/5GeV_4000events_{file_num}.edm4hep.root:events"
+    uproot_path = f"/cwork/rck32/eic/work_eic/root_files/July_2/slurm/mu_vary_p_z_theta_no_save_all/vary_p_8000events_{file_num}_cos_theta_distribution.edm4hep.root:events"
     with up.open(uproot_path) as events:
         hit_time_branch = events["HcalBarrelHits.time"].array(library='np')
         hit_x_pos_branch = events["HcalBarrelHits.position.x"].array(library='np')

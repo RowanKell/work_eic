@@ -10,3 +10,6 @@ shells/
 G4History.macro
 slurm/shells_full_theta_vary/
 shells_*/
+shells_full_theta_vary/
+macros/Timing_estimation/data/
+slurm/output/

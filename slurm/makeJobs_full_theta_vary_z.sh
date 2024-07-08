@@ -36,7 +36,7 @@ outputdir="${daydir}/Run_0/"
 out_folder="/cwork/rck32/eic/work_eic/slurm/output/output${current_date}"
 error_folder="/cwork/rck32/eic/work_eic/slurm/error/error${current_date}"
 
-rootname="file_"
+rootname="50_z_vals_file_"
 processdir="/cwork/rck32/eic/epic_klm/"
 runJobs="${workdir}/slurm/runJobs.sh"
 touch $runJobs
@@ -62,7 +62,7 @@ if [ ! -d "$error_folder" ]; then
 fi
 z_pos=-732
 z_end=767
-num_z=20
+num_z=50
 z_inc=$(calc_inc $z_pos $z_end $num_z)
 x_pos=1769.3
 
@@ -83,12 +83,12 @@ do
     content+="#SBATCH -p common\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
-    content+="#SBATCH --mem=8G\n"
+    content+="#SBATCH --mem=20G\n"
     content+="#SBATCH --mail-user=rck32@duke.edu\n"
     content+="echo began job\n"
     content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
-    content+="source install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 8000 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/July_2/slurm/mu_vary_p_z_theta_no_save_all/vary_p_8000events_${i}.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
+    content+="source /cwork/rck32/eic/epic_klm/install/setup.sh\n"
+    content+="/usr/local/bin/ddsim --steeringFile /cwork/rck32/eic/work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 2000 --gun.particle \"mu-\" --outputFile /cwork/rck32/eic/work_eic/root_files/July_2/slurm/mu_vary_p_z_theta_no_save_all/vary_p_2000events_${i}_50_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells_full_theta_vary/${rootname}${i}.sh" >> $runJobs

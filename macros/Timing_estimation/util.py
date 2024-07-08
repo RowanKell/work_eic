@@ -123,9 +123,9 @@ Particles and angles
 #phi - xy plane
 #https://stackoverflow.com/questions/4116658/faster-numpy-cartesian-to-spherical-coordinate-conversion
 def theta_func(px,py,pz):
-    return sympy.acos(pz / np.sqrt(px ** 2 + py ** 2 + pz ** 2)) * 180 / np.pi
+    return np.arccos(pz / np.sqrt(px ** 2 + py ** 2 + pz ** 2)) * 180 / np.pi
 def phi_func(px,py,pz):
-    return sympy.atan2(py,px) * 180 / np.pi
+    return np.arctan2(py,px) * 180 / np.pi
 def Efunc(px,py,pz,m):
     return np.sqrt(px**2 + py**2 + pz**2 + m**2)
 
@@ -684,7 +684,7 @@ mu, pi histograms
 Preprocessing data for timing NF
 '''
 def z_func(z_vertex, theta):
-    return z_vertex + 1 * math.tan(math.pi / 2 - theta * np.pi / 180)
+    return z_vertex + 1 * np.tan(np.pi / 2 - theta * np.pi / 180)
 # return time in ns for GeV/c, GeV/c^2 and mm inputs
 c = 299792458 # 2.998 * 10 ^ 8 m/s
 c_n = 1 #c = 1 in natural units
