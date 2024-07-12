@@ -34,6 +34,19 @@ from tqdm import tqdm
 #roc-curve calculations
 from sklearn.metrics import roc_auc_score, roc_curve
 
+import os
+def check_and_create_directory(directory_path):
+    # Check if the directory exists
+    if not os.path.exists(directory_path):
+        print(f"Directory {directory_path} does not exist. Creating it...")
+        # Create the directory
+        os.makedirs(directory_path)
+        print(f"Directory {directory_path} created successfully.")
+    else:
+        print(f"Directory {directory_path} already exists.")
+
+
+
 # Fetching the device that will be used throughout this notebook
 device = torch.device("cpu") if not torch.cuda.is_available() else torch.device("cuda:0")
 print("Using device", device)
