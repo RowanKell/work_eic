@@ -23,8 +23,8 @@ SIM = DD4hepSimulation()
 SIM.enableGun
 SIM.gun.position = (0, 0, 0)
 
-SIM.gun.thetaMin = 68*deg #68 min
-SIM.gun.thetaMax = 112*deg #112 max
+SIM.gun.thetaMin = 90*deg #68 min
+SIM.gun.thetaMax = 90*deg #112 max
 SIM.gun.distribution = "uniform"
 SIM.gun.phiMin = 0*deg #-22 min
 SIM.gun.phiMax = 0*deg #22 max

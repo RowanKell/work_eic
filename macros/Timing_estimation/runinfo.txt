@@ -15,3 +15,7 @@ July 11:
     1. 6 flows, 4 hl, 100 hu, 4000 bs, 5 epoch
     2. BEST RUN BY FAR
     lr=1e-4, weight_decay=1e-5
+    
+July 12:
+1. Run 1:
+    1. 8 flows, 4 hl, 100 hu, 4000 bs, 7 epoch

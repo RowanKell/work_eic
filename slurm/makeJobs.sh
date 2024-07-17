@@ -36,7 +36,7 @@ if [ ! -d "$error_folder" ]; then
   mkdir -p "$error_folder"
 fi
 
-for num in $(seq 0 10)
+for num in $(seq 0 20)
 do
     file="${workdir}/slurm/shells/${rootname}${i}.sh"
     touch $file
@@ -53,7 +53,7 @@ do
     content+="echo began job\n"
     content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
     content+="source install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation_scint.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 10000 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/June_18/variation_sector_scint_uniform/mu/variation_10kevents_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 200 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/July_16/optph_2000events_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells/${rootname}${i}.sh" >> $runJobs
