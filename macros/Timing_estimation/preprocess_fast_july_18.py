@@ -20,8 +20,8 @@ args = parser.parse_args()
 
 file_num = args.file_num
 data_save_path = args.outfile
-break_limit = 1000 #max 4000
-num_files_process = 2 #max 21
+break_limit = 2000 #max 4000
+num_files_process = 21 #max 21
 theta_test = False
 
 
@@ -78,9 +78,9 @@ def process_file(file_path, break_limit=-1):
                 if len(hit_times) > 0:
                     hit_data = np.column_stack([
                         np.full(len(hit_times), hit_z[i]),
+                        np.full(len(hit_times), mu_incident_time[i]),
                         np.full(len(hit_times), theta[i]),
                         np.full(len(hit_times), P[i]),
-                        np.full(len(hit_times), mu_incident_time[i]),
                         hit_times
                     ])
                     all_hit_data.append(hit_data)
@@ -89,7 +89,7 @@ def process_file(file_path, break_limit=-1):
         return np.vstack(all_hit_data) if all_hit_data else np.array([])
 
 # Process all files
-file_path = f"/cwork/rck32/eic/work_eic/root_files/July_18/slurm/mu_vary_p_z_theta_no_save_all/vary_p_z_th_1000events_{file_num}_200_z_vals.edm4hep.root:events"
+file_path = f"/cwork/rck32/eic/work_eic/root_files/July_2/slurm/mu_vary_p_z_theta_no_save_all/vary_p_2000events_{file_num}_50_z_vals.edm4hep.root:events"
 file_data = process_file(file_path, break_limit)
 
 # Combine all data and convert to PyTorch tensor

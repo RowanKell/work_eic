@@ -28,7 +28,7 @@ SIM.gun.thetaMax = 90*deg #112 max
 SIM.gun.distribution = "uniform"
 SIM.gun.phiMin = 0*deg #-22 min
 SIM.gun.phiMax = 0*deg #22 max
-SIM.gun.momentumMin = 5.0*GeV
+SIM.gun.momentumMin = 1.0*GeV
 SIM.gun.momentumMax = 5.0*GeV
 #SIM.gun.particle = "pi-"
 
@@ -66,7 +66,7 @@ SIM.physics.setupUserPhysics(setupCerenkov)
 
 #If true, keeps MCParticles for all photons that don't hit sensor
 #Set to false to keep file size much smaller
-SIM.part.keepAllParticles = True
+# SIM.part.keepAllParticles = True
 
   # Allow energy depositions to 0 energy in trackers (which include optical detectors)
 SIM.filter.tracker = 'edep0'

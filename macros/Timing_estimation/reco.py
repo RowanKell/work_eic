@@ -60,6 +60,7 @@ def process_data(uproot_path, file_num=0, particle="pion"):
     num_events = len(x_pos_branch)
     for event_idx in range(num_events):
         Hits_MC_idx_event = Hits_MC_idx_branch[event_idx]
+        PDG_event = PDG_branch[event_idx]
         n_unique_parts, idx_dict = create_unique_mapping(Hits_MC_idx_event)
         
         p_layer_list = np.ones((n_unique_parts,num_layers)) * -1
@@ -67,6 +68,7 @@ def process_data(uproot_path, file_num=0, particle="pion"):
         theta_layer_list = np.ones((n_unique_parts,num_layers)) * -1
         hit_time_layer_list = np.ones((n_unique_parts,num_layers)) * -1
         edep_event = np.ones((n_unique_parts,num_layers)) * -1
+        PDG_list = np.ones((n_unique_parts,num_layers)) * -1
         
         x_pos_event = x_pos_branch[event_idx]
         px_event = x_momentum_branch[event_idx]
@@ -87,6 +89,7 @@ def process_data(uproot_path, file_num=0, particle="pion"):
                 theta_layer_list[part_idx,layer_idx] = np.arctan2(np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2), pz_event[hit_idx])
                 hit_time_layer_list[part_idx,layer_idx] = time_event[hit_idx]
                 edep_event[part_idx,layer_idx] = EDep_event[hit_idx]
+                PDG_list[part_idx,layer_idx] = PDG_event[part_idx]
             else:
                 edep_event[part_idx,layer_idx] += EDep_event[hit_idx]
         data.append(np.stack([z_hit_layer_list,hit_time_layer_list,theta_layer_list,p_layer_list,(np.floor(calculate_num_pixels_z_dependence(edep_event,z_hit_layer_list)).astype(int))],axis = -1))
@@ -104,10 +107,17 @@ def prepare_data_for_nn(processed_data):
     all_metadata = []
     
     for event_idx, event_data in enumerate(processed_data):
+        if(event_idx > 1000):
+            break
         for particle_idx in range(event_data.shape[0]):
             for layer_idx in range(event_data.shape[1]):
                 features = event_data[particle_idx, layer_idx, :4]  # Get first 4 features
                 repeat_count = int(event_data[particle_idx, layer_idx, 4])  # Get 5th feature as repeat count
+                
+                #cuts
+                if(features[1] > 50):
+                    continue
+                
                 
                 if not np.any(features == -1) and repeat_count > 0:  # Check if all features are -1 and repeat_count is valid
                     # Repeat the features and metadata by repeat_count

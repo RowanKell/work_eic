@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#Used to generate training data for conditional flow
 convert_pos() {
     echo "import math; print(math.tan($1 - 1.57080))" | python | awk '{ printf "%.5f\n", 50 * $1 }'
 }
@@ -10,6 +10,9 @@ calc_min_theta() {
 
 calc_max_theta() {
     echo "import math; print(math.atan2($1 + 732,10) + 1.57080)" | python | awk '{ printf "%.5f\n", $1 }'
+}
+calc_events() {
+    echo "import math;import numpy as np; print(int(np.floor(3500 *(1 -  (732 + $1) / 1500) + 500)))" | python | awk '{ printf "%d\n", $1 }'
 }
 
 calc_inc() {
@@ -31,12 +34,12 @@ workdir="/cwork/rck32/eic/work_eic"
 slurm_output="${workdir}/root_files/Slurm"
 daydir="/cwork/rck32/eic_output/pi_sims/${current_date}"
 #USER SET VALUES
-outputdir="${daydir}/Run_0/"
+outputdir="${daydir}/Run_0_vary_events/"
 
 out_folder="/cwork/rck32/eic/work_eic/slurm/output/output${current_date}"
 error_folder="/cwork/rck32/eic/work_eic/slurm/error/error${current_date}"
 
-rootname="50_z_vals_file_"
+rootname="200_z_vals_file_"
 processdir="/cwork/rck32/eic/epic_klm/"
 runJobs="${workdir}/slurm/runJobs.sh"
 touch $runJobs
@@ -62,7 +65,7 @@ if [ ! -d "$error_folder" ]; then
 fi
 z_pos=-732
 z_end=767
-num_z=50
+num_z=200
 z_inc=$(calc_inc $z_pos $z_end $num_z)
 x_pos=1769.3
 
@@ -71,6 +74,7 @@ do
     if [ $num -eq 0 ]; then
         theta=$theta_start
     fi
+    num_events=$(calc_events $z_pos)
     file="${workdir}/slurm/shells_full_theta_vary/${rootname}${i}.sh"
     touch $file
     theta_min=$(calc_min_theta $z_pos)
@@ -83,12 +87,12 @@ do
     content+="#SBATCH -p common\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
-    content+="#SBATCH --mem=20G\n"
+    content+="#SBATCH --mem=4G\n"
     content+="#SBATCH --mail-user=rck32@duke.edu\n"
     content+="echo began job\n"
     content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
     content+="source /cwork/rck32/eic/epic_klm/install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile /cwork/rck32/eic/work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 2000 --gun.particle \"mu-\" --outputFile /cwork/rck32/eic/work_eic/root_files/July_2/slurm/mu_vary_p_z_theta_no_save_all/vary_p_2000events_${i}_50_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile /cwork/rck32/eic/work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N ${num_events} --gun.particle \"mu-\" --outputFile /cwork/rck32/eic/work_eic/root_files/July_19/slurm/run_0_vary_events_one_segment_param/vary_p_z_th_events_${i}_200_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells_full_theta_vary/${rootname}${i}.sh" >> $runJobs
