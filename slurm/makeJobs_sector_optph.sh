@@ -11,7 +11,7 @@ outputdir="${daydir}/Run_0_no_keep_all/"
 out_folder="/cwork/rck32/eic/work_eic/slurm/output/output${current_date}"
 error_folder="/cwork/rck32/eic/work_eic/slurm/error/error${current_date}"
 
-rootname="file_"
+rootname="vary_th_file_"
 processdir="/cwork/rck32/eic/epic_klm/"
 runJobs="${workdir}/slurm/runJobs.sh"
 touch $runJobs
@@ -38,7 +38,7 @@ fi
 
 for num in $(seq 0 20)
 do
-    file="${workdir}/slurm/shells/${rootname}${i}.sh"
+    file="${workdir}/slurm/shells_vary_theta/${rootname}${i}.sh"
     touch $file
     content="#!/bin/bash\n" 
     content+="#SBATCH --chdir=/cwork/rck32/eic/epic_klm\n"
@@ -53,9 +53,9 @@ do
     content+="echo began job\n"
     content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
     content+="source install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 200 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/July_19/full_sector_optph/optph_200events_no_keep_all_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile ../work_eic/steering/variation.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 200 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/July_21/full_sector_optph/vary_p_theta_optph_200events_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
-    echo "sbatch shells/${rootname}${i}.sh" >> $runJobs
+    echo "sbatch shells_vary_theta/${rootname}${i}.sh" >> $runJobs
     i=$((i+1))
 done
