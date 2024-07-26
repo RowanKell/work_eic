@@ -1,0 +1,15 @@
+June 24th - variation x pos
+July 19
+    1. slurm - one segment, currently used, corresponds to July 21st run 1 pt files
+    2. full_sector_optph
+        1. used, provides real timing distribution for comparison
+        
+July 23
+    1. sector_sensor
+        1. NOTE: Runs 1 and 2 are full, non segmented layers
+            Use run 3 for segmented layers
+        2. full sector, optical photons on and sensor sensitive
+        3. Use as "truth" times for comparing infered data
+    2. sector_scint
+        1. full sector, scint sensitive - used as input for NF to infer times
+        1. vary theta - vary theta for range of theta values rather than just 90 deg

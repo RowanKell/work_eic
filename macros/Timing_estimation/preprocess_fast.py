@@ -20,7 +20,8 @@ args = parser.parse_args()
 
 file_num = args.file_num
 data_save_path = args.outfile
-break_limit = 1000 #max 4000
+infile = args.infile
+break_limit = 4000 #max 4000
 num_files_process = 2 #max 21
 theta_test = False
 
@@ -89,7 +90,7 @@ def process_file(file_path, break_limit=-1):
         return np.vstack(all_hit_data) if all_hit_data else np.array([])
 
 # Process all files
-file_path = f"/cwork/rck32/eic/work_eic/root_files/July_19/slurm/run_0_vary_events_one_segment_param/vary_p_z_th_events_{file_num}_200_z_vals.edm4hep.root:events"
+file_path = infile + f"vary_p_z_th_events_{file_num}_600_z_vals.edm4hep.root:events"
 file_data = process_file(file_path, break_limit)
 
 # Combine all data and convert to PyTorch tensor

@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/variation_scint.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 1000 --gun.particle "pi-" --outputFile root_files/July_25/sector_scint/run_1_pi_5GeV_theta_vary_1kevents.edm4hep.root --macroFile ddsim_shells/myvis.mac --part.userParticleHandler="" 

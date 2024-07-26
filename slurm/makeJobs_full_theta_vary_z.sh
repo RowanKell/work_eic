@@ -39,7 +39,7 @@ outputdir="${daydir}/Run_0_vary_events/"
 out_folder="/cwork/rck32/eic/work_eic/slurm/output/output${current_date}"
 error_folder="/cwork/rck32/eic/work_eic/slurm/error/error${current_date}"
 
-rootname="200_z_vals_file_"
+rootname="600_z_vals_file_"
 processdir="/cwork/rck32/eic/epic_klm/"
 runJobs="${workdir}/slurm/runJobs.sh"
 touch $runJobs
@@ -65,7 +65,7 @@ if [ ! -d "$error_folder" ]; then
 fi
 z_pos=-732
 z_end=767
-num_z=200
+num_z=600
 z_inc=$(calc_inc $z_pos $z_end $num_z)
 x_pos=1769.3
 
@@ -92,7 +92,7 @@ do
     content+="echo began job\n"
     content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
     content+="source /cwork/rck32/eic/epic_klm/install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile /cwork/rck32/eic/work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N ${num_events} --gun.particle \"mu-\" --outputFile /cwork/rck32/eic/work_eic/root_files/July_19/slurm/run_0_vary_events_one_segment_param/vary_p_z_th_events_${i}_200_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile /cwork/rck32/eic/work_eic/steering/variation_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N ${num_events} --gun.particle \"mu-\" --outputFile /cwork/rck32/eic/work_eic/root_files/July_23/slurm/run_0_vary_events_one_segment_param/vary_p_z_th_events_${i}_600_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells_full_theta_vary/${rootname}${i}.sh" >> $runJobs

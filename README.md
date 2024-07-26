@@ -32,3 +32,44 @@ I am working on a timing parameterization using a conditional normalizing flow n
 	 1. Now we are trying to use 3: eliminated hit time and substracted this time from the photon sensor time
 	 1. This way we can learn the time between hit and sensor, then add the time of the hit to get the sensor time.
 	 1. There were issues before where the training data hit times were always very small, but the evaluation dataset had very high values, and the model didn't handle this well.
+
+
+## Notes on files / directories
+1. cmake_command.txt
+   1. copy and paste to build epic_klm and source
+1. base
+   1. Old macros written in c++
+1. macros
+   1. directory with more macro/analysis directories within
+   1. Timing_estimation
+      1. Main directory for timing parameterization
+1. notes
+   1. Notes folder to keep track of work notes
+1. fieldmaps
+   1. Has script to convert fieldmap to correct format for klm usage
+1. ddsim_shells
+   1. scripts to run ddsim locally
+1. steering
+   1. Steering files that ddsim runs
+1. root_files
+   1. root files output by ddsim
+1. slurm
+   1. slurm directory for running ddsim jobs on dcc batch system
+1. OutputFiles
+   1. directory to put timing information files after running timing parameterization
+1. reco_slurm
+   1. slurm directory for running both ddsim simulations and then timing parameterization after
+
+
+Timing Parameterization file system
+1. sampling_slurm
+   1. runs sample.py on batch system - same as inference_data
+1. sample.py
+   1. loads in pre-trained NF and performs inference on real data
+1. inference_Data.ipynb
+   1. same as sample.py but notebook
+1. inference.ipynb
+   1. runs inference on test dataset saved before running training (one_segment)
+1. train.py
+   1. same as conditional_flow.ipynb but python script
+1. conditional_flow.ipynb - 

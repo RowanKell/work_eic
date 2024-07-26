@@ -15,7 +15,7 @@ import util
 from util import PVect,get_layer,create_layer_map,theta_func,phi_func,findBin,bin_percent_theta_phi, train, test, create_data, create_data_depth,p_func, calculate_num_pixels,Classifier,plot_roc_curve
 import torch
 layer_map, super_layer_map = create_layer_map()
-
+import os
 # @nb.njit
 def inverse(x, a, b, c):
     return a / (x + b) + c
@@ -92,7 +92,7 @@ def process_data(uproot_path, file_num=0, particle="pion"):
                 PDG_list[part_idx,layer_idx] = PDG_event[part_idx]
             else:
                 edep_event[part_idx,layer_idx] += EDep_event[hit_idx]
-        data.append(np.stack([z_hit_layer_list,hit_time_layer_list,theta_layer_list,p_layer_list,(np.floor(calculate_num_pixels_z_dependence(edep_event,z_hit_layer_list)).astype(int))],axis = -1))
+        data.append(np.stack([z_hit_layer_list,theta_layer_list,p_layer_list,hit_time_layer_list,(np.floor(calculate_num_pixels_z_dependence(edep_event,z_hit_layer_list)).astype(int))],axis = -1))
 
 
     
@@ -105,17 +105,15 @@ from torch.utils.data import TensorDataset, DataLoader
 def prepare_data_for_nn(processed_data):
     all_features = []
     all_metadata = []
-    
+    print(f"len of events: {len(processed_data)}")
     for event_idx, event_data in enumerate(processed_data):
-        if(event_idx > 1000):
-            break
         for particle_idx in range(event_data.shape[0]):
             for layer_idx in range(event_data.shape[1]):
                 features = event_data[particle_idx, layer_idx, :4]  # Get first 4 features
                 repeat_count = int(event_data[particle_idx, layer_idx, 4])  # Get 5th feature as repeat count
                 
                 #cuts
-                if(features[1] > 50):
+                if(features[3] > 50):
                     continue
                 
                 
@@ -134,7 +132,7 @@ def create_dataloader(features, metadata, batch_size=32):
     # Convert to PyTorch tensors
     features_tensor = torch.tensor(features, dtype=torch.float32)
     metadata_tensor = torch.tensor(metadata, dtype=torch.long)
-    
+    print(features.shape)
     # Create TensorDataset
     dataset = TensorDataset(features_tensor, metadata_tensor)
     
@@ -142,4 +140,63 @@ def create_dataloader(features, metadata, batch_size=32):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
     return dataloader
+
+'''
+Utility functions for loading in truth data quickly
+'''
+
+from concurrent.futures import ThreadPoolExecutor
+from typing import Union, List
+
+
+
+#Load real data
+
+
+
+def process_file(file_name):
+    time_branch_name = "HcalBarrelHits.time"
+    hit_x_branch_name = "HcalBarrelHits.position.x"
+    tree_ext = ":events"
+    with up.open(file_name + tree_ext) as file:
+        times = file[time_branch_name].array(library="np")
+        x_hits = file[hit_x_branch_name].array(library="np")
+    return times, x_hits
+
+def vectorized_get_layer(x_pos_array):
+    return np.array([get_layer(x) for x in x_pos_array])
+
+def load_truth(file_dir):
+
+    file_names = [file_dir + name for name in os.listdir(file_dir) if not os.path.isdir(os.path.join(file_dir, name))]
+    tree_ext = ":events"
+
+    layer_map, super_layer_map = create_layer_map()
+
+    # Use ThreadPoolExecutor for parallel processing
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_file, file_names))
+
+    # Combine results
+    event_times = np.concatenate([r[0] for r in results])
+    event_x_hit = np.concatenate([r[1] for r in results])
+
+    # Process events
+    truth_times = []
+    for times, x_hits in zip(event_times, event_x_hit):
+        mask = times < 50
+        if np.any(mask):  # Only process if there are hits passing the time condition
+            try:
+                layer_idx = vectorized_get_layer(x_hits[mask])
+                truth_times.extend(np.column_stack((times[mask], layer_idx)))
+            except Exception as e:
+                print(f"Error processing event: {e}")
+                print(f"x_hits[mask]: {x_hits[mask]}")
+                continue
+
+    truth_times = np.array(truth_times)
+
+    print(f"Processed {len(truth_times)} hits")
+    print(f"Shape of truth_times: {truth_times.shape}")
+    return truth_times
 

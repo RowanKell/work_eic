@@ -1,1 +1,0 @@
-Note - these files were produced with "keepallparticles" true so that we can see all of the optical photons produced and figure out which fraction actually reach the detector. July_17 has a run where only the relevant photons are saved which is useful as it has a smaller file size
