@@ -18,3 +18,12 @@ Inner vacuum vessel ~ 4 cm Al, density 2.5
 
 field strength: 1.5T?
 
+# Tuesday July 9th
+
+## Affinity
+
+1. Need to create a tree with values only from events in the kinematic bin we are looking at.
+   1. Running driver on all 3 million+ events takes hours
+2. kinematics needed from MC:
+   1. ratios
+   2. pT, Q2, x, z, qTQ for plotting
