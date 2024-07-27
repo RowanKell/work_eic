@@ -18,6 +18,8 @@ import math
 
 #Updating progress bar/output:
 from IPython.display import clear_output
+from concurrent.futures import ThreadPoolExecutor
+
 
 #Timing
 import time
@@ -708,3 +710,49 @@ def time_func(p,m,dx):
     v_mm = v * 1000 # in mm/s
     v_mmpns = v_mm / (10 ** (9)) # in mm/ns
     return dx / v_mmpns
+
+
+'''
+loading real data (in inference_Data.ipynb)
+'''
+def process_file(file_name):
+    time_branch_name = "HcalBarrelHits.time"
+    hit_x_branch_name = "HcalBarrelHits.position.x"
+    with up.open(file_name) as file:
+        times = file[time_branch_name].array(library="np")
+        x_hits = file[hit_x_branch_name].array(library="np")
+    return times, x_hits
+
+def vectorized_get_layer(x_pos_array):
+    return np.array([get_layer(x) for x in x_pos_array])
+
+def load_real_data(file_dir):
+    time_branch_name = "HcalBarrelHits.time"
+    hit_x_branch_name = "HcalBarrelHits.position.x"
+    tree_ext = ":events"
+    file_names = [(file_dir + name + tree_ext) for name in os.listdir(file_dir) if not os.path.isdir(os.path.join(file_dir, name))]
+        # Use ThreadPoolExecutor for parallel processing
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_file, file_names))
+
+    # Combine results
+    event_times = np.concatenate([r[0] for r in results])
+    event_x_hit = np.concatenate([r[1] for r in results])
+
+    # Process events
+    truth_times = []
+    for times, x_hits in zip(event_times, event_x_hit):
+        mask = times < 50
+        if np.any(mask):  # Only process if there are hits passing the time condition
+            try:
+                layer_idx = vectorized_get_layer(x_hits[mask])
+                truth_times.extend(np.column_stack((times[mask], layer_idx)))
+            except Exception as e:
+                print(f"Error processing event: {e}")
+                print(f"x_hits[mask]: {x_hits[mask]}")
+                continue
+
+    truth_times = np.array(truth_times)
+
+    print(f"Processed {len(truth_times)} hits")
+    return truth_times
