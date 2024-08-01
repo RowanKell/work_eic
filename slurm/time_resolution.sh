@@ -2,13 +2,14 @@
 #SBATCH --account=vossenlab
 #SBATCH -p common
 #SBATCH --mem=10G
-#SBATCH --job-name=mu_time_res_1cm
+#SBATCH --job-name=mu_time_res_1cm_6
 #SBATCH --cpus-per-task=1
 #SBATCH --time=24:00:00
 #SBATCH --chdir=/cwork/rck32/eic/epic_klm
-#SBATCH --output=/cwork/rck32/eic/work_eic/slurm/output/outputJuly_31/%x.out
-#SBATCH --error=/cwork/rck32/eic/work_eic/slurm/error/errorJuly_31/%x.err
+#SBATCH --output=/cwork/rck32/eic/work_eic/slurm/output/outputAugust_1/%x.out
+#SBATCH --error=/cwork/rck32/eic/work_eic/slurm/error/errorAugust_1/%x.err
+echo "began job"
 cat << EOF | /cwork/rck32/eic/eic-shell
 source install/setup.sh
-/usr/local/bin/ddsim --steeringFile /cwork/rck32/eic/work_eic/steering/variation.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 10000 --gun.particle "mu-" --outputFile /cwork/rck32/eic/work_eic/root_files/July_31/run_2_1cm/mu_0_8_to_10GeV_10k.edm4hep.root --part.userParticleHandler=""
+/usr/local/bin/ddsim --steeringFile /cwork/rck32/eic/work_eic/steering/variation_z_pos.py --compactFile /cwork/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 500 --gun.particle "mu-" --outputFile /cwork/rck32/eic/work_eic/root_files/August_1/run_1cm_optph/mu_5GeV_500_6.edm4hep.root --part.userParticleHandler=""
 EOF
