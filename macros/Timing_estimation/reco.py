@@ -45,6 +45,7 @@ def create_unique_mapping(arr):
     return len(unique_values), value_to_index
 
 def process_data(uproot_path, file_num=0, particle="pion"):
+    num_layers = 28
     data = []
     events = up.open(uproot_path)
     
@@ -63,12 +64,12 @@ def process_data(uproot_path, file_num=0, particle="pion"):
         PDG_event = PDG_branch[event_idx]
         n_unique_parts, idx_dict = create_unique_mapping(Hits_MC_idx_event)
         
-        p_layer_list = np.ones((n_unique_parts,num_layers)) * -1
-        z_hit_layer_list = np.ones((n_unique_parts,num_layers)) * -1
-        theta_layer_list = np.ones((n_unique_parts,num_layers)) * -1
-        hit_time_layer_list = np.ones((n_unique_parts,num_layers)) * -1
-        edep_event = np.ones((n_unique_parts,num_layers)) * -1
-        PDG_list = np.ones((n_unique_parts,num_layers)) * -1
+        p_layer_list = np.ones((num_layers,n_unique_parts)) * -999
+        z_hit_layer_list = np.ones((num_layers,n_unique_parts)) * -999
+        theta_layer_list = np.ones((num_layers,n_unique_parts)) * -999
+        hit_time_layer_list = np.ones((num_layers,n_unique_parts)) * -999
+        edep_event = np.ones((num_layers,n_unique_parts)) * -999
+        PDG_list = np.ones((num_layers,n_unique_parts)) * -999
         
         x_pos_event = x_pos_branch[event_idx]
         px_event = x_momentum_branch[event_idx]
@@ -83,22 +84,76 @@ def process_data(uproot_path, file_num=0, particle="pion"):
             layer_idx = get_layer(x_pos_event[hit_idx], super_layer_map)
             if layer_idx == -1: #error handling for get_layer
                 continue
-            elif p_layer_list[part_idx,layer_idx] == -1:
-                p_layer_list[part_idx,layer_idx] = np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2 + pz_event[hit_idx]**2)
-                z_hit_layer_list[part_idx,layer_idx] = z_event[hit_idx]
-                theta_layer_list[part_idx,layer_idx] = np.arctan2(np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2), pz_event[hit_idx])
-                hit_time_layer_list[part_idx,layer_idx] = time_event[hit_idx]
-                edep_event[part_idx,layer_idx] = EDep_event[hit_idx]
-                PDG_list[part_idx,layer_idx] = PDG_event[part_idx]
+            elif p_layer_list[layer_idx,part_idx] == -999:
+                p_layer_list[layer_idx,part_idx] = np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2 + pz_event[hit_idx]**2)
+                z_hit_layer_list[layer_idx,part_idx] = z_event[hit_idx]
+                theta_layer_list[layer_idx,part_idx] = np.arctan2(np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2), pz_event[hit_idx])
+                hit_time_layer_list[layer_idx,part_idx] = time_event[hit_idx]
+                edep_event[layer_idx,part_idx] = EDep_event[hit_idx]
+                PDG_list[layer_idx,part_idx] = PDG_event[part_idx]
             else:
-                edep_event[part_idx,layer_idx] += EDep_event[hit_idx]
+                edep_event[layer_idx,part_idx] += EDep_event[hit_idx]
         data.append(np.stack([z_hit_layer_list,theta_layer_list,p_layer_list,hit_time_layer_list,(np.floor(calculate_num_pixels_z_dependence(edep_event,z_hit_layer_list)).astype(int))],axis = -1))
 
 
     
     return data #returns list: each entry is a diff event array; each event array has shape: (#unique particles, #layers, #features)
                 #features: z hit, hit time, theta, p, energy dep
+def process_data_one_segment(uproot_path, file_num=0, particle="pion"):
+    events = up.open(uproot_path)
     
+    x_pos_branch = events["HcalBarrelHits/HcalBarrelHits.position.x"].array(library='np')
+    z_pos_branch = events["HcalBarrelHits/HcalBarrelHits.position.z"].array(library='np')
+    EDep_branch = events["HcalBarrelHits.EDep"].array(library='np')
+    PDG_branch = events["MCParticles.PDG"].array(library='np')
+    x_momentum_branch = events["HcalBarrelHits/HcalBarrelHits.momentum.x"].array(library='np')
+    y_momentum_branch = events["HcalBarrelHits/HcalBarrelHits.momentum.y"].array(library='np')
+    z_momentum_branch = events["HcalBarrelHits/HcalBarrelHits.momentum.z"].array(library='np')
+    Hits_MC_idx_branch = events["_HcalBarrelHits_MCParticle.index"].array(library='np')
+    time_branch = events["HcalBarrelHits.time"].array(library='np')   
+    
+    num_events = len(x_pos_branch)
+    num_features = 5
+    
+    data = np.ones((num_events,num_features),dtype=float)
+    
+    for event_idx in range(num_events):
+        Hits_MC_idx_event = Hits_MC_idx_branch[event_idx]
+        PDG_event = PDG_branch[event_idx]
+        
+        p = -999
+        z_hit = -999
+        theta = -999
+        hit_time = -999
+        edep_event = -999
+        PDG_list = -999
+        
+        x_pos_event = x_pos_branch[event_idx]
+        px_event = x_momentum_branch[event_idx]
+        py_event = y_momentum_branch[event_idx]
+        pz_event = z_momentum_branch[event_idx]
+        z_event = z_pos_branch[event_idx]
+        time_event = time_branch[event_idx]
+        EDep_event = EDep_branch[event_idx]
+        for hit_idx in range(len(x_pos_event)):
+            idx = Hits_MC_idx_branch[event_idx][hit_idx]
+            if(PDG_event[idx] != 13):
+                continue
+            if (p == -999):
+                p = np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2 + pz_event[hit_idx]**2)
+                z_hit = z_event[hit_idx]
+                theta = np.arctan2(np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2), pz_event[hit_idx])
+                hit_time = time_event[hit_idx]
+                edep_event = EDep_event[hit_idx]
+                PDG_list = PDG_event[idx]
+            else:
+                edep_event += EDep_event[hit_idx]
+        data[event_idx] = np.stack([z_hit,theta,p,hit_time,(np.floor(calculate_num_pixels_z_dependence(edep_event,z_hit)).astype(int))],axis = -1)
+
+
+    
+    return data #returns list: each entry is a diff event array; each event array has shape: (#unique particles, #layers, #features)
+                #features: z hit, hit time, theta, p, energy dep
 
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -127,8 +182,30 @@ def prepare_data_for_nn(processed_data):
     metadata_array = np.array(all_metadata)
     
     return features_array, metadata_array
+def prepare_data_for_nn_one_segment(processed_data):
+    all_features = []
+    all_metadata = []
+#     print(f"len of events: {len(processed_data)}")
+    for event_idx, event_data in enumerate(processed_data):
+        features = event_data[:4]  # Get first 4 features
+        repeat_count = int(event_data[4])  # Get 5th feature as repeat count
 
-def create_dataloader(features, metadata, batch_size=32):
+        #cuts
+        if(features[3] > 50):
+            continue
+
+
+        if not np.any(features == -1) and repeat_count > 0:  # Check if all features are -1 and repeat_count is valid
+            # Repeat the features and metadata by repeat_count
+            all_features.extend([features] * repeat_count)
+            all_metadata.extend([(event_idx)] * repeat_count)
+    
+    # Convert to numpy arrays
+    features_array = np.array(all_features)
+    metadata_array = np.array(all_metadata)
+    
+    return features_array, metadata_array
+def create_dataloader(features, metadata, batch_size=32,shuffle_bool=True):
     # Convert to PyTorch tensors
     features_tensor = torch.tensor(features, dtype=torch.float32)
     metadata_tensor = torch.tensor(metadata, dtype=torch.long)
@@ -137,7 +214,7 @@ def create_dataloader(features, metadata, batch_size=32):
     dataset = TensorDataset(features_tensor, metadata_tensor)
     
     # Create DataLoader
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle_bool)
     
     return dataloader
 
