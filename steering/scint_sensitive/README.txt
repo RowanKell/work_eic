@@ -1,0 +1,1 @@
+These steering files work with geometries where the scintillator material itself is sensitive and the sensor bar is not created. Optical photons are turned OFF. Simulations are very fast, you should have no issues when creating <10k events
