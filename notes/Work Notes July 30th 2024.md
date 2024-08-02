@@ -42,3 +42,7 @@ Plan
    2. 28 input dim
    3. 1 output dim
    4. 
+
+NOTE: already have some infrastructure in macros/Basic_NF
+
+classifier + training loop are there, and maybe even data setup stuff?
