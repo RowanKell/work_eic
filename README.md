@@ -38,11 +38,20 @@ A crucial aspect of the simulation is producing timing resolution projections fo
    3. Probably makes sense to shoot from a high x, 1769.3 seems good
    4. Need high statistics
 2. Use `macros/time_res/time_resolution.ipynb` (or `macros/Timing_estimation/time_resolution.ipynb`)
-   1. Here we load the root file and process the data
-   2. We start by looping over events and eliminating events that don't pass the threshold
-   3. Then we save the minimum time of each event, and the distribution of the first times gives us the resolution.
-      1. Find sigma of distribution - that is the resolution
-   4. 
+   1. This notebook takes advantage of the process_times function from `time_res_uti.py`
+      1. Here we load the root file and process the data
+      2. We start by looping over events and eliminating events that don't pass the threshold
+      3. Then we save the minimum time of each event, and the distribution of the first times gives us the resolution.
+         1. Find sigma of distribution - that is the resolution
+   2. Using the output of `process_time`, we can find the mean and sigma of these distributions using `scipy.stats.norm.fit()`
+
+#### Steps to calculate Timing Resolution w/NF sampling
+
+1. Run simulation with scintillator sensitive
+   1. Make sure not to generate optical photons
+2. Now we need to utilize the NF sampling model
+3. First we need to process the data so that the it can be input into the NF model
+   1. TODO: finish
 
 ### Conditional NF Timing Parameterization
 
