@@ -29,8 +29,8 @@ SIM.gun.distribution = "uniform"
 # SIM.gun.phiMin = "cos(theta)"
 SIM.gun.phiMin = 0*deg #-22 to 22 for full layer
 SIM.gun.phiMax = 0*deg
-SIM.gun.momentumMin = 0.00001*GeV
-SIM.gun.momentumMax = 10.0*GeV
+SIM.gun.momentumMin = 5.0*GeV
+SIM.gun.momentumMax = 5.0*GeV
 #SIM.gun.particle = "pi-"
 
 

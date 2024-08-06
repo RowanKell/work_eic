@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/sensor_sensitive/variation_pos.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml -G -N 20 --gun.particle "mu-" --outputFile root_files/August_6/segment_sensor_vary_pos_theta/theta75_pos_0_0.edm4hep.root --part.userParticleHandler="" --gun.position "(1769.3, 0.0, 0.0)" --gun.thetaMin 75 --gun.thetaMax 75

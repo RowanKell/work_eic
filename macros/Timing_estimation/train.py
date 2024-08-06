@@ -43,23 +43,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 Timing_path = "/cwork/rck32/eic/work_eic/macros/Timing_estimation/"
 
-#training data produced by preprocess
-raw_inputs = torch.load(Timing_path + "data/July_24/Run_1/Vary_p_events_file_0_July_23_600_z_pos.pt")
-for i in range(1,201):
-    raw_inputs = torch.cat((raw_inputs, torch.load(Timing_path + f"data/July_24/Run_1/Vary_p_events_file_{i}_July_23_600_z_pos.pt")),0)
-    
-inputs = raw_inputs[np.logical_and(raw_inputs[:,4] < 100,raw_inputs[:,3] < 0.06)]
-
-indexes = torch.randperm(inputs.shape[0])
-dataset = inputs[indexes]
-train_frac = 0.8
-test_frac = 0.1
-train_lim = int(np.floor(dataset.shape[0] * train_frac))
-test_lim = train_lim + int(np.floor(dataset.shape[0] * test_frac))
-train_data = dataset[:train_lim]
-test_data = dataset[train_lim:test_lim]
-val_data = dataset[test_lim:]
-
+train_data = torch.load(Timing_path + "data/combined/July_23/tenth_600_z_pos_train.pt")
+test_data = torch.load(Timing_path + "data/combined/July_23/tenth_600_z_pos_test.pt")
+val_data = torch.load(Timing_path + "data/combined/July_23/tenth_600_z_pos_val.pt")
 
 args = parser.parse_args()
 useArgs = args.useArgs
@@ -80,7 +66,9 @@ else:
     batch_size = 2000
     lr = 1e-5
     num_epochs = 6
-    
+
+
+
 latent_size = 1
 context_size = 3
 num_context = 3
@@ -92,7 +80,16 @@ hidden_layers_str = str(hidden_layers)
 batch_size_str = str(batch_size)
 num_context_str = str(num_context)
 run_num_str = str(run_num)
-
+# input_fig, input_axs = plot.subplots(1,3,figsize=(18,8))
+# input_fig.suptitle("train.py training inputs")
+# input_axs[0].hist(train_data[:100000,0],bins = 100)
+# input_axs[0].set_title("hit z")
+# input_axs[1].hist(train_data[:100000,1],bins = 100)
+# input_axs[1].set_title("theta (deg)")
+# input_axs[2].hist(train_data[:100000,2],bins = 100)
+# input_axs[2].set_title("momentum")
+# input_fig.savefig("/cwork/rck32/eic/work_eic/macros/Timing_estimation/plots/inputs/August_5/inputs train_" + run_num_str+  ".jpeg")
+print("finished making inputs plot")
 flows = []
 for i in range(K):
     flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units, 
@@ -134,12 +131,12 @@ val_loss_hist = np.array([])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
 
 validation_frequency = 100  # Perform validation every 100 training steps
-
+print("beginning training loop")
 global_step = 0
 for epoch in range(num_epochs):
     print(f"Beginning epoch #{epoch}")
     model.train()  # Set model to training mode
-    for it in tqdm(range(max_iter)):
+    for it in range(max_iter):
         optimizer.zero_grad()
         # Get training samples
         begin = it * batch_size
@@ -187,7 +184,7 @@ for epoch in range(num_epochs):
 #             print(f"Step {global_step} - Train Loss: {train_loss_hist[-1]:.4f}, Val Loss: {avg_val_loss:.4f}")
             
             model.train()  # Set model back to training mode
-
+    model.save(model_path + run_info + f"_checkpoint_e{epoch}.pth")
     print(f"Epoch {epoch} completed.")
     
 model.save(model_path + run_info + ".pth")

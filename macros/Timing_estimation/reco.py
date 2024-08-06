@@ -142,7 +142,7 @@ def process_data_one_segment(uproot_path, file_num=0, particle="pion"):
             if (p == -999):
                 p = np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2 + pz_event[hit_idx]**2)
                 z_hit = z_event[hit_idx]
-                theta = np.arctan2(np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2), pz_event[hit_idx])
+                theta = np.arctan2(np.sqrt(px_event[hit_idx]**2 + py_event[hit_idx]**2), pz_event[hit_idx]) * 180 / 3.14159
                 hit_time = time_event[hit_idx]
                 edep_event = EDep_event[hit_idx]
                 PDG_list = PDG_event[idx]
