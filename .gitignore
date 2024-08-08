@@ -12,4 +12,5 @@ slurm/shells_full_theta_vary/
 shells_*/
 shells_full_theta_vary/
 macros/Timing_estimation/data/
+macros/Timing_estimation/models/August_07/run_7_3context_8flows_26hl_256hu_2000bs*
 slurm/output/
