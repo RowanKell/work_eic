@@ -6,7 +6,7 @@ import numpy as np
 import normflows as nf
 
 import uproot as up
-
+import time
 from matplotlib import pyplot as plot
 import math
 from tqdm import tqdm
@@ -23,14 +23,14 @@ def checkdir(path):
     if not os.path.exists(path): 
         os.makedirs(path)
 # Define flows
-run_num = 8
+run_num = 7
 run_num_str = str(run_num)
 
-K = 1
+K = 8
 
 latent_size = 1
-hidden_units = 64
-hidden_layers = 16
+hidden_units = 256
+hidden_layers = 26
 context_size = 3
 num_context = 3
 K_str = str(K)
@@ -57,8 +57,8 @@ model = model.to(device)
 import datetime
 x = datetime.datetime.now()
 # today = x.strftime("%B_%d")
-today = "August_05"
-model_date = "August_05"
+today = "August_07"
+model_date = "August_07"
 # model_path = "models/context_3/" + today + "/"
 # checkdir(model_path)
 pref = "/cwork/rck32/eic/work_eic/macros/Timing_estimation/"
@@ -74,32 +74,33 @@ checkdir(test_data_path)
 test_dist_path = pref + "plots/test_distributions/" + today + "/"
 checkdir(test_dist_path)
 
-model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs_checkpoint_e6.pth")
+model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth")
 
 # test_data = torch.load(test_data_path + "full_test_data_run_" + run_num_str+"_" +K_str+"flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pt")
 Timing_path = "/cwork/rck32/eic/work_eic/macros/Timing_estimation/"
-test_data = torch.load(Timing_path + "data/combined/July_23/tenth_600_z_pos_test.pt")
+# test_data = torch.load(Timing_path + "data/combined/August_6/tenth_600_z_pos_test.pt")
+test_data = torch.load(Timing_path + "data/combined/August_6/onesix_600_z_pos_test.pt")
+print(len(test_data))
 
-
-input_fig, input_axs = plot.subplots(1,3,figsize=(18,8))
-input_fig.suptitle("inference.py inputs")
-input_axs[0].hist(test_data[:,0],bins = 100)
-input_axs[0].set_title("hit z")
-input_axs[1].hist(test_data[:,1],bins = 100)
-input_axs[1].set_title("theta (deg)")
-input_axs[2].hist(test_data[:,2],bins = 100)
-input_axs[2].set_title("momentum")
-input_fig.savefig(pref + "plots/inputs/August_5/inputs_inference_6.jpeg")
+# input_fig, input_axs = plot.subplots(1,3,figsize=(18,8))
+# input_fig.suptitle("inference.py inputs")
+# input_axs[0].hist(test_data[:,0],bins = 100)
+# input_axs[0].set_title("hit z")
+# input_axs[1].hist(test_data[:,1],bins = 100)
+# input_axs[1].set_title("theta (deg)")
+# input_axs[2].hist(test_data[:,2],bins = 100)
+# input_axs[2].set_title("momentum")
+# input_fig.savefig(pref + "plots/inputs/August_6/inputs_inference_6.jpeg")
 
 min_time = min(test_data[:, num_context + 1])
 skipped = np.array([])
-eval_batch_size = 100000
+eval_batch_size = 20000
 eval_max_iter = test_data.shape[0] // eval_batch_size
 eval_test_data = test_data[:eval_max_iter * eval_batch_size]
 eval_test_data = eval_test_data
 model = model.to(device)
 samples = torch.empty(eval_test_data.shape[0])
-
+begin_time = time.time()
 for i in tqdm(range(eval_max_iter)):
     begin = eval_batch_size * i
     end = eval_batch_size * (i + 1)
@@ -126,6 +127,12 @@ for i in tqdm(range(eval_max_iter)):
         valid_samples = batch_samples >= min_time
     
     samples[begin:end] = batch_samples + timings
+    del context
+    del batch_samples
+    del timings
+    del valid_samples
+end_time = time.time()
+print(f"time taken: {end_time - begin_time} | samples per second: {len(test_data) / (end_time - begin_time)}")
 
 torch.save(samples,samples_path + "run_" + run_num_str+ "_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pt")
 torch.save(eval_test_data,test_data_path + "run_" + run_num_str+ "_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pt")
@@ -205,7 +212,7 @@ for ax in axs[:, 0]:
 
 plot.tight_layout()
 plot.show()
-fig.savefig(pref + "plots/test_distributions/Binned/August_5/run_2_" + str(num_bins) + "x " + str(num_bins) + "_binned_no_normalized_z_hit_theta.pdf")
+fig.savefig(pref + "plots/test_distributions/Binned/August_7/run_7_" + str(num_bins) + "x " + str(num_bins) + "_binned_no_normalized_z_hit_theta.pdf")
 # Example usage:
 # Assuming you have a PyTorch tensor named 'data_tensor' with shape [x, 5]
 # create_histogram_grid(data_tensor)
@@ -254,4 +261,4 @@ cbar.set_label('Value', rotation=270, labelpad=15)
 
 # Adjust the layout and display the plot
 plt.show()
-fig.savefig(pref + "plots/test_distributions/Binned/August_5/run_2_" + str(num_bins) + "x " + str(num_bins) + "_binned_means_z_theta.pdf")
+fig.savefig(pref + "plots/test_distributions/Binned/August_7/run_7_" + str(num_bins) + "x " + str(num_bins) + "_binned_means_z_theta.pdf")

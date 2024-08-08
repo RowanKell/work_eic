@@ -1,3 +1,4 @@
+
 sbatch shells_parallel/preproccess_600_z_vals_1.sh
 sbatch shells_parallel/preproccess_600_z_vals_2.sh
 sbatch shells_parallel/preproccess_600_z_vals_3.sh

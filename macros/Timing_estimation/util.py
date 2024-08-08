@@ -607,18 +607,15 @@ def train(classifier, train_data,optimizer, num_epochs = 18, batch_size = 100, s
         with tqdm(total=num_it, position=0, leave=True) as pbar:
             for it in range(num_it):
                 optimizer.zero_grad()
-                #randomly sample the latent space
                 begin = it * batch_size
                 end = (it + 1) * batch_size
                 it_data = train_data[begin:end]
                 samples = it_data[:,:max_index]
-                labels = it_data[:,max_index]#.unsqueeze(1)
-    #             print(labels)
+                labels = it_data[:,max_index]
+                print(labels)
                 samples = samples.to(device)
                 labels = (labels.type(torch.LongTensor)).to(device)
-                # forward + backward + optimize
                 outputs = classifier(samples)
-    #             print(outputs)
                 loss = criterion(outputs, labels)
                 # Do backprop and optimizer step
                 if ~(torch.isnan(loss) | torch.isinf(loss)):
@@ -699,7 +696,7 @@ mu, pi histograms
 Preprocessing data for timing NF
 '''
 def z_func(z_vertex, theta):
-    return z_vertex + 1 * np.tan(np.pi / 2 - theta * np.pi / 180)
+    return z_vertex + 6 * np.tan(np.pi / 2 - theta * np.pi / 180)
 # return time in ns for GeV/c, GeV/c^2 and mm inputs
 c = 299792458 # 2.998 * 10 ^ 8 m/s
 c_n = 1 #c = 1 in natural units
@@ -756,3 +753,59 @@ def load_real_data(file_dir):
 
     print(f"Processed {len(truth_times)} hits")
     return truth_times
+def process_file(file_path, break_limit=-1):
+    with up.open(file_path) as events:
+        # Load all required branches at once
+        branches = events.arrays([
+            "HcalBarrelHits.time", "HcalBarrelHits.position.x", "HcalBarrelHits.position.z",
+            "_HcalBarrelHits_MCParticle.index", "MCParticles.vertex.x", "MCParticles.vertex.z",
+            "MCParticles.PDG", "MCParticles.mass", "MCParticles.momentum.x",
+            "MCParticles.momentum.y", "MCParticles.momentum.z"
+        ], library="np")
+
+        # Extract primary particle info
+        primary_px = np.array([event[0] for event in branches["MCParticles.momentum.x"]])
+        primary_py = np.array([event[0] for event in branches["MCParticles.momentum.y"]])
+        primary_pz = np.array([event[0] for event in branches["MCParticles.momentum.z"]])
+        primary_m = np.array([event[0] for event in branches["MCParticles.mass"]])
+        vertex_x = np.array([event[0] for event in branches["MCParticles.vertex.x"]])
+        vertex_z = np.array([event[0] for event in branches["MCParticles.vertex.z"]])
+
+        # Compute derived quantities
+        primary = PVect()
+        primary.setVector(primary_px, primary_py, primary_pz, primary_m)
+        theta = primary.theta
+        P = primary.P
+        mu_incident_time = time_func(primary.px, primary.M, 1770.3 - vertex_x)
+        hit_z = z_func(vertex_z, theta)
+
+        # Apply cuts
+        valid_events = (
+            (hit_z >= -735) & (hit_z <= 770) &
+            (theta >= 0) & (theta <= 180) &
+            (mu_incident_time >= 0) &
+            (P >= 0.1) & (P <= 10)
+        )
+
+        if break_limit > 0:
+            valid_events = valid_events & (np.arange(len(valid_events)) < break_limit)
+
+        all_hit_data = []
+        for i, valid in enumerate(valid_events):
+            if valid:
+                hit_pdg = branches["MCParticles.PDG"][i][branches["_HcalBarrelHits_MCParticle.index"][i]]
+                valid_hits = (hit_pdg == -22)
+                hit_times = branches["HcalBarrelHits.time"][i][valid_hits]
+                
+                if len(hit_times) > 0:
+                    hit_data = np.column_stack([
+                        np.full(len(hit_times), hit_z[i]),
+                        np.full(len(hit_times), theta[i]),
+                        np.full(len(hit_times), P[i]),
+                        np.full(len(hit_times), mu_incident_time[i]),
+                        hit_times
+                    ])
+                    all_hit_data.append(hit_data)
+#                     if i == 0:print(hit_data) 
+
+        return np.vstack(all_hit_data) if all_hit_data else np.array([])

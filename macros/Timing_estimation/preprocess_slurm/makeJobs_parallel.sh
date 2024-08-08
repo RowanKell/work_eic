@@ -53,7 +53,7 @@ do
     content+="#SBATCH --mail-user=rck32@duke.edu\n"
     content+="echo began job\n"
     content+="source /cwork/rck32/ML_venv/bin/activate\n"
-    content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess_fast.py --infile ${infiledir} --outfile ${outputdir}Vary_p_events_file_${num}_July_23_600_z_pos.pt --parallel 1 --file_num ${num}\n"
+    content+="python3 /cwork/rck32/eic/work_eic/macros/Timing_estimation/preprocess_fast.py --infile ${infiledir} --outfile ${outputdir}Vary_p_events_file_${num}_July_23_600_z_pos_fixed_z_hit_pos.pt --parallel 1 --file_num ${num}\n"
     echo -e "$content" > $file 
     echo "sbatch shells_parallel/${rootname}_${num}.sh" >> $runJobs
 #     bash "./runJobs.sh"
