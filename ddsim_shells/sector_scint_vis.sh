@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/scint_sensitive/variation_scint.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "vis" -G -N 5000 --gun.particle "neutron" --outputFile root_files/September_3/sector_scint/vis/run_1_n_0_8_10GeV_theta_90_1events.edm4hep.root --macroFile ddsim_shells/myvis.mac --part.userParticleHandler="" 
