@@ -1,0 +1,18 @@
+September 5th noonish
+generated w/ makeJobs_full_theta_vary_z
+
+50 z pos
+full theta range that would still hit bar
+optph on
+num events: 2000 per z val
+steering file: sensor_sensitive/variation_pos.py
+geometry: 
+
+RUN 2:
+September 6, 3pm
+30 z pos
+full theta for that z
+optph on
+num events: 1000 per z
+steering file: sensor_sensitive/variation_pos_keepALL.py
+note: need to use keepallparticles flag in ddsim or else we don't keep all MCParticles
