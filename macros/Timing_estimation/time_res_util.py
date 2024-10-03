@@ -1,6 +1,8 @@
 import numpy as np
 import uproot as up
 import os
+from util import time_func,p_func
+#time_func(p,m,dx)
 
 def checkdir(path):
     if not os.path.exists(path): 
@@ -16,6 +18,9 @@ def process_times(uproot_path,threshold = 10, multipleFiles = False):
         x_pos_arrays_list = []
         y_pos_arrays_list = []
         z_pos_arrays_list = []
+        px_arrays_list = []
+        py_arrays_list = []
+        pz_arrays_list = []
 
         # Loop through all files in the directory
         for file_name in os.listdir(uproot_path):
@@ -32,6 +37,10 @@ def process_times(uproot_path,threshold = 10, multipleFiles = False):
                     x_pos_arrays_list.append(tree["HcalBarrelHits/HcalBarrelHits.position.x"].array(library="np"))
                     y_pos_arrays_list.append(tree["HcalBarrelHits/HcalBarrelHits.position.y"].array(library="np"))
                     z_pos_arrays_list.append(tree["HcalBarrelHits/HcalBarrelHits.position.z"].array(library="np"))
+                    
+                    px_arrays_list.append(tree["HcalBarrelHits/HcalBarrelHits.momentum.x"].array(library="np"))
+                    py_arrays_list.append(tree["HcalBarrelHits/HcalBarrelHits.momentum.y"].array(library="np"))
+                    pz_arrays_list.append(tree["HcalBarrelHits/HcalBarrelHits.momentum.z"].array(library="np"))
 
         # Combine arrays for each branch
         times = np.concatenate(times_arrays_list)
