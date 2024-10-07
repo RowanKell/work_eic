@@ -18,7 +18,7 @@ from tqdm import tqdm
 import normflows as nf
 import datetime
 
-from momentum_prediction_util import process_root_file,prepare_nn_input,prepare_prediction_input,Predictor,train
+from momentum_prediction_util import process_root_file,prepare_nn_input,prepare_prediction_input,Predictor,train,prepare_prediction_input_pulse
 import argparse
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
 parser.add_argument('--fileNum', type=int, default=0,
@@ -94,10 +94,10 @@ begin = time.time()
 nn_input, nn_output = prepare_nn_input(processed_data, model_compile,batch_size = 50000)
 end = time.time()
 
-print(f"rate: {(end - begin) / 500000} seconds / event")
+# print(f"rate: {(end - begin) / 500000} seconds / event")
 
 print("Starting prepare_prediction_input")
-prediction_input, prediction_output= prepare_prediction_input(nn_input,nn_output)
-torch.save(prediction_input,pref + f"eic/work_eic/macros/Timing_estimation/data/momentum_prediction/sept_12_5k_n_input_slurm_{file_num}.pt")
-torch.save(prediction_output,pref + f"eic/work_eic/macros/Timing_estimation/data/momentum_prediction/sept_12_5k_n_output_slurm_{file_num}.pt")
+prediction_input, prediction_output= prepare_prediction_input_pulse(nn_input,nn_output)
+torch.save(prediction_input,pref + f"eic/work_eic/macros/Timing_estimation/data/momentum_prediction_pulse/Oct_3/input_5k_n_slurm_{file_num}.pt")
+torch.save(prediction_output,pref + f"eic/work_eic/macros/Timing_estimation/data/momentum_prediction_pulse/Oct_3/output_5k_n_slurm_{file_num}.pt")
 print("finished job")

@@ -18,26 +18,27 @@ from tqdm import tqdm
 import normflows as nf
 import datetime
 from torch import nn
+from scipy import signal
 layer_map, super_layer_map = create_layer_map()
 
 def process_root_file(file_path):
     print("began processing")
     with uproot.open(file_path) as file:
-#         tree_HcalBarrelHits = file["events/HcalBarrelHits"]
-#         tree_MCParticles = file["events/MCParticles"]
+        tree_HcalBarrelHits = file["events/HcalBarrelHits"]
+        tree_MCParticles = file["events/MCParticles"]
         
         
-        momentum_x_MC = file["events/MCParticles/MCParticles.momentum.x"].array(library="np")
-        momentum_y_MC = file["events/MCParticles/MCParticles.momentum.y"].array(library="np")
-        momentum_z_MC = file["events/MCParticles/MCParticles.momentum.z"].array(library="np")
+        momentum_x_MC = tree_MCParticles["MCParticles.momentum.x"].array(library="np")
+        momentum_y_MC = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
+        momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
         
-        z_pos = file["events/HcalBarrelHits/HcalBarrelHits.position.z"].array(library="np")
-        x_pos = file["events/HcalBarrelHits/HcalBarrelHits.position.x"].array(library="np")
-        energy = file["events/HcalBarrelHits/HcalBarrelHits.EDep"].array(library="np")
-        momentum_x = file["events/HcalBarrelHits/HcalBarrelHits.momentum.x"].array(library="np")
-        momentum_y = file["events/HcalBarrelHits/HcalBarrelHits.momentum.y"].array(library="np")
-        momentum_z = file["events/HcalBarrelHits/HcalBarrelHits.momentum.z"].array(library="np")
-        hit_time = file["events/HcalBarrelHits/HcalBarrelHits.time"].array(library="np")
+        z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
+        x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
+        energy = tree_HcalBarrelHits["HcalBarrelHits.EDep"].array(library="np")
+        momentum_x = tree_HcalBarrelHits["HcalBarrelHits.momentum.x"].array(library="np")
+        momentum_y = tree_HcalBarrelHits["HcalBarrelHits.momentum.y"].array(library="np")
+        momentum_z = tree_HcalBarrelHits["HcalBarrelHits.momentum.z"].array(library="np")
+        hit_time = tree_HcalBarrelHits["HcalBarrelHits.time"].array(library="np")
         mc_hit_idx = file["events/_HcalBarrelHits_MCParticle/_HcalBarrelHits_MCParticle.index"].array(library="np")  # Add PDG code for particle identification
         print("finished loading branches")
         
@@ -170,6 +171,47 @@ def prepare_prediction_input(nn_input, nn_output):
             prediction_input[curr_event_num][layer] = layer_times[:10]
         curr_event_num += 1
     return prediction_input, prediction_output
+def prepare_prediction_input_pulse(nn_input, nn_output):
+    processor = SiPMSignalProcessor()
+    
+    #note - some events do not have dictionaries in nn_input due to being empty
+    #need to skip over these and condense tensor
+    prediction_input = torch.ones(len(nn_input),28,2) * 9999
+    prediction_output = torch.ones(len(nn_input)) * 9999
+    
+    input_dict = defaultdict(lambda: defaultdict(list))
+    output_dict = {}
+    curr_event_num = 0
+    for event_idx in tqdm(list(nn_input)):
+        event_input = []
+        set_output = False
+        layer_keys = nn_input[event_idx].keys()
+        for layer in range(28):
+            if(layer in layer_keys):
+                photon_times = torch.tensor(sorted(nn_input[event_idx][layer])) * 10 **(-9)
+                #get relative times
+                min_time = photon_times[0]
+                photon_times = photon_times - min_time
+                
+                #calculate time and charge
+                time,waveform = processor.generate_waveform(photon_times)
+                charge = processor.integrate_charge(waveform)
+                timing = processor.cfd_timing(waveform)
+                prediction_input
+                if(not set_output):
+                    prediction_output[curr_event_num] = nn_output[event_idx][layer][0]
+                    set_output = True
+                
+                prediction_input[curr_event_num][layer][0] = charge
+                prediction_input[curr_event_num][layer][1] = timing + min_time
+            else:
+                charge = 0
+                timing = 9999
+                prediction_input[curr_event_num][layer][0] = charge
+                prediction_input[curr_event_num][layer][1] = timing
+
+        curr_event_num += 1
+    return prediction_input, prediction_output
 
 class Predictor(nn.Module):
     """
@@ -256,3 +298,79 @@ def train(predictor, train_data,nn_output,optimizer,device, num_epochs = 18, bat
 
     print('Finished Training')
     return loss_hist
+
+
+class SiPMSignalProcessor:
+    def __init__(self, 
+                 sampling_rate=40e9,  # 40 GHz sampling rate
+                 tau_rise=1e-9,       # 1 ns rise time
+                 tau_fall=50e-9,      # 50 ns fall time
+                 window=200e-9,       # 200 ns time window
+                 cfd_delay=5e-9,      # 5 ns delay for CFD
+                 cfd_fraction=0.3):   # 30% fraction for CFD
+        
+        self.sampling_rate = sampling_rate
+        self.tau_rise = tau_rise
+        self.tau_fall = tau_fall
+        self.window = window
+        self.cfd_delay = cfd_delay
+        self.cfd_fraction = cfd_fraction
+        
+        # Time array for single pulse shape
+        self.time = np.arange(0, self.window, 1/self.sampling_rate)
+        
+        # Generate single pulse shape
+        self.pulse_shape = self._generate_pulse_shape()
+    
+    def _generate_pulse_shape(self):
+        """Generate normalized pulse shape for a single photon"""
+        shape = (1 - np.exp(-self.time/self.tau_rise)) * np.exp(-self.time/self.tau_fall)
+        return shape / np.max(shape)  # Normalize
+    
+    def generate_waveform(self, photon_times):
+        """Generate waveform from list of photon arrival times"""
+        # Initialize waveform array
+        waveform = np.zeros_like(self.time)
+        
+        # Add pulse for each photon
+        for t in photon_times:
+            if 0 <= t < self.window:
+                idx = int(t * self.sampling_rate)
+                remaining_samples = len(self.time) - idx
+                waveform[idx:] += self.pulse_shape[:remaining_samples]
+        
+        return self.time, waveform
+    
+    def integrate_charge(self, waveform, integration_start=0, integration_time=100e-9):
+        """Integrate charge in specified time window"""
+        start_idx = int(integration_start * self.sampling_rate)
+        end_idx = int((integration_start + integration_time) * self.sampling_rate)
+        
+        # Integrate using trapezoidal rule
+        charge = np.trapezoid(waveform[start_idx:end_idx], dx=1/self.sampling_rate)
+        return charge
+    
+    def cfd_timing(self, waveform):
+        """Implement Constant Fraction Discrimination timing"""
+        # Create delayed and attenuated versions
+        delay_samples = int(self.cfd_delay * self.sampling_rate)
+        delayed = np.roll(waveform, delay_samples)
+        attenuated = waveform * self.cfd_fraction
+        
+        # CFD waveform
+        cfd_signal = attenuated - delayed
+        
+        # Find zero crossing
+        zero_crossings = np.where(np.diff(np.signbit(cfd_signal)))[0]
+        
+        if len(zero_crossings) > 0:
+            # Linear interpolation for more precise timing
+            idx = zero_crossings[0]
+            t1, t2 = self.time[idx], self.time[idx+1]
+            v1, v2 = cfd_signal[idx], cfd_signal[idx+1]
+            
+            # Time at zero crossing
+            zero_time = t1 - v1 * (t2 - t1) / (v2 - v1)
+            return zero_time
+        else:
+            return None

@@ -22,7 +22,7 @@ if [ ! -d "$error_folder" ]; then
   mkdir -p "$error_folder"
 fi
 shell_name="m_prediction_"
-for num in $(seq 21 25)
+for num in $(seq 36 50)
 do
     file="${slurm_dir}/shells/${shell_name}${num}.sh"
     touch $file
