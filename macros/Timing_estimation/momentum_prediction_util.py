@@ -45,12 +45,18 @@ def process_root_file(file_path):
         processed_data = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
         
         for event_idx in tqdm(range(len(z_pos))):
-            energy_per_layer_particle = defaultdict(lambda: defaultdict(float))
-            first_hit_per_layer_particle = defaultdict(dict)
+            if(len(z_pos[event_idx]) == 0):
+                continue
             primary_momentum = (momentum_x_MC[event_idx][0],
                             momentum_y_MC[event_idx][0],
                             momentum_z_MC[event_idx][0])
             primary_momentum_mag = np.linalg.norm(primary_momentum)
+            if(primary_momentum_mag <= 0):
+                continue
+            if(primary_momentum_mag > 100):
+                continue
+            energy_per_layer_particle = defaultdict(lambda: defaultdict(float))
+            first_hit_per_layer_particle = defaultdict(dict)
             # First pass: collect first hit data and calculate energy per layer per particle
             for hit_idx in range(len(z_pos[event_idx])):
                 z = z_pos[event_idx][hit_idx]
@@ -202,8 +208,8 @@ def prepare_prediction_input_pulse(nn_input, nn_output):
                     prediction_output[curr_event_num] = nn_output[event_idx][layer][0]
                     set_output = True
                 
-                prediction_input[curr_event_num][layer][0] = charge
-                prediction_input[curr_event_num][layer][1] = timing + min_time
+                prediction_input[curr_event_num][layer][0] = charge * 1e6
+                prediction_input[curr_event_num][layer][1] = (timing + min_time) * 1e8
             else:
                 charge = 0
                 timing = 9999
@@ -256,49 +262,178 @@ class Predictor(nn.Module):
         torch.save(self.layer,save_loc)
     def load(self,load_loc):
         self.layer = torch.load(load_loc)
-def train(predictor, train_data,nn_output,optimizer,device, num_epochs = 18, batch_size = 100, show_progress = True):
+        
+def split_data(inputs, outputs, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, seed=42):
+    """
+    Split data into training, validation, and test sets.
     
+    Parameters:
+    inputs (torch.Tensor): Input tensor of shape (n_samples, ...)
+    outputs (torch.Tensor): Output tensor of shape (n_samples, ...)
+    train_ratio (float): Ratio of data to use for training (default: 0.7)
+    val_ratio (float): Ratio of data to use for validation (default: 0.15)
+    test_ratio (float): Ratio of data to use for testing (default: 0.15)
+    seed (int): Random seed for reproducibility
+    
+    Returns:
+    dict: Dictionary containing the split data
+    """
+    assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-5, "Ratios must sum to 1"
+    assert inputs.shape[0] == outputs.shape[0], "Number of inputs and outputs must match"
+    
+    # Set seed for reproducibility
+    torch.manual_seed(seed)
+    
+    # Get total number of samples
+    num_samples = inputs.shape[0]
+    indices = torch.randperm(num_samples)
+    
+    # Calculate split points
+    train_end = int(num_samples * train_ratio)
+    val_end = train_end + int(num_samples * val_ratio)
+    
+    # Split indices
+    train_indices = indices[:train_end]
+    val_indices = indices[train_end:val_end]
+    test_indices = indices[val_end:]
+    
+    # Create splits
+    train_data = {
+        'inputs': inputs[train_indices],
+        'outputs': outputs[train_indices]
+    }
+    
+    val_data = {
+        'inputs': inputs[val_indices],
+        'outputs': outputs[val_indices]
+    }
+    
+    test_data = {
+        'inputs': inputs[test_indices],
+        'outputs': outputs[test_indices]
+    }
+    
+    split_info = {
+        'train_size': len(train_indices),
+        'val_size': len(val_indices),
+        'test_size': len(test_indices)
+    }
+    
+    return train_data, val_data, test_data, split_info
+        
+def train(predictor, train_data, nn_output, val_data, val_out, optimizer, device, 
+          num_epochs=18, batch_size=100, show_progress=True, patience=5):
     criterion = nn.MSELoss()
-    predictor.train()
-    total_data_points = train_data.shape[0]
-    num_it = total_data_points // batch_size
-
-    show_progress = True
-    loss_hist = []
-    curr_losses = []
-    for i in range(num_epochs):
+    train_losses = []
+    val_losses = []
+    best_val_loss = float('inf')
+    patience_counter = 0
+    best_model_state = None
+    
+    for epoch in range(num_epochs):
+        # Training Phase
+        predictor.train()
+        total_data_points = train_data.shape[0]
+        num_it = total_data_points // batch_size
+        epoch_losses = []
+        
+        # Shuffle training data
+        shuffle_indices = torch.randperm(total_data_points)
+        shuffled_data = train_data[shuffle_indices]
+        shuffled_output = nn_output[shuffle_indices]
+        
         clear_output(wait=True)
-        print(f"Training epoch #{i}")
-        epoch_hist = np.array([])
-        val_epoch_hist = np.array([])
+        print(f"Epoch {epoch+1}/{num_epochs}")
+        
+        # Training loop
         with tqdm(total=num_it, position=0, leave=True) as pbar:
             for it in range(num_it):
                 optimizer.zero_grad()
                 begin = it * batch_size
-                end = min((begin + batch_size),(total_data_points - begin))
-                context_inputs = train_data[begin:end].flatten(start_dim = 1).to(device)
-                expected_outputs = nn_output[begin:end].to(device)
+                end = min(begin + batch_size, total_data_points)
+                
+                context_inputs = shuffled_data[begin:end].flatten(start_dim=1).to(device)
+                expected_outputs = shuffled_output[begin:end].unsqueeze(-1).to(device)
+                
                 outputs = predictor(context_inputs)
                 loss = criterion(outputs, expected_outputs)
-                # Do backprop and optimizer step
-                if ~(torch.isnan(loss) | torch.isinf(loss)):
-                    if(loss > 200):
-                        continue
-                    loss.backward()
-                    optimizer.step()
-                # Log loss
-                if~(torch.isnan(loss)):
-                    curr_losses.append(loss.to('cpu').data.numpy())
-                    if(not (it % 5)):
-                        loss_hist.append(sum(curr_losses) / len(curr_losses))
-                        curr_losses = []
-                if(show_progress):
+                
+                if torch.isnan(loss) or torch.isinf(loss):
+                    print(f"Warning: Invalid loss at iteration {it}")
+                    continue
+                    
+                loss.backward()
+                optimizer.step()
+                epoch_losses.append(loss.item())
+                
+                if show_progress:
                     pbar.update(1)
         
-
+        avg_train_loss = sum(epoch_losses) / len(epoch_losses)
+        train_losses.append(avg_train_loss)
+        
+        # Validation Phase
+        predictor.eval()
+        val_epoch_losses = []
+        with torch.no_grad():
+            # Process validation data in batches
+            val_data_points = val_data.shape[0]
+            val_iterations = val_data_points // batch_size + (1 if val_data_points % batch_size != 0 else 0)
+            
+            for it in range(val_iterations):
+                begin = it * batch_size
+                end = min(begin + batch_size, val_data_points)
+                
+                val_inputs = val_data[begin:end].flatten(start_dim=1).to(device)
+                val_expected = val_out[begin:end].unsqueeze(-1).to(device)
+                
+                val_outputs = predictor(val_inputs)
+                val_loss = criterion(val_outputs, val_expected)
+                val_epoch_losses.append(val_loss.item())
+        
+        avg_val_loss = sum(val_epoch_losses) / len(val_epoch_losses)
+        val_losses.append(avg_val_loss)
+        
+        print(f"Epoch {epoch+1} - Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
+        
+        # Early stopping logic
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            patience_counter = 0
+            best_model_state = predictor.state_dict()
+        else:
+            patience_counter += 1
+            
+        if patience_counter >= patience:
+            print(f"Early stopping triggered after epoch {epoch+1}")
+            predictor.load_state_dict(best_model_state)  # Restore best model
+            break
+    
     print('Finished Training')
-    return loss_hist
+    return train_losses, val_losses
 
+def calculate_metrics(y_true, y_pred):
+
+    # Convert inputs to numpy arrays
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    
+    mse = np.mean((y_true - y_pred) ** 2)  # Mean Squared Error
+    mae = np.mean(np.abs(y_true - y_pred))  # Mean Absolute Error
+    rmse = np.sqrt(mse)  # Root Mean Squared Error
+
+    # R-squared calculation
+    y_mean = np.mean(y_true)
+    ss_tot = np.sum((y_true - y_mean) ** 2)
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+
+    return {
+        'mse': mse,
+        'rmse': rmse,
+        'mae': mae,
+        'r_squared': r_squared
+    }
 
 class SiPMSignalProcessor:
     def __init__(self, 

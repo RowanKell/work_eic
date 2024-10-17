@@ -21,12 +21,20 @@ import datetime
 from momentum_prediction_util import process_root_file,prepare_nn_input,prepare_prediction_input,Predictor,train,prepare_prediction_input_pulse
 import argparse
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
-parser.add_argument('--fileNum', type=int, default=0,
-                        help='file index to use')
-args = parser.parse_args()
-file_num = args.fileNum
 
-file_name = f"n_5kevents_0_8_to_10GeV_90theta_origin_file_{file_num}.edm4hep.root"
+parser.add_argument('--filePathName', type=str, default="NA",
+                        help='directory of root file') 
+parser.add_argument('--inputTensorPathName', type=str, default="NA",
+                        help='directory of output tensors') 
+parser.add_argument('--outputTensorPathName', type=str, default="NA",
+                        help='directory of output tensors') 
+args = parser.parse_args()
+filePathName = args.filePathName
+inputTensorPathName = args.inputTensorPathName
+outputTensorPathName = args.outputTensorPathName
+
+
+# file_name = f"n_5kevents_0_8_to_10GeV_90theta_origin_file_{file_num}.edm4hep.root"
 
 layer_map, super_layer_map = create_layer_map()
 
@@ -85,8 +93,7 @@ model = model.to(device)
 model_compile = torch.compile(model,mode = "reduce-overhead")
 model_compile = model_compile.to(device)
 
-pref = "/hpc/group/vossenlab/rck32/"
-processed_data = process_root_file(pref + "eic/work_eic/root_files/momentum_prediction/September_10/" + file_name)
+processed_data = process_root_file(filePathName)
 print("Finished running process_root_file")
 
 print("Starting prepare_nn_input")
@@ -98,6 +105,6 @@ end = time.time()
 
 print("Starting prepare_prediction_input")
 prediction_input, prediction_output= prepare_prediction_input_pulse(nn_input,nn_output)
-torch.save(prediction_input,pref + f"eic/work_eic/macros/Timing_estimation/data/momentum_prediction_pulse/Oct_3/input_5k_n_slurm_{file_num}.pt")
-torch.save(prediction_output,pref + f"eic/work_eic/macros/Timing_estimation/data/momentum_prediction_pulse/Oct_3/output_5k_n_slurm_{file_num}.pt")
+torch.save(prediction_input,inputTensorPathName)
+torch.save(prediction_output,outputTensorPathName)
 print("finished job")
