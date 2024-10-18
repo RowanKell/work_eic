@@ -5,7 +5,7 @@ workdir="/hpc/group/vossenlab/rck32/eic/work_eic"
 # hipodir="/lustre19/expphy/cache/clas12/rg-a/production/montecarlo/clasdis/fall2018/torus+1/v1/bkg50nA_10604MeV"
 slurm_output="${workdir}/root_files/Slurm"
 #USER SET VALUES
-num_events=50
+num_events=5000
 
 out_folder="/hpc/group/vossenlab/rck32/eic/work_eic/slurm/output/output${current_date}"
 error_folder="/hpc/group/vossenlab/rck32/eic/work_eic/slurm/error/error${current_date}"
@@ -68,6 +68,7 @@ do
     i=$((i+1))
 done
 
+
 trainFile="/hpc/group/vossenlab/rck32/eic/work_eic/slurm/shells/train_momentum.sh"
 
 touch $trainFile
@@ -83,4 +84,3 @@ train_content+="#SBATCH --mem=50G\n"
 train_content+="#SBATCH --gpus=1\n"
 train_content+="#SBATCH --mail-user=rck32@duke.edu\n"
 train_content+=""
-

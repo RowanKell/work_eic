@@ -21,6 +21,82 @@ from torch import nn
 from scipy import signal
 layer_map, super_layer_map = create_layer_map()
 
+def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
+    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    
+    all_context = []
+    all_time_pixels = []
+    all_metadata = []
+    
+    print("Processing data...")
+    for event_idx, event_data in tqdm(processed_data.items()):
+        for layer, layer_data in event_data.items():
+            for particle_id, particle_data in layer_data.items():
+                primary_momentum = particle_data["primary_momentum"].item()
+                base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
+                                            dtype=torch.float32)
+                base_time_pixels = torch.tensor([particle_data['time'], particle_data['num_pixels']], 
+                                                dtype=torch.float32)
+                
+                for SiPM_idx in range(2):
+                    z_pos = 1500 - particle_data['z_pos'] if SiPM_idx == 1 else particle_data['z_pos']
+                    context = base_context.clone()
+                    context[0] = z_pos
+                    
+                    all_context.append(context.repeat(particle_data['num_pixels'], 1))
+                    all_time_pixels.append(base_time_pixels.repeat(particle_data['num_pixels'], 1))
+                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum)] * particle_data['num_pixels'])
+
+    all_context = torch.cat(all_context)
+    all_time_pixels = torch.cat(all_time_pixels)
+    
+    print("Sampling data...")
+    sampled_data = []
+    for i in tqdm(range(0, len(all_context), batch_size)):
+        batch_context = all_context[i:i+batch_size].to(device)
+        batch_time_pixels = all_time_pixels[i:i+batch_size]
+        
+        with torch.no_grad():
+            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
+        
+        adjusted_times = samples.cpu() + batch_time_pixels[:, 0]
+        sampled_data.extend(adjusted_times)
+
+    print("Reorganizing data...")
+    for (event, layer, SiPM, particle, momentum), sample in zip(all_metadata, sampled_data):
+        nn_input[event][layer][SiPM].append(sample)
+        nn_output[event][layer][SiPM].append(torch.tensor([momentum]))
+
+    return nn_input, nn_output
+
+def load_and_concatenate_tensors(directory):
+    tensor_files = [f for f in os.listdir(directory) if f.endswith('.pt')]
+    tensors = []
+
+    for file in tensor_files:
+        file_path = os.path.join(directory, file)
+        tensor = torch.load(file_path)
+        tensors.append(tensor)
+
+    # Concatenate all tensors along the first dimension (assuming this is what you want)
+    concatenated_tensor = torch.cat(tensors, dim=0)
+
+    return concatenated_tensor
+
+# In your main training script:
+def train_neural_network(data_directory):
+    # Load and concatenate the data
+    training_data = load_and_concatenate_tensors(data_directory)
+
+    # Your existing training code here
+    # ...
+
+# Example usage
+if __name__ == "__main__":
+    data_directory = "/path/to/your/tensor/files"
+    train_neural_network(data_directory)
+
 def process_root_file(file_path):
     print("began processing")
     with uproot.open(file_path) as file:
@@ -100,10 +176,12 @@ def prepare_nn_input(processed_data, normalizing_flow, batch_size=1024):
     flattened_data = []
     event_indices = []
     layer_indices = []
+    SiPM_indices = []
     particle_indices = []
 
     final_event_indices = []
     final_layer_indices = []
+    final_SiPM_indices = []
     final_particle_indices = []
     
     momentum_list = []
@@ -113,15 +191,22 @@ def prepare_nn_input(processed_data, normalizing_flow, batch_size=1024):
     for event_idx, event_data in processed_data.items():
         for layer, layer_data in event_data.items():
             for particle_id, particle_data in layer_data.items():
-                primary_momentum = particle_data["primary_momentum"]
-                context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], dtype=torch.float32).repeat(particle_data['num_pixels'], 1)
-                flattened_data.append(torch.tensor([particle_data['time'], particle_data['num_pixels']]).repeat(particle_data['num_pixels'],1))
-                context_list.append(context)
-                for pixel_repeat_idx in range(particle_data['num_pixels']):
-                    final_event_indices.append(event_idx)
-                    final_layer_indices.append(layer)
-                    final_particle_indices.append(particle_id)
-                    momentum_list.append(primary_momentum.item())
+                #Loop over twice for both SiPMs
+                for SiPM_idx in range(2):
+                    primary_momentum = particle_data["primary_momentum"]
+                    if(SiPM_idx == 1):
+                        z_pos = 1500 - particle_data['z_pos']
+                    else:
+                        z_pos = particle_data['z_pos']
+                    context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], dtype=torch.float32).repeat(particle_data['num_pixels'], 1)
+                    flattened_data.append(torch.tensor([particle_data['time'], particle_data['num_pixels']]).repeat(particle_data['num_pixels'],1))
+                    context_list.append(context)
+                    for pixel_repeat_idx in range(particle_data['num_pixels']):
+                        final_event_indices.append(event_idx)
+                        final_layer_indices.append(layer)
+                        final_SiPM_indices.append(SiPM_idx)
+                        final_particle_indices.append(particle_id)
+                        momentum_list.append(primary_momentum.item())
     all_context = torch.cat(context_list).to(device)
     all_time_pixels = torch.cat(flattened_data)
     # Batch the flattened data
@@ -139,15 +224,18 @@ def prepare_nn_input(processed_data, normalizing_flow, batch_size=1024):
         adjusted_times = samples.detach().cpu() + add_times[:,0]
         sampled_data.extend(adjusted_times)
     # Reorganize sampled data
-    nn_input = defaultdict(lambda: defaultdict(list))
-    nn_output = defaultdict(lambda: defaultdict(list))
+    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     print("Beginning reorganization process")
     t = tqdm(total = len(final_event_indices))
-    for i, (event, layer, particle) in enumerate(zip(final_event_indices, final_layer_indices, final_particle_indices)):
+    for i, (event, layer, SiPM, particle) in enumerate(zip(final_event_indices, final_layer_indices, final_SiPM_indices,final_particle_indices)):
         t.update(event)
-        nn_input[event][layer].append(sampled_data[i])
-        nn_output[event][layer].append(torch.Tensor([momentum_list[i]]))
+        nn_input[event][layer][SiPM].append(sampled_data[i])
+        nn_output[event][layer][SiPM].append(torch.Tensor([momentum_list[i]]))
     return nn_input, nn_output
+
+
+
 def prepare_prediction_input(nn_input, nn_output):
     #note - some events do not have dictionaries in nn_input due to being empty
     #need to skip over these and condense tensor
@@ -182,7 +270,7 @@ def prepare_prediction_input_pulse(nn_input, nn_output):
     
     #note - some events do not have dictionaries in nn_input due to being empty
     #need to skip over these and condense tensor
-    prediction_input = torch.ones(len(nn_input),28,2) * 9999
+    prediction_input = torch.ones(len(nn_input),28,2,2) * 9999
     prediction_output = torch.ones(len(nn_input)) * 9999
     
     input_dict = defaultdict(lambda: defaultdict(list))
@@ -194,36 +282,206 @@ def prepare_prediction_input_pulse(nn_input, nn_output):
         layer_keys = nn_input[event_idx].keys()
         for layer in range(28):
             if(layer in layer_keys):
-                photon_times = torch.tensor(sorted(nn_input[event_idx][layer])) * 10 **(-9)
-                #get relative times
-                min_time = photon_times[0]
-                photon_times = photon_times - min_time
-                
-                #calculate time and charge
-                time,waveform = processor.generate_waveform(photon_times)
-                charge = processor.integrate_charge(waveform)
-                timing = processor.cfd_timing(waveform)
-                prediction_input
-                if(not set_output):
-                    prediction_output[curr_event_num] = nn_output[event_idx][layer][0]
-                    set_output = True
-                
-                prediction_input[curr_event_num][layer][0] = charge * 1e6
-                prediction_input[curr_event_num][layer][1] = (timing + min_time) * 1e8
+                for SiPM_idx in range(2):
+                    photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
+                    #get relative times
+                    min_time = photon_times[0]
+                    photon_times = photon_times - min_time
+
+                    #calculate time and charge
+                    time,waveform = processor.generate_waveform(photon_times)
+                    charge = processor.integrate_charge(waveform)
+                    timing = processor.cfd_timing(waveform)
+                    prediction_input
+                    if(not set_output):
+                        prediction_output[curr_event_num] = nn_output[event_idx][layer][SiPM_idx][0]
+                        set_output = True
+
+                    prediction_input[curr_event_num][layer][SiPM_idx][0] = charge * 1e6
+                    prediction_input[curr_event_num][layer][SiPM_idx][1] = (timing + min_time) * 1e8
             else:
                 charge = 0
                 timing = 9999
-                prediction_input[curr_event_num][layer][0] = charge
-                prediction_input[curr_event_num][layer][1] = timing
+                prediction_input[curr_event_num][layer][0][0] = charge
+                prediction_input[curr_event_num][layer][0][1] = timing
+                prediction_input[curr_event_num][layer][1][0] = charge
+                prediction_input[curr_event_num][layer][1][1] = timing
 
         curr_event_num += 1
     return prediction_input, prediction_output
+def process_root_file_for_greg(file_path):
+    print("began processing")
+    with uproot.open(file_path) as file:
+        tree_HcalBarrelHits = file["events/HcalBarrelHits"]
+        tree_MCParticles = file["events/MCParticles"]
+        
+        
+        momentum_x_MC = tree_MCParticles["MCParticles.momentum.x"].array(library="np")
+        momentum_y_MC = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
+        momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
+        
+        z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
+        x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
+        energy = tree_HcalBarrelHits["HcalBarrelHits.EDep"].array(library="np")
+        momentum_x = tree_HcalBarrelHits["HcalBarrelHits.momentum.x"].array(library="np")
+        momentum_y = tree_HcalBarrelHits["HcalBarrelHits.momentum.y"].array(library="np")
+        momentum_z = tree_HcalBarrelHits["HcalBarrelHits.momentum.z"].array(library="np")
+        hit_time = tree_HcalBarrelHits["HcalBarrelHits.time"].array(library="np")
+        mc_hit_idx = file["events/_HcalBarrelHits_MCParticle/_HcalBarrelHits_MCParticle.index"].array(library="np")  # Add PDG code for particle identification
+        print("finished loading branches")
+        
+        processed_data = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+        
+        for event_idx in tqdm(range(len(z_pos))):
+            if(len(z_pos[event_idx]) == 0):
+                continue
+            primary_momentum = (momentum_x_MC[event_idx][0],
+                            momentum_y_MC[event_idx][0],
+                            momentum_z_MC[event_idx][0])
+            primary_momentum_mag = np.linalg.norm(primary_momentum)
+            if(primary_momentum_mag <= 0):
+                continue
+            if(primary_momentum_mag > 100):
+                continue
+            energy_per_layer_particle = defaultdict(lambda: defaultdict(float))
+            first_hit_per_layer_particle = defaultdict(dict)
+            # First pass: collect first hit data and calculate energy per layer per particle
+            for hit_idx in range(len(z_pos[event_idx])):
+                z = z_pos[event_idx][hit_idx]
+                x = x_pos[event_idx][hit_idx]
+                e = energy[event_idx][hit_idx]
+                momentum = (momentum_x[event_idx][hit_idx],
+                            momentum_y[event_idx][hit_idx],
+                            momentum_z[event_idx][hit_idx])
+                momentum_mag = np.linalg.norm(momentum)
+                theta = theta_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
+                layer = get_layer(x)
+                particle_id = mc_hit_idx[event_idx][hit_idx]
+                
+                energy_per_layer_particle[layer][particle_id] += e
+                
+                if layer not in first_hit_per_layer_particle or particle_id not in first_hit_per_layer_particle[layer]:
+                    first_hit_per_layer_particle[layer][particle_id] = {
+                        "z_pos": z,
+                        "x_pos": x,
+                        "momentum": momentum_mag,
+                        "primary_momentum": primary_momentum_mag,
+                        "theta": theta,
+                        "time": hit_time[event_idx][hit_idx],
+                        "mc_hit_idx": particle_id,
+                        "pid": pid,
+                        "phi": phi
+                    }
+            
+            
+            # Second pass: process first hit with total layer energy per particle
+            for layer, particle_data in first_hit_per_layer_particle.items():
+                for particle_id, hit_data in particle_data.items():
+                    layer_particle_energy = energy_per_layer_particle[layer][particle_id]
+                    num_pixels = calculate_num_pixels_z_dependence(layer_particle_energy, hit_data["z_pos"])
+#                     print(f"layer:\t\t{layer}\t|\tparticle id:\t{particle_id}\t|\tnum_pixels:\t{num_pixels}")
+                    hit_data["num_pixels"] = int(np.floor(num_pixels))
+                    hit_data["layer_energy"] = layer_particle_energy  # Store total layer energy for this particle
+                    processed_data[event_idx][layer][particle_id.item()] = hit_data
+    
+    print("finished processing")
+    return processed_data
+def new_prepare_nn_input_for_greg(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
+    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    
+    all_context = []
+    all_time_pixels = []
+    all_metadata = []
+    
+    print("Processing data...")
+    for event_idx, event_data in tqdm(processed_data.items()):
+        for layer, layer_data in event_data.items():
+            for particle_id, particle_data in layer_data.items():
+                primary_momentum = particle_data["primary_momentum"].item()
+                base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
+                                            dtype=torch.float32)
+                base_time_pixels = torch.tensor([particle_data['time'], particle_data['num_pixels']], 
+                                                dtype=torch.float32)
+                
+                for SiPM_idx in range(2):
+                    z_pos = 1500 - particle_data['z_pos'] if SiPM_idx == 1 else particle_data['z_pos']
+                    context = base_context.clone()
+                    context[0] = z_pos
+                    
+                    all_context.append(context.repeat(particle_data['num_pixels'], 1))
+                    all_time_pixels.append(base_time_pixels.repeat(particle_data['num_pixels'], 1))
+                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum,particle_data['mc_hit_idx'],particle_data['pid'],particle_data['theta'],particle_data['phi'])] * particle_data['num_pixels'])
+
+    all_context = torch.cat(all_context)
+    all_time_pixels = torch.cat(all_time_pixels)
+    
+    print("Sampling data...")
+    sampled_data = []
+    for i in tqdm(range(0, len(all_context), batch_size)):
+        batch_context = all_context[i:i+batch_size].to(device)
+        batch_time_pixels = all_time_pixels[i:i+batch_size]
+        
+        with torch.no_grad():
+            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context[:,:3])[0]).squeeze(1)
+        
+        adjusted_times = samples.cpu() + batch_time_pixels[:, 0]
+        sampled_data.extend(adjusted_times)
+
+    print("Reorganizing data...")
+    for (event, layer, SiPM, particle, momentum,mc_hit_idx,pid,theta,phi), sample in zip(all_metadata, sampled_data):
+        nn_input[event][layer][SiPM].append(sample)
+        nn_output[event][layer][SiPM].append(torch.tensor([momentum,particle,mc_hit_idx,pid,theta,phi]))
+
+    return nn_input, nn_output
+
+#TODO Need to get particle idx, theta, phi, p, PID from prepare_prediction_input - don't use new indices, just add as extra values bc we don't need these for my nn training
+def prepare_prediction_input_pulse_for_greg(nn_input, nn_output):
+    processor = SiPMSignalProcessor()
+    
+    #note - some events do not have dictionaries in nn_input due to being empty
+    #need to skip over these and condense tensor
+    out_columns = ['event_idx','layer_idx','trueid','truePID','P','Theta','Phi','Charge1','Time1','Charge2','Time2']
+    running_index = 0
+    out_df = pd.DataFrame(columns = out_columns)
+    
+    input_dict = defaultdict(lambda: defaultdict(list))
+    output_dict = {}
+    curr_event_num = 0
+    for event_idx in tqdm(list(nn_input)):
+        event_input = []
+        set_output = False
+        layer_keys = nn_input[event_idx].keys()
+        for layer in range(28):
+            charge_times = np.empty(2,2)
+            if(layer in layer_keys): #ignore layers with no hits
+                for SiPM_idx in range(2):
+                    photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
+                    #get relative times
+                    min_time = photon_times[0]
+                    photon_times = photon_times - min_time
+
+                    #calculate time and charge
+                    time,waveform = processor.generate_waveform(photon_times)
+                    charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
+                    charge_times[SiPM_idx][1] = (processor.cfd_timing(waveform) + min_time) * 1e8
+                    
+                P = nn_output[event_idx][layer][0][0]
+                particle_idx = nn_output[event_idx][layer][0][2]
+                pid = nn_output[event_idx][layer][0][3]
+                theta = nn_output[event_idx][layer][0][4]
+                phi = nn_output[event_idx][layer][0][5]
+                new_row = [event_idx,layer_idx,particle_idx,pid,P,theta,phi,charge_times[0,0],charge_times[0,1],charge_times[1,0],charge_times[1,1]]
+                out_df.append(new_row,columns=out_columns,index = running_index)
+                running_index += 1
+        curr_event_num += 1
+    return out_df
 
 class Predictor(nn.Module):
     """
     Prediction network
     """
-    def __init__(self, input_size=280, num_classes=2, hidden_dim = 512, num_layers = 10):
+    def __init__(self, input_size=28*2*2, num_classes=2, hidden_dim = 512, num_layers = 10):
         super(Predictor, self).__init__()
         self.layer = nn.Sequential()
         for i in range(num_layers):

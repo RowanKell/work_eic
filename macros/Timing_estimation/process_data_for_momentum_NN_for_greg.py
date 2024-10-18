@@ -19,7 +19,7 @@ import normflows as nf
 import datetime
 import pathlib
 
-from momentum_prediction_util import process_root_file,prepare_nn_input,prepare_prediction_input,Predictor,train,prepare_prediction_input_pulse,new_prepare_nn_input
+from momentum_prediction_util import process_root_file_for_greg,prepare_nn_input,prepare_prediction_input,Predictor,train,prepare_prediction_input_pulse_for_greg,new_prepare_nn_input_for_greg
 import argparse
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
 
@@ -89,18 +89,18 @@ model = model.to(device)
 model_compile = torch.compile(model,mode = "reduce-overhead")
 model_compile = model_compile.to(device)
 print("Starting process_root_file")
-processed_data = process_root_file(filePathName)
+processed_data = process_root_file_for_greg(filePathName)
 print("Finished running process_root_file")
 
 print("Starting prepare_nn_input")
 begin = time.time()
-nn_input, nn_output = new_prepare_nn_input(processed_data, model_compile,batch_size = 50000)
+nn_input, nn_output = new_prepare_nn_input_for_greg(processed_data, model_compile,batch_size = 50000)
 end = time.time()
 
 # print(f"rate: {(end - begin) / 500000} seconds / event")
 
 print("Starting prepare_prediction_input")
-prediction_input, prediction_output= prepare_prediction_input_pulse(nn_input,nn_output)
+out_df = prepare_prediction_input_pulse_for_greg(nn_input,nn_output)
 torch.save(prediction_input,inputTensorPathName)
 torch.save(prediction_output,outputTensorPathName)
 print("finished job")

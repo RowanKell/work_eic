@@ -17,7 +17,7 @@ from IPython.display import clear_output
 from tqdm import tqdm
 from torch import nn
 
-from momentum_prediction_util import Predictor,split_data,train,calculate_metrics
+from momentum_prediction_util import Predictor,split_data,train,calculate_metrics,load_and_concatenate_tensors
 import argparse
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
 
@@ -30,19 +30,10 @@ inputTensorPath = args.inputTensorPath
 outputTensorPath = args.outputTensorPath
 pref_TE = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/"
 
-
-
-### TODO: load tensors from inputTensorPath and output, then almost done
-inputs = torch.load("data/momentum_prediction_pulse/Oct_6_cut_bad_events/input_5k_n_slurm_0.pt",weights_only = True)
-outputs = torch.load("data/momentum_prediction_pulse/Oct_6_cut_bad_events/output_5k_n_slurm_0.pt",weights_only = True)
-for i in range(1,51):
-    new_input = torch.load(f"data/momentum_prediction_pulse/Oct_6_cut_bad_events/input_5k_n_slurm_{i}.pt",weights_only = True)
-    inputs = torch.cat((inputs,new_input))
-    new_output = torch.load(f"data/momentum_prediction_pulse/Oct_6_cut_bad_events/output_5k_n_slurm_{i}.pt",weights_only = True)
-    outputs = torch.cat((outputs,new_output))
-
+inputs = load_and_concatenate_tensors(inputTensorPath)
+outputs = load_and_concatenate_tensors(outputTensorPath)
 train_data, val_data, test_data, split_info = split_data(
-    scaled_inputs, outputs
+    inputs, outputs
 )
 
 num_layers = 28
