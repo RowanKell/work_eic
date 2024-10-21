@@ -37,7 +37,7 @@ train_data, val_data, test_data, split_info = split_data(
 )
 
 num_layers = 28
-num_input_features_per_layer = 2
+num_input_features_per_layer = 2 * 2
 model = Predictor(input_size=num_layers * num_input_features_per_layer, num_classes=1, hidden_dim = num_layers * num_input_features_per_layer * 2, num_layers = 16)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-5)
@@ -45,26 +45,26 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=1e-5)
 loss_hist,val_hist = train(model,train_data['inputs'],train_data['outputs'],val_data['inputs'],val_data['outputs'],optimizer,device,num_epochs = 200, batch_size = 256)
 
 pref_loss = pref_TE + "plots/momentum_prediction/loss/"
-
+print("plotting loss")
 fig,axs = plot.subplots(1,1)
 axs.plot(loss_hist,label = "Train")
 axs.plot(val_hist,label = "Validation")
 axs.set_ylabel("Loss")
 fig.suptitle("Training Loss")
-axs.set_xlable("epoch")
+axs.set_xlabel("epoch")
 axs.legend()
 fig.savefig(pref_loss + "test_loss.pdf")
 pref_model = pref_TE + "models/"
 model.save(pref_model + "Momentum_prediction/test.pth")
-
+print("running test data")
 dataset = test_data
 model_out = np.zeros(len(dataset['outputs']))
 for i in range(len(model_out)):
     model_out[i] = model(dataset['inputs'][i].flatten().to(device)).detach().cpu()
     
 num_bins = 20
-bin_edges = np.linspace(0,10,num_bins + 1)
-
+bin_edges = np.linspace(0.8,10,num_bins + 1)
+print("binning test data")
 binned_model_out = [[] for _ in range(num_bins)]
 binned_real_out = [[] for _ in range(num_bins)]
 dataset = test_data
@@ -73,27 +73,26 @@ model_out = np.zeros(len(real_out))
 for i in range(len(model_out)):
     model_out[i] = model(dataset['inputs'][i].flatten().to(device)).detach().cpu()
     for j in range(1,len(bin_edges)):
-        if(real_outs[i] < bin_edges[j]):
+        if(real_out[i] < bin_edges[j]):
             binned_model_out[j - 1].append(model_out[i])
             binned_real_out[j - 1].append(real_out[i])
             break
-binned_real_out = np.array(binned_real_out)
-binned_model_out = np.array(binned_model_out)
 
 bin_centers = np.array(bin_edges[1:]) - (bin_edges[1] - bin_edges[0]) / 2
-
+print("calculating RMSE")
 RMSE_arr = np.zeros(len(bin_centers))
 for i in range(len(bin_centers)):
     mse = np.mean((np.array(binned_real_out[i]) - np.array(binned_model_out[i])) ** 2)  # Mean Squared Error
     RMSE_arr[i] = np.sqrt(mse)  # Root Mean Squared Error
 
     
-
+print("Plotting results")
 fig_RMSE,axs_RMSE = plot.subplots(1,1)
-
-axs_RMSE.scatter(bin_centers[1:],RMSE_arr[1:])
-axs_RMSE.xlabel("primary momentum")
-axs_RMSE.ylabel("RMSE")
-axs_RMSE.show();
-pref_RMSE = pref_TE + "momentum_prediction/RMSE/"
+print(bin_centers)
+print(RMSE_arr)
+axs_RMSE.scatter(bin_centers,RMSE_arr)
+axs_RMSE.set_xlabel("primary momentum")
+axs_RMSE.set_ylabel("RMSE")
+plot.show();
+pref_RMSE = pref_TE + "plots/momentum_prediction/RMSE/"
 fig_RMSE.savefig(pref_RMSE + "test.pdf")

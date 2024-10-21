@@ -6,7 +6,7 @@ def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-def submit_simulation_and_processing_jobs(num_simulations, num_events):
+def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -24,7 +24,7 @@ def submit_simulation_and_processing_jobs(num_simulations, num_events):
 
     job_ids = []
 
-    for i in range(num_simulations):
+    for i in range(simulation_start_num, simulation_start_num + num_simulations):
         shell_script = f"{workdir}/slurm/shells/prediction_sims_{current_date}_pim_run_1_{i}.sh"
         
         with open(shell_script, 'w') as f:
@@ -83,7 +83,7 @@ def submit_training_job(dependency_job_ids):
 #SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=80G
+#SBATCH --mem=10G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 
@@ -100,15 +100,16 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/trainMo
 
 def main():
     num_simulations = 5
-    num_events = 50
+    simulation_start_num = 6
+    num_events = 2000
 
     # Submit simulation and processing jobs
-    job_ids = submit_simulation_and_processing_jobs(num_simulations, num_events)
+    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events)
     print(f"Submitted {num_simulations} simulation and processing jobs")
 
     # Submit training job
-    submit_training_job(job_ids)
-    print("Submitted training job with dependency on all simulation and processing jobs")
+#     submit_training_job(job_ids)
+#     print("Submitted training job with dependency on all simulation and processing jobs")
 
 if __name__ == "__main__":
     main()

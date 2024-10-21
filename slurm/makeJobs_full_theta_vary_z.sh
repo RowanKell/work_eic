@@ -1,5 +1,6 @@
 #!/bin/bash
-#Used to generate training data for conditional flow
+#Used to generate training data for timing estimation conditional flow
+#varies the theta depending on the z value so that all events result in hits (e.g. high z cannot have low theta)
 convert_pos() {
     echo "import math; print(math.tan($1 - 1.57080))" | python | awk '{ printf "%.5f\n", 50 * $1 }'
 }
@@ -83,7 +84,7 @@ do
     content+="echo began job\n"
     content+="cat << EOF | $eicdir/eic/eic-shell\n"
     content+="source $eicdir/eic/epic_klm/install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile $eicdir/eic/work_eic/steering/sensor_sensitive/variation_pos_keepALL.py --compactFile $eicdir/eic/epic_klm/epic_klmws_only.xml -G -N 1000 --gun.particle \"mu-\" --outputFile $eicdir/eic/work_eic/root_files/Photon_yield_param/run_2/x_1769_3_vary_z_th_2kevents_${i}_30_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile $eicdir/eic/work_eic/steering/sensor_sensitive/variation_pos_keepALL.py --compactFile $eicdir/eic/epic_klm/epic_klmws_only.xml -G -N 1000 --gun.particle \"mu-\" --outputFile $eicdir/eic/work_eic/root_files/Photon_yield_param/run_2_no_QE/x_1769_3_vary_z_th_1kevents_${i}_30_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells_full_theta_vary/${rootname}${i}.sh" >> $runJobs

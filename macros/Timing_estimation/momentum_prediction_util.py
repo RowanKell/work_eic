@@ -627,7 +627,9 @@ def train(predictor, train_data, nn_output, val_data, val_out, optimizer, device
                 if show_progress:
                     pbar.update(1)
         
-        avg_train_loss = sum(epoch_losses) / len(epoch_losses)
+#         avg_train_loss = sum(epoch_losses) / len(epoch_losses)
+#         avg_train_loss = np.mean(np.array(epoch_losses))
+        avg_train_loss = np.mean(epoch_losses) if epoch_losses else float('nan')
         train_losses.append(avg_train_loss)
         
         # Validation Phase
@@ -649,7 +651,9 @@ def train(predictor, train_data, nn_output, val_data, val_out, optimizer, device
                 val_loss = criterion(val_outputs, val_expected)
                 val_epoch_losses.append(val_loss.item())
         
-        avg_val_loss = sum(val_epoch_losses) / len(val_epoch_losses)
+#         avg_val_loss = sum(val_epoch_losses) / len(val_epoch_losses)
+#         avg_val_loss = np.mean(np.array(val_epoch_losses))
+        avg_val_loss = np.mean(val_epoch_losses) if val_epoch_losses else float('nan')
         val_losses.append(avg_val_loss)
         
         print(f"Epoch {epoch+1} - Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
@@ -665,6 +669,7 @@ def train(predictor, train_data, nn_output, val_data, val_out, optimizer, device
         if patience_counter >= patience:
             print(f"Early stopping triggered after epoch {epoch+1}")
             predictor.load_state_dict(best_model_state)  # Restore best model
+            print("loaded best model")
             break
     
     print('Finished Training')
