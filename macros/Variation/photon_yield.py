@@ -18,7 +18,7 @@ import os
 groupdir_pref = "/hpc/group/vossenlab/rck32/"
 
 layer_map,super_layer_map = create_layer_map()
-n_bins = 30
+n_bins = 10
 
 z_min = -770
 z_max = 770
@@ -110,7 +110,7 @@ eic_pref = "/hpc/group/vossenlab/rck32/eic/"
 uproot_file_dir = groupdir_pref + "eic/work_eic/root_files/Photon_yield_param/run_2_no_QE/"
 file_list = []
 for i in range(31):
-    file_list.append(uproot_file_dir + f"x_1769_3_vary_z_th_1kevents_{i}_30_z_vals.edm4hep.root:events")
+    file_list.append(uproot_file_dir + f"x_1769_3_vary_z_th_1kevents_{i}_12_z_vals.edm4hep.root:events")
 z_hits = np.zeros(n_bins)
 z_MC = np.zeros(n_bins)
 with multiprocessing.Pool() as pool:

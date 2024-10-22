@@ -19,6 +19,10 @@ import normflows as nf
 import datetime
 from torch import nn
 from scipy import signal
+from typing import Dict, Any, Literal, Optional, Union
+import json
+import optuna
+
 layer_map, super_layer_map = create_layer_map()
 
 def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
@@ -83,7 +87,35 @@ def load_and_concatenate_tensors(directory):
     concatenated_tensor = torch.cat(tensors, dim=0)
 
     return concatenated_tensor
-
+def filter_tensors_by_values(tensor1, tensor2, threshold1=200, threshold2=20):
+    """
+    Filter two tensors based on value thresholds, keeping event indices aligned.
+    
+    Args:
+        tensor1: First tensor with shape [event, layer, SiPM, value]
+        tensor2: Second tensor with same shape
+        threshold1: Maximum allowed value for first value
+        threshold2: Maximum allowed value for second value
+        
+    Returns:
+        Tuple of filtered tensors (filtered_tensor1, filtered_tensor2)
+    """
+    # Get first and second values for all events
+    first_values = tensor1[..., 0]   # [...] keeps all dimensions except last
+    second_values = tensor1[..., 1]
+    
+    # Create masks for each condition
+    mask_first = (first_values < threshold1).all(dim=(1, 2))  # Check across layer and SiPM dims
+    mask_second = (second_values < threshold2).all(dim=(1, 2))
+    
+    # Combine masks
+    valid_events = mask_first & mask_second
+    
+    # Apply masks to both tensors
+    filtered_tensor1 = tensor1[valid_events]
+    filtered_tensor2 = tensor2[valid_events]
+    
+    return filtered_tensor1, filtered_tensor2
 # In your main training script:
 def train_neural_network(data_directory):
     # Load and concatenate the data
@@ -478,6 +510,166 @@ def prepare_prediction_input_pulse_for_greg(nn_input, nn_output):
     return out_df
 
 class Predictor(nn.Module):
+    """
+    Neural network for prediction tasks with configurable architecture.
+    
+    Args:
+        input_size (int): Number of input features
+        num_classes (int): Number of output classes/values
+        hidden_dim (int): Dimension of hidden layers
+        num_layers (int): Number of hidden layers
+        dropout_rate (float): Dropout probability between layers
+        activation (str): Activation function to use ('relu', 'leaky_relu', or 'elu')
+    """
+    def __init__(
+        self,
+        input_size: int = 28 * 2 * 2,
+        num_classes: int = 1,
+        hidden_dim: int = 512,
+        num_layers: int = 10,
+        dropout_rate: float = 0.1,
+        activation: Literal['relu', 'leaky_relu', 'elu'] = 'leaky_relu'
+    ):
+        super().__init__()
+        
+        # Store configuration
+        self.model_name = "Predictor"
+        self.input_size = input_size
+        self.config = {
+            'input_size': input_size,
+            'num_classes': num_classes,
+            'hidden_dim': hidden_dim,
+            'num_layers': num_layers,
+            'dropout_rate': dropout_rate,
+            'activation': activation
+        }
+        
+        # Create activation function
+        activation_map = {
+            'relu': nn.ReLU,
+            'leaky_relu': nn.LeakyReLU,
+            'elu': nn.ELU
+        }
+        activation_fn = activation_map[activation]
+        
+        # Build network layers
+        layers = []
+        for i in range(num_layers):
+            # Input layer
+            if i == 0:
+                layers.extend([
+                    nn.Linear(input_size, hidden_dim),
+                    activation_fn(inplace=True),
+                    nn.Dropout(dropout_rate)
+                ])
+            # Output layer
+            elif i == num_layers - 1:
+                layers.append(nn.Linear(hidden_dim, num_classes))
+            # Hidden layers
+            else:
+                layers.extend([
+                    nn.Linear(hidden_dim, hidden_dim),
+                    activation_fn(inplace=True),
+                    nn.Dropout(dropout_rate)
+                ])
+        
+        self.layers = nn.Sequential(*layers)
+        
+        # Initialize weights
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """Initialize network weights using Xavier/Glorot initialization."""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+    def _check_input_shape(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Check and reshape input tensor if necessary.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            
+        Returns:
+            torch.Tensor: Properly shaped input tensor
+        """
+        if x.dim() == 1:
+            x = x.unsqueeze(0)  # Add batch dimension
+            
+        if x.dim() > 2:
+            # Flatten all dimensions except batch dimension
+            x = x.view(x.size(0), -1)
+            
+        if x.size(-1) != self.input_size:
+            raise ValueError(
+                f"Expected input size {self.input_size}, but got {x.size(-1)}. "
+                f"Input shape: {tuple(x.shape)}"
+            )
+            
+        return x
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the network.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, input_size) or (input_size,)
+            
+        Returns:
+            torch.Tensor: Output predictions
+        """
+        x = self._check_input_shape(x)
+        return self.layers(x)
+
+    @property
+    def name(self) -> str:
+        """Get model name."""
+        return self.model_name
+    
+    def save(self, save_path: str):
+        """
+        Save model state and configuration.
+        
+        Args:
+            save_path (str): Path to save the model
+        """
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
+        save_dict = {
+            'model_state_dict': self.state_dict(),
+            'config': self.config
+        }
+        torch.save(save_dict, save_path)
+    
+    @classmethod
+    def load(cls, load_path: str, map_location: Optional[Union[str, torch.device]] = None):
+        """
+        Load model from saved state.
+        
+        Args:
+            load_path (str): Path to saved model
+            map_location: Optional device mapping for loaded model
+            
+        Returns:
+            Predictor: Loaded model instance
+        """
+        save_dict = torch.load(load_path, map_location=map_location)
+        
+        # Create new model instance with saved configuration
+        model = cls(**save_dict['config'])
+        
+        # Load state dictionary
+        model.load_state_dict(save_dict['model_state_dict'])
+        
+        return model
+
+    def get_config(self) -> dict:
+        """Get model configuration."""
+        return self.config.copy()
+
+class oldPredictor(nn.Module):
     """
     Prediction network
     """

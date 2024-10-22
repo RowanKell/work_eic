@@ -99,8 +99,8 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/trainMo
     subprocess.run(sbatch_command)
 
 def main():
-    num_simulations = 5
-    simulation_start_num = 6
+    num_simulations = 70
+    simulation_start_num = 31
     num_events = 2000
 
     # Submit simulation and processing jobs
