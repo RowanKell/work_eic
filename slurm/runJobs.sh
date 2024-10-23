@@ -12,3 +12,11 @@ sbatch shells_full_theta_vary/30_z_vals_file_9.sh
 sbatch shells_full_theta_vary/30_z_vals_file_10.sh
 sbatch shells_full_theta_vary/30_z_vals_file_11.sh
 sbatch shells_full_theta_vary/30_z_vals_file_12.sh
+sbatch shells_full_theta_vary/30_z_vals_file_13.sh
+sbatch shells_full_theta_vary/30_z_vals_file_14.sh
+sbatch shells_full_theta_vary/30_z_vals_file_15.sh
+sbatch shells_full_theta_vary/30_z_vals_file_16.sh
+sbatch shells_full_theta_vary/30_z_vals_file_17.sh
+sbatch shells_full_theta_vary/30_z_vals_file_18.sh
+sbatch shells_full_theta_vary/30_z_vals_file_19.sh
+sbatch shells_full_theta_vary/30_z_vals_file_20.sh

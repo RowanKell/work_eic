@@ -195,7 +195,7 @@ def calculate_num_pixels(energy_dep):
 
 #new, added oct 20, 2024. Includes QE, uses data/photon_yield/october_20_run_1_qe
 def calculate_num_pixels_z_dependence(energy_dep, z_hit):
-    efficiency = inverse(770 - z_hit,494.98,9.9733,-0.16796)
+    efficiency = inverse(770 - z_hit,494.98,9.9733,-0.16796) * 0.5 #0.5 for QE of 50% (approx from simulation)
     return 10 * energy_dep * (1000 * 1000) * efficiency / 100
 
 part_dict = {

@@ -13,7 +13,7 @@ calc_max_theta() {
     echo "import math; print(math.atan2($1 + 732,10) + 1.57080)" | python | awk '{ printf "%.5f\n", $1 }'
 }
 calc_events() {
-    echo "import math;import numpy as np; print(int(np.floor(3500 *(1 -  (732 + $1) / 1500) + 500)))" | python | awk '{ printf "%d\n", $1 }'
+    echo "import math;import numpy as np; print(int(np.floor(200 *(1 -  (732 + $1) / 1500) + 100)))" | python | awk '{ printf "%d\n", $1 }'
 }
 
 calc_inc() {
@@ -57,7 +57,7 @@ if [ ! -d "$error_folder" ]; then
 fi
 z_pos=-732
 z_end=767
-num_z=12
+num_z=20
 z_inc=$(calc_inc $z_pos $z_end $num_z)
 x_pos=1769.3
 
@@ -79,12 +79,12 @@ do
     content+="#SBATCH -p common\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
-    content+="#SBATCH --mem=4G\n"
+    content+="#SBATCH --mem=10G\n"
     content+="#SBATCH --mail-user=rck32@duke.edu\n"
     content+="echo began job\n"
     content+="cat << EOF | $eicdir/eic/eic-shell\n"
     content+="source $eicdir/eic/epic_klm/install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile $eicdir/eic/work_eic/steering/sensor_sensitive/variation_pos_keepALL.py --compactFile $eicdir/eic/epic_klm/epic_klmws_only.xml -G -N ${num_events} --gun.particle \"mu-\" --outputFile $eicdir/eic/work_eic/root_files/Photon_yield_param/run_2_no_QE/x_1769_3_vary_z_th_1kevents_${i}_12_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile $eicdir/eic/work_eic/steering/sensor_sensitive/variation_pos_keepALL.py --compactFile $eicdir/eic/epic_klm/epic_klmws_only.xml -G -N ${num_events} --gun.particle \"mu-\" --outputFile $eicdir/eic/work_eic/root_files/Photon_yield_param/run_6_low_QE/x_1769_3_vary_z_th_1kevents_${i}_20_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells_full_theta_vary/${rootname}${i}.sh" >> $runJobs

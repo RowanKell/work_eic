@@ -82,7 +82,7 @@ def extract_photon_yield_one_file(uproot_path):
     energy_dep = 0
     dep_count = 0
     hits_per_photon = []
-    break_val = 1000
+#     break_val = 1000
 #     print("starting loop")
     for event_idx in range(len(EDep_branch)):
 #         if(not (event_idx % (break_val // 100))):
@@ -100,20 +100,20 @@ def extract_photon_yield_one_file(uproot_path):
         for hit in range(len(EDep_branch[event_idx])):
             if(PDG_branch[event_idx][Hits_MC_idx_branch[event_idx][hit]] == -22):
                 z_hits[z_bin] += 1
-        if(event_idx > break_val):
-            break
+#         if(event_idx > break_val):
+#             break
         print(f"finished job for path: {uproot_path}")
     return z_hits, z_MC
 
 eic_pref = "/hpc/group/vossenlab/rck32/eic/"
 
-uproot_file_dir = groupdir_pref + "eic/work_eic/root_files/Photon_yield_param/run_2_no_QE/"
+uproot_file_dir = groupdir_pref + "eic/work_eic/root_files/Photon_yield_param/run_6_low_QE/"
 file_list = []
-for i in range(31):
-    file_list.append(uproot_file_dir + f"x_1769_3_vary_z_th_1kevents_{i}_12_z_vals.edm4hep.root:events")
+for i in range(21):
+    file_list.append(uproot_file_dir + f"x_1769_3_vary_z_th_1kevents_{i}_20_z_vals.edm4hep.root:events")
 z_hits = np.zeros(n_bins)
 z_MC = np.zeros(n_bins)
 with multiprocessing.Pool() as pool:
     results_list = pool.map(extract_photon_yield_one_file, file_list)
 results_np = np.array(results_list)
-np.save(groupdir_pref + "eic/work_eic/macros/Variation/data/photon_yield/october_20_run_2_no_qe",results_np)
+np.save(groupdir_pref + "eic/work_eic/macros/Variation/data/photon_yield/october_20_run_6_low_qe",results_np)

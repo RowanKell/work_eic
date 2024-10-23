@@ -33,14 +33,28 @@ def parse_arguments() -> argparse.Namespace:
         required=True,
         help='Directory of output tensors'
     )
+    parser.add_argument(
+        '--plotPath',
+        type=str,
+        required=True,
+        help='Directory of plots'
+    )
+    parser.add_argument(
+        '--modelPath',
+        type=str,
+        required=True,
+        help='Directory of model'
+    )
     return parser.parse_args()
 
-def create_output_directories(base_path: str) -> Dict[str, str]:
+def create_output_directories(base_path: str, plotPath: str,modelPath: str) -> Dict[str, str]:
     """Create output directories for plots and models."""
+    plot_base = base_path + "plots/momentum_prediction/"
     paths = {
-        'loss': os.path.join(base_path, "plots/momentum_prediction/loss/"),
-        'rmse': os.path.join(base_path, "plots/momentum_prediction/RMSE/"),
-        'model': os.path.join(base_path, "models/Momentum_prediction/")
+        'plots': os.path.join(plot_base,plotPath),
+        'loss': os.path.join(plot_base + plotPath, "loss/"),
+        'rmse': os.path.join(plot_base + plotPath, "RMSE/"),
+        'model': os.path.join(os.path.join(base_path, "models/"),modelPath)
     }
     
     for path in paths.values():
@@ -52,7 +66,7 @@ def setup_model(num_layers: int, device: torch.device) -> Tuple[nn.Module, torch
     """Initialize the model and optimizer."""
     num_input_features_per_layer = 2 * 2  # two sipms, 2 features (charge, time)
     input_size = num_layers * num_input_features_per_layer
-    hidden_dim_factor = 2.4
+    hidden_dim_factor = 4
     hidden_dim = int(input_size * hidden_dim_factor)
     
     model = Predictor(
@@ -64,7 +78,7 @@ def setup_model(num_layers: int, device: torch.device) -> Tuple[nn.Module, torch
         activation="elu"
     ).to(device)
     
-    learning_rate = 0.00094
+    learning_rate = 0.0001
     weight_decay = 7.2e-6
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -139,6 +153,7 @@ def plot_rmse_results(bin_centers: np.ndarray, rmse: np.ndarray,
     axs[2].set_xlabel("Real Energy")
     axs[2].set_ylim(0, 10)
     axs[2].set_xlim(0, 10)
+    axs[2].text(1,8,f"# events: {len(real_e)}")
     
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, "rmse_analysis_optimized_params_more_data.pdf"))
@@ -158,7 +173,7 @@ def main():
     # Setup
     args = parse_arguments()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    paths = create_output_directories("/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/")
+    paths = create_output_directories("/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/",args.plotPath,args.modelPath)
     
     # Load and prepare data
     inputs = load_and_concatenate_tensors(args.inputTensorPath)
@@ -172,6 +187,7 @@ def main():
         val_ratio=0.1, 
         test_ratio=0.1
     )
+    print(f"length of test set: {len(test_data['outputs'])}")
     
     # Train model
     model, optimizer = setup_model(num_layers=28, device=device)
@@ -185,7 +201,7 @@ def main():
         device,
         num_epochs=200,
         batch_size=32,
-        patience=15
+        patience=10
     )
     
     # Save model and plot training loss

@@ -2,8 +2,7 @@ import uproot
 import numpy as np
 import torch
 from collections import defaultdict
-from util import get_layer, theta_func,create_layer_map
-from reco import calculate_num_pixels_z_dependence
+from util import get_layer, theta_func,create_layer_map,calculate_num_pixels_z_dependence
 import matplotlib.pyplot as plot
 import time
 from collections import defaultdict
@@ -32,46 +31,55 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     all_context = []
     all_time_pixels = []
     all_metadata = []
-    
-    print("Processing data...")
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    print("Processing data in new_prepare_nn_input...")
     for event_idx, event_data in tqdm(processed_data.items()):
         for layer, layer_data in event_data.items():
             for particle_id, particle_data in layer_data.items():
                 primary_momentum = particle_data["primary_momentum"].item()
                 base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
                                             dtype=torch.float32)
-                base_time_pixels = torch.tensor([particle_data['time'], particle_data['num_pixels']], 
+                base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
+                                                dtype=torch.float32)
+                base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
                                                 dtype=torch.float32)
                 
                 for SiPM_idx in range(2):
-                    z_pos = 1500 - particle_data['z_pos'] if SiPM_idx == 1 else particle_data['z_pos']
+                    z_pos = particle_data['z_pos']
                     context = base_context.clone()
                     context[0] = z_pos
-                    
-                    all_context.append(context.repeat(particle_data['num_pixels'], 1))
-                    all_time_pixels.append(base_time_pixels.repeat(particle_data['num_pixels'], 1))
-                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum)] * particle_data['num_pixels'])
+                    num_pixel_tag = num_pixel_list[SiPM_idx]
+                    all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
+                    if(SiPM_idx == 0):
+                        all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
+                    else:
+                        all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
+                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum)] * particle_data[num_pixel_tag])
 
     all_context = torch.cat(all_context)
     all_time_pixels = torch.cat(all_time_pixels)
     
     print("Sampling data...")
     sampled_data = []
+    begin = time.time()
     for i in tqdm(range(0, len(all_context), batch_size)):
-        batch_context = all_context[i:i+batch_size].to(device)
-        batch_time_pixels = all_time_pixels[i:i+batch_size]
+        batch_end = min(i + batch_size, len(all_context))
+        batch_context = all_context[i:batch_end].to(device)
+        batch_time_pixels = all_time_pixels[i:batch_end]
         
         with torch.no_grad():
             samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
         
-        adjusted_times = samples.cpu() + batch_time_pixels[:, 0]
-        sampled_data.extend(adjusted_times)
-
+        sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
+    end = time.time()
+    print(f"sampling took {end - begin} seconds")
     print("Reorganizing data...")
+    begin = time.time()
     for (event, layer, SiPM, particle, momentum), sample in zip(all_metadata, sampled_data):
         nn_input[event][layer][SiPM].append(sample)
         nn_output[event][layer][SiPM].append(torch.tensor([momentum]))
-
+    end = time.time()
+    print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
 
 def load_and_concatenate_tensors(directory):
@@ -87,7 +95,7 @@ def load_and_concatenate_tensors(directory):
     concatenated_tensor = torch.cat(tensors, dim=0)
 
     return concatenated_tensor
-def filter_tensors_by_values(tensor1, tensor2, threshold1=200, threshold2=20):
+def filter_tensors_by_values(tensor1, tensor2, threshold1=200, threshold2=10000,outputthreshold=100):
     """
     Filter two tensors based on value thresholds, keeping event indices aligned.
     
@@ -107,29 +115,18 @@ def filter_tensors_by_values(tensor1, tensor2, threshold1=200, threshold2=20):
     # Create masks for each condition
     mask_first = (first_values < threshold1).all(dim=(1, 2))  # Check across layer and SiPM dims
     mask_second = (second_values < threshold2).all(dim=(1, 2))
+    mask_outputs = (tensor2 < outputthreshold)
     
     # Combine masks
-    valid_events = mask_first & mask_second
+    valid_events = mask_first & mask_second & mask_outputs
     
     # Apply masks to both tensors
     filtered_tensor1 = tensor1[valid_events]
     filtered_tensor2 = tensor2[valid_events]
-    
+    print("fraction %.2f of events survived filters"%(len(filtered_tensor2) / len(tensor2)))
     return filtered_tensor1, filtered_tensor2
-# In your main training script:
-def train_neural_network(data_directory):
-    # Load and concatenate the data
-    training_data = load_and_concatenate_tensors(data_directory)
 
-    # Your existing training code here
-    # ...
-
-# Example usage
-if __name__ == "__main__":
-    data_directory = "/path/to/your/tensor/files"
-    train_neural_network(data_directory)
-
-def process_root_file(file_path):
+def process_root_file(file_path,max_events = -1):
     print("began processing")
     with uproot.open(file_path) as file:
         tree_HcalBarrelHits = file["events/HcalBarrelHits"]
@@ -196,12 +193,14 @@ def process_root_file(file_path):
             for layer, particle_data in first_hit_per_layer_particle.items():
                 for particle_id, hit_data in particle_data.items():
                     layer_particle_energy = energy_per_layer_particle[layer][particle_id]
-                    num_pixels = calculate_num_pixels_z_dependence(layer_particle_energy, hit_data["z_pos"])
-#                     print(f"layer:\t\t{layer}\t|\tparticle id:\t{particle_id}\t|\tnum_pixels:\t{num_pixels}")
-                    hit_data["num_pixels"] = int(np.floor(num_pixels))
+                    num_pixels_high_z = calculate_num_pixels_z_dependence(layer_particle_energy, hit_data["z_pos"])
+                    num_pixels_low_z = calculate_num_pixels_z_dependence(layer_particle_energy, -1 * hit_data["z_pos"])
+                    hit_data["num_pixels_high_z"] = int(np.floor(num_pixels_high_z))
+                    hit_data["num_pixels_low_z"] = int(np.floor(num_pixels_low_z))
                     hit_data["layer_energy"] = layer_particle_energy  # Store total layer energy for this particle
                     processed_data[event_idx][layer][particle_id.item()] = hit_data
-    
+            if(max_events > 0 and event_idx > max_events):
+                break
     print("finished processing")
     return processed_data
 def prepare_nn_input(processed_data, normalizing_flow, batch_size=1024):
@@ -315,22 +314,26 @@ def prepare_prediction_input_pulse(nn_input, nn_output):
         for layer in range(28):
             if(layer in layer_keys):
                 for SiPM_idx in range(2):
-                    photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
-                    #get relative times
-                    min_time = photon_times[0]
-                    photon_times = photon_times - min_time
+                    if (len(nn_input[event_idx][layer][SiPM_idx])>0):
+                        photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
+                        #get relative times
+                        min_time = photon_times[0]
+                        photon_times = photon_times - min_time
 
-                    #calculate time and charge
-                    time,waveform = processor.generate_waveform(photon_times)
-                    charge = processor.integrate_charge(waveform)
-                    timing = processor.cfd_timing(waveform)
-                    prediction_input
-                    if(not set_output):
-                        prediction_output[curr_event_num] = nn_output[event_idx][layer][SiPM_idx][0]
-                        set_output = True
+                        #calculate time and charge
+                        time,waveform = processor.generate_waveform(photon_times)
+                        charge = processor.integrate_charge(waveform)
+                        timing = processor.cfd_timing(waveform)
+                        prediction_input
+                        if(not set_output):
+                            prediction_output[curr_event_num] = nn_output[event_idx][layer][SiPM_idx][0]
+                            set_output = True
 
-                    prediction_input[curr_event_num][layer][SiPM_idx][0] = charge * 1e6
-                    prediction_input[curr_event_num][layer][SiPM_idx][1] = (timing + min_time) * 1e8
+                        prediction_input[curr_event_num][layer][SiPM_idx][0] = charge * 1e6
+                        prediction_input[curr_event_num][layer][SiPM_idx][1] = (timing + min_time) * 1e8
+                    else:
+                        prediction_input[curr_event_num][layer][SiPM_idx][0] = 0
+                        prediction_input[curr_event_num][layer][SiPM_idx][1] = 9999
             else:
                 charge = 0
                 timing = 9999
@@ -410,9 +413,10 @@ def process_root_file_for_greg(file_path):
             for layer, particle_data in first_hit_per_layer_particle.items():
                 for particle_id, hit_data in particle_data.items():
                     layer_particle_energy = energy_per_layer_particle[layer][particle_id]
-                    num_pixels = calculate_num_pixels_z_dependence(layer_particle_energy, hit_data["z_pos"])
-#                     print(f"layer:\t\t{layer}\t|\tparticle id:\t{particle_id}\t|\tnum_pixels:\t{num_pixels}")
-                    hit_data["num_pixels"] = int(np.floor(num_pixels))
+                    num_pixels_high_z = calculate_num_pixels_z_dependence(layer_particle_energy, hit_data["z_pos"])
+                    num_pixels_low_z = calculate_num_pixels_z_dependence(layer_particle_energy, -1 * hit_data["z_pos"])
+                    hit_data["num_pixels_high_z"] = int(np.floor(num_pixels_high_z))
+                    hit_data["num_pixels_low_z"] = int(np.floor(num_pixels_low_z))
                     hit_data["layer_energy"] = layer_particle_energy  # Store total layer energy for this particle
                     processed_data[event_idx][layer][particle_id.item()] = hit_data
     
@@ -425,6 +429,7 @@ def new_prepare_nn_input_for_greg(processed_data, normalizing_flow, batch_size=1
     all_context = []
     all_time_pixels = []
     all_metadata = []
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
     
     print("Processing data...")
     for event_idx, event_data in tqdm(processed_data.items()):
@@ -433,17 +438,22 @@ def new_prepare_nn_input_for_greg(processed_data, normalizing_flow, batch_size=1
                 primary_momentum = particle_data["primary_momentum"].item()
                 base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
                                             dtype=torch.float32)
-                base_time_pixels = torch.tensor([particle_data['time'], particle_data['num_pixels']], 
+                base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
+                                                dtype=torch.float32)
+                base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
                                                 dtype=torch.float32)
                 
                 for SiPM_idx in range(2):
-                    z_pos = 1500 - particle_data['z_pos'] if SiPM_idx == 1 else particle_data['z_pos']
+                    z_pos = particle_data['z_pos']
                     context = base_context.clone()
                     context[0] = z_pos
-                    
-                    all_context.append(context.repeat(particle_data['num_pixels'], 1))
-                    all_time_pixels.append(base_time_pixels.repeat(particle_data['num_pixels'], 1))
-                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum,particle_data['mc_hit_idx'],particle_data['pid'],particle_data['theta'],particle_data['phi'])] * particle_data['num_pixels'])
+                    num_pixel_tag = num_pixel_list[SiPM_idx]
+                    all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
+                    if(SiPM_idx == 0):
+                        all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
+                    else:
+                        all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
+                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum,particle_data['mc_hit_idx'],particle_data['pid'],particle_data['theta'],particle_data['phi'])] * particle_data[num_pixel_tag])
 
     all_context = torch.cat(all_context)
     all_time_pixels = torch.cat(all_time_pixels)
@@ -490,13 +500,17 @@ def prepare_prediction_input_pulse_for_greg(nn_input, nn_output):
                 for SiPM_idx in range(2):
                     photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
                     #get relative times
-                    min_time = photon_times[0]
-                    photon_times = photon_times - min_time
+                    if(len(photon_times) > 0):
+                        min_time = photon_times[0]
+                        photon_times = photon_times - min_time
 
-                    #calculate time and charge
-                    time,waveform = processor.generate_waveform(photon_times)
-                    charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
-                    charge_times[SiPM_idx][1] = (processor.cfd_timing(waveform) + min_time) * 1e8
+                        #calculate time and charge
+                        time,waveform = processor.generate_waveform(photon_times)
+                        charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
+                        charge_times[SiPM_idx][1] = (processor.cfd_timing(waveform) + min_time) * 1e8
+                    else:
+                        charge_times[SiPM_idx][0] = 0
+                        charge_times[SiPM_idx][1] = 9999
                     
                 P = nn_output[event_idx][layer][0][0]
                 particle_idx = nn_output[event_idx][layer][0][2]
@@ -849,22 +863,23 @@ def train(predictor, train_data, nn_output, val_data, val_out, optimizer, device
         val_losses.append(avg_val_loss)
         
         print(f"Epoch {epoch+1} - Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
-        
+            # Validation phase
+    
         # Early stopping logic
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
+            best_model_state = predictor.state_dict().copy()  # Save a copy of the current state
             patience_counter = 0
-            best_model_state = predictor.state_dict()
         else:
             patience_counter += 1
-            
+
+        # Check early stopping condition
         if patience_counter >= patience:
             print(f"Early stopping triggered after epoch {epoch+1}")
-            predictor.load_state_dict(best_model_state)  # Restore best model
-            print("loaded best model")
+            if best_model_state is not None:  # Safety check
+                predictor.load_state_dict(best_model_state)  # Restore best model
+                print("Loaded best model")
             break
-    
-    print('Finished Training')
     return train_losses, val_losses
 
 def calculate_metrics(y_true, y_pred):
@@ -893,8 +908,8 @@ def calculate_metrics(y_true, y_pred):
 class SiPMSignalProcessor:
     def __init__(self, 
                  sampling_rate=40e9,  # 40 GHz sampling rate
-                 tau_rise=1e-9,       # 1 ns rise time
-                 tau_fall=50e-9,      # 50 ns fall time
+                 tau_rise=1.1e-9,       # 1 ns rise time
+                 tau_fall=15e-9,      # 50 ns fall time
                  window=200e-9,       # 200 ns time window
                  cfd_delay=5e-9,      # 5 ns delay for CFD
                  cfd_fraction=0.3):   # 30% fraction for CFD
@@ -914,7 +929,8 @@ class SiPMSignalProcessor:
     
     def _generate_pulse_shape(self):
         """Generate normalized pulse shape for a single photon"""
-        shape = (1 - np.exp(-self.time/self.tau_rise)) * np.exp(-self.time/self.tau_fall)
+#         shape = (1 - np.exp(-self.time/self.tau_rise)) * np.exp(-self.time/self.tau_fall) #Original Guess
+        shape = (np.exp(-self.time/self.tau_fall) - np.exp(-self.time/self.tau_rise)) #From Gerard
         return shape / np.max(shape)  # Normalize
     
     def generate_waveform(self, photon_times):
