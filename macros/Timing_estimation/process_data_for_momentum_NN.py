@@ -19,7 +19,7 @@ import normflows as nf
 import datetime
 import pathlib
 
-from momentum_prediction_util import process_root_file,prepare_nn_input,prepare_prediction_input,Predictor,train,prepare_prediction_input_pulse,new_prepare_nn_input
+from momentum_prediction_util import process_root_file,prepare_prediction_input,Predictor,train,prepare_prediction_input_pulse,new_prepare_nn_input
 import argparse
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
 

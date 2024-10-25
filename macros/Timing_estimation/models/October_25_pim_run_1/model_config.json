@@ -1,0 +1,153 @@
+{
+    "config": {
+        "input_size": 112,
+        "num_classes": 1,
+        "hidden_dim": 134,
+        "num_layers": 9,
+        "dropout_rate": 0.0079,
+        "activation": "relu"
+    },
+    "model_name": "Predictor",
+    "pytorch_version": "2.4.0+cu121",
+    "expected_layer_count": 25,
+    "verification": {
+        "timestamp": "2024-10-25T16:47:37.081443",
+        "architecture_valid": true,
+        "parameter_check": true,
+        "issues": [],
+        "layer_info": [
+            {
+                "index": 0,
+                "type": "Linear",
+                "params": 15142
+            },
+            {
+                "index": 1,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 2,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 3,
+                "type": "Linear",
+                "params": 18090
+            },
+            {
+                "index": 4,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 5,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 6,
+                "type": "Linear",
+                "params": 18090
+            },
+            {
+                "index": 7,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 8,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 9,
+                "type": "Linear",
+                "params": 18090
+            },
+            {
+                "index": 10,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 11,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 12,
+                "type": "Linear",
+                "params": 18090
+            },
+            {
+                "index": 13,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 14,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 15,
+                "type": "Linear",
+                "params": 18090
+            },
+            {
+                "index": 16,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 17,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 18,
+                "type": "Linear",
+                "params": 18090
+            },
+            {
+                "index": 19,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 20,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 21,
+                "type": "Linear",
+                "params": 18090
+            },
+            {
+                "index": 22,
+                "type": "ReLU",
+                "params": 0
+            },
+            {
+                "index": 23,
+                "type": "Dropout",
+                "params": 0
+            },
+            {
+                "index": 24,
+                "type": "Linear",
+                "params": 135
+            }
+        ],
+        "layer_counts": {
+            "actual": 25,
+            "expected": 25,
+            "linear_layers": 9,
+            "activation_layers": 8,
+            "dropout_layers": 8
+        }
+    }
+}

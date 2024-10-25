@@ -262,13 +262,16 @@ def prepare_prediction_input_pulse(nn_input, nn_output,pixel_threshold = 3):
                         time,waveform = processor.generate_waveform(photon_times)
                         charge = processor.integrate_charge(waveform)
                         timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
-                        prediction_input
                         if(not set_output):
                             prediction_output[curr_event_num] = nn_output[event_idx][layer][SiPM_idx][0]
                             set_output = True
-
-                        prediction_input[curr_event_num][layer][SiPM_idx][0] = charge * 1e6
-                        prediction_input[curr_event_num][layer][SiPM_idx][1] = timing * 1e8
+                        if(timing is not None):
+                            prediction_input[curr_event_num][layer][SiPM_idx][0] = charge * 1e6
+                            prediction_input[curr_event_num][layer][SiPM_idx][1] = timing * 1e8
+                        else: #pad with 0 and 9999 if SiPM pulse doesn't meet threshold
+                            prediction_input[curr_event_num][layer][SiPM_idx][0] = 0
+                            prediction_input[curr_event_num][layer][SiPM_idx][1] = 9999
+                            
                     else:
                         prediction_input[curr_event_num][layer][SiPM_idx][0] = 0
                         prediction_input[curr_event_num][layer][SiPM_idx][1] = 9999

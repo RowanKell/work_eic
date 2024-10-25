@@ -105,9 +105,9 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/trainMo
     subprocess.run(sbatch_command)
 
 def main():
-    num_simulations = 40
+    num_simulations = 1
     simulation_start_num = 0
-    num_events = 5000
+    num_events = 200
     particle = "pi-"
 #     particle = "kaon0L"
     runInfo = "run_1"
