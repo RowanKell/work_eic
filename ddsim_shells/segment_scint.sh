@@ -1,1 +1,1 @@
-ddsim --steeringFile steering/scint_sensitive/variation_scint.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 20 --gun.particle "mu-" --outputFile root_files/August_2/segment_scint/run_1/mu_5GeV_5k_time_res.edm4hep.root --part.userParticleHandler="" 
+ddsim --steeringFile steering/scint_sensitive/variation_scint.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 5000 --gun.particle "mu-" --outputFile root_files/time_res_one_segment_scint/October_24/run_1_w_QE/mu_5GeV_5k_time_res.edm4hep.root --part.userParticleHandler="" 

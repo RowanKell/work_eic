@@ -1,0 +1,12 @@
+Run info
+data: pim october 21
+num_layers = 24
+hidden_dim_factor =  6
+dropout = 0.00075
+activation = "elu"
+lr = 0.00008
+weight_decay = 7.2e-6
+num_epochs = 200
+patience = 10
+batch_size = 32
+optimizer = AdamW

@@ -43,7 +43,7 @@ do
     content+="echo began job\n"
     content+="cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell\n"
     content+="source install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile /hpc/group/vossenlab/rck32/eic/work_eic/steering/sensor_sensitive/variation.py --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 250 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/time_res_one_segment_sensor/September_12/run_1/mu_0_8_10GeV_theta90_origin_250events_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile /hpc/group/vossenlab/rck32/eic/work_eic/steering/sensor_sensitive/variation.py --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 250 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/time_res_one_segment_sensor/October_24/run_3_w_QE_5cm_thickness/mu_5GeV_theta90_origin_250events_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells/${rootname}${i}.sh" >> $runJobs

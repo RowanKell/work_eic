@@ -1,0 +1,18 @@
+{
+    "best_params": {
+        "n_layers": 28,
+        "hidden_dim_factor": 9.159417907919178,
+        "dropout_rate": 0.0182236032353277,
+        "activation": "relu",
+        "lr": 0.0005258407038443672,
+        "weight_decay": 1.790179247149994e-06,
+        "optimizer": "Adam",
+        "batch_size": 128,
+        "num_epochs": 224,
+        "patience": 19
+    },
+    "best_value": 1.1300941429138183,
+    "best_trial": 139,
+    "n_trials": 200,
+    "datetime": "2024-10-23T22:12:51.117228"
+}

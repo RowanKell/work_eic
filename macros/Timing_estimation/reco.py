@@ -27,7 +27,7 @@ def inverse(x, a, b, c):
 # @nb.njit
 def calculate_num_pixels_z_dependence(energy_dep, z_hit):
     efficiency = inverse(770 - z_hit, 494.98, 9.9733, -0.16796)
-    return 10 * energy_dep * (1000 * 1000) * efficiency / 100 * 50 #50% for QE
+    return 10 * energy_dep * (1000 * 1000) * efficiency / 100 * 0.5 #50% for QE
 def calculate_efficiency(z_hit):
     return inverse(770 - z_hit, 494.98, 9.9733, -0.16796)
 

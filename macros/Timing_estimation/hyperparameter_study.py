@@ -50,8 +50,8 @@ class HyperparameterOptimization:
         input_size = num_layers * num_input_features_per_layer
         
         # Suggest hyperparameters for network architecture
-        n_layers = trial.suggest_int('n_layers', 4, 10)
-        hidden_dim_factor = trial.suggest_float('hidden_dim_factor', 1.0, 4.0)
+        n_layers = trial.suggest_int('n_layers', 5, 30)
+        hidden_dim_factor = trial.suggest_float('hidden_dim_factor', 2.0, 10.0)
         hidden_dim = int(input_size * hidden_dim_factor)
         
         # Additional architecture parameters

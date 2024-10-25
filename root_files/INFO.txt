@@ -1,3 +1,7 @@
+momentum_prediction
+    1. contains all files for momentum prediction/energy reconstruction
+    2. usually generated using scint_sensitive/variation_scint.py
+
 June 24th - variation x pos
 July 19
     1. slurm - one segment, currently used, corresponds to July 21st run 1 pt files
@@ -13,3 +17,5 @@ July 23
     2. sector_scint
         1. full sector, scint sensitive - used as input for NF to infer times
         1. vary theta - vary theta for range of theta values rather than just 90 deg
+        
+        

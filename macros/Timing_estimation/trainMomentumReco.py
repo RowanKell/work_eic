@@ -1,7 +1,6 @@
 import argparse
 import os
 from collections import defaultdict
-from typing import Dict, Tuple, List
 
 import numpy as np
 import torch
@@ -9,6 +8,7 @@ import torch.nn as nn
 from torch.optim import Adam
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from typing import Optional, Union, Literal, Dict, Any, List,Tuple
 
 from momentum_prediction_util import (
     Predictor,
@@ -17,6 +17,7 @@ from momentum_prediction_util import (
     filter_tensors_by_values,
     train
 )
+
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -45,6 +46,18 @@ def parse_arguments() -> argparse.Namespace:
         required=True,
         help='Directory of model'
     )
+    parser.add_argument(
+        '--particle',
+        type=str,
+        required=True,
+        help='Directory of model'
+    )
+    parser.add_argument(
+        '--runInfo',
+        type=str,
+        required=True,
+        help='Directory of model'
+    )
     return parser.parse_args()
 
 def create_output_directories(base_path: str, plotPath: str,modelPath: str) -> Dict[str, str]:
@@ -66,22 +79,22 @@ def setup_model(num_layers: int, device: torch.device) -> Tuple[nn.Module, torch
     """Initialize the model and optimizer."""
     num_input_features_per_layer = 2 * 2  # two sipms, 2 features (charge, time)
     input_size = num_layers * num_input_features_per_layer
-    hidden_dim_factor = 4
+    hidden_dim_factor = 1.2
     hidden_dim = int(input_size * hidden_dim_factor)
     
     model = Predictor(
         input_size=input_size,
         num_classes=1,
         hidden_dim=hidden_dim,
-        num_layers=20,
-        dropout_rate=0.00075,
-        activation="elu"
+        num_layers=9,
+        dropout_rate=0.0079,
+        activation="relu"
     ).to(device)
     
-    learning_rate = 0.0001
-    weight_decay = 7.2e-6
+    learning_rate = 0.00044
+    weight_decay = 0.00026
     
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     return model, optimizer
 
 def calculate_energy(momentum: np.ndarray, mass: float = 0.139570) -> np.ndarray:
@@ -120,7 +133,7 @@ def calculate_rmse_metrics(binned_real_e: List[List[float]],
     
     return rmse, rel_rmse
 
-def plot_training_loss(loss_hist: List[float], val_hist: List[float], save_path: str):
+def plot_training_loss(loss_hist: List[float], val_hist: List[float], save_path: str,particle: str,runInfo: str):
     """Plot and save training loss history."""
     plt.figure()
     plt.plot(loss_hist, label="Train")
@@ -129,15 +142,16 @@ def plot_training_loss(loss_hist: List[float], val_hist: List[float], save_path:
     plt.title("Training Loss")
     plt.xlabel("Epoch")
     plt.legend()
-    plt.savefig(os.path.join(save_path, "training_loss_optimized_more_data.pdf"))
+    plt.savefig(os.path.join(save_path, f"training_loss_{particle}_{runInfo}.pdf"))
     plt.close()
 
 def plot_rmse_results(bin_centers: np.ndarray, rmse: np.ndarray, 
                      rel_rmse: np.ndarray, real_e: np.ndarray, 
-                     model_e: np.ndarray, save_path: str):
+                     model_e: np.ndarray, save_path: str,particle: str,runInfo: str):
     """Plot and save RMSE analysis results."""
     # Combined RMSE plots
     fig, axs = plt.subplots(1, 3, figsize=(15, 6))
+    fig.suptitle(f"Energy Resolution for {particle}")
     
     axs[0].scatter(bin_centers, rmse)
     axs[0].set_xlabel("Primary Energy")
@@ -156,7 +170,7 @@ def plot_rmse_results(bin_centers: np.ndarray, rmse: np.ndarray,
     axs[2].text(1,8,f"# events: {len(real_e)}")
     
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "rmse_analysis_optimized_params_more_data.pdf"))
+    plt.savefig(os.path.join(save_path, f"rmse_analysis_{particle}_{runInfo}.pdf"))
     plt.close()
     
     # Separate relative RMSE plot
@@ -166,7 +180,7 @@ def plot_rmse_results(bin_centers: np.ndarray, rmse: np.ndarray,
     plt.ylabel("Relative RMSE")
     plt.title(r"Relative RMSE vs Energy for $\pi^-$")
     plt.tight_layout()
-    plt.savefig(os.path.join(save_path, "relative_rmse_optimized_params_more_data.pdf"))
+    plt.savefig(os.path.join(save_path, f"relative_rmse_{particle}_{runInfo}.pdf"))
     plt.close()
 
 def main():
@@ -201,30 +215,46 @@ def main():
         device,
         num_epochs=200,
         batch_size=32,
-        patience=10
+        patience=5
+#         patience=10 #before
     )
     
     # Save model and plot training loss
     model.save(os.path.join(paths['model'], "model.pth"))
-    plot_training_loss(loss_hist, val_hist, paths['loss'])
-    
+    try:
+        test_model = Predictor.load(
+            os.path.join(paths['model'], "model.pth"),
+            map_location=device,
+            verify=True
+        )
+        print("Model loaded and verified successfully")
+    except Exception as e:
+        print(f"Error loading model: {str(e)}")
+    plot_training_loss(loss_hist, val_hist, paths['loss'],args.particle,args.runInfo)
+    test_model = test_model.to(device)
     # Evaluate on test data
     model_out = np.array([
-        model(inputs.flatten().to(device)).detach().cpu().item()
+        test_model(inputs.flatten().to(device)).detach().cpu().item()
         for inputs in test_data['inputs']
     ])
     real_out = test_data['outputs'].numpy()
     
+    mass_dict = {
+        "neutron" : 0.939565,
+        "pim" : 0.139570,
+        "K_L" : 0.497611
+    }
+    
     # Calculate energies
-    model_e = calculate_energy(model_out)
-    real_e = calculate_energy(real_out)
+    model_e = calculate_energy(model_out,mass_dict[args.particle])
+    real_e = calculate_energy(real_out,mass_dict[args.particle])
     
     # Bin data and calculate metrics
     binned_model_e, binned_real_e, bin_centers = bin_data(real_e, model_e)
     rmse, rel_rmse = calculate_rmse_metrics(binned_real_e, binned_model_e, bin_centers)
     
     # Plot results
-    plot_rmse_results(bin_centers, rmse, rel_rmse, real_e, model_e, paths['rmse'])
+    plot_rmse_results(bin_centers, rmse, rel_rmse, real_e, model_e, paths['rmse'],args.particle,args.runInfo)
 
 if __name__ == "__main__":
     main()

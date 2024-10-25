@@ -18,69 +18,14 @@ import normflows as nf
 import datetime
 from torch import nn
 from scipy import signal
-from typing import Dict, Any, Literal, Optional, Union
-import json
 import optuna
+from typing import Optional, Union, Literal, Dict, Any, List,Tuple
+import json
+from datetime import datetime as dt
 
 layer_map, super_layer_map = create_layer_map()
 
-def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
-    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    
-    all_context = []
-    all_time_pixels = []
-    all_metadata = []
-    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
-    print("Processing data in new_prepare_nn_input...")
-    for event_idx, event_data in tqdm(processed_data.items()):
-        for layer, layer_data in event_data.items():
-            for particle_id, particle_data in layer_data.items():
-                primary_momentum = particle_data["primary_momentum"].item()
-                base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
-                                            dtype=torch.float32)
-                base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
-                                                dtype=torch.float32)
-                base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
-                                                dtype=torch.float32)
-                
-                for SiPM_idx in range(2):
-                    z_pos = particle_data['z_pos']
-                    context = base_context.clone()
-                    context[0] = z_pos
-                    num_pixel_tag = num_pixel_list[SiPM_idx]
-                    all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
-                    if(SiPM_idx == 0):
-                        all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
-                    else:
-                        all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
-                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum)] * particle_data[num_pixel_tag])
 
-    all_context = torch.cat(all_context)
-    all_time_pixels = torch.cat(all_time_pixels)
-    
-    print("Sampling data...")
-    sampled_data = []
-    begin = time.time()
-    for i in tqdm(range(0, len(all_context), batch_size)):
-        batch_end = min(i + batch_size, len(all_context))
-        batch_context = all_context[i:batch_end].to(device)
-        batch_time_pixels = all_time_pixels[i:batch_end]
-        
-        with torch.no_grad():
-            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
-        
-        sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
-    end = time.time()
-    print(f"sampling took {end - begin} seconds")
-    print("Reorganizing data...")
-    begin = time.time()
-    for (event, layer, SiPM, particle, momentum), sample in zip(all_metadata, sampled_data):
-        nn_input[event][layer][SiPM].append(sample)
-        nn_output[event][layer][SiPM].append(torch.tensor([momentum]))
-    end = time.time()
-    print(f"reorganizing took {end - begin} seconds")
-    return nn_input, nn_output
 
 def load_and_concatenate_tensors(directory):
     tensor_files = [f for f in os.listdir(directory) if f.endswith('.pt')]
@@ -203,66 +148,62 @@ def process_root_file(file_path,max_events = -1):
                 break
     print("finished processing")
     return processed_data
-def prepare_nn_input(processed_data, normalizing_flow, batch_size=1024):
-    flattened_data = []
-    event_indices = []
-    layer_indices = []
-    SiPM_indices = []
-    particle_indices = []
-
-    final_event_indices = []
-    final_layer_indices = []
-    final_SiPM_indices = []
-    final_particle_indices = []
-    
-    momentum_list = []
-    
-    context_list = []
-    running_pixel_idx = 0
-    for event_idx, event_data in processed_data.items():
-        for layer, layer_data in event_data.items():
-            for particle_id, particle_data in layer_data.items():
-                #Loop over twice for both SiPMs
-                for SiPM_idx in range(2):
-                    primary_momentum = particle_data["primary_momentum"]
-                    if(SiPM_idx == 1):
-                        z_pos = 1500 - particle_data['z_pos']
-                    else:
-                        z_pos = particle_data['z_pos']
-                    context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], dtype=torch.float32).repeat(particle_data['num_pixels'], 1)
-                    flattened_data.append(torch.tensor([particle_data['time'], particle_data['num_pixels']]).repeat(particle_data['num_pixels'],1))
-                    context_list.append(context)
-                    for pixel_repeat_idx in range(particle_data['num_pixels']):
-                        final_event_indices.append(event_idx)
-                        final_layer_indices.append(layer)
-                        final_SiPM_indices.append(SiPM_idx)
-                        final_particle_indices.append(particle_id)
-                        momentum_list.append(primary_momentum.item())
-    all_context = torch.cat(context_list).to(device)
-    all_time_pixels = torch.cat(flattened_data)
-    # Batch the flattened data
-    max_its = int(np.ceil(all_context.shape[0] / batch_size))
-    sampled_data = []
-    print("Beginning sampling process")
-    for batch_idx in tqdm(range(max_its)):
-        begin = batch_idx * batch_size
-        data_left = all_context.shape[0] - (batch_idx * batch_size)
-        end = min(begin + batch_size,begin + data_left)
-        add_times = all_time_pixels[begin:end]
-        context_batch = all_context[begin:end].to(device)
-        with torch.no_grad():
-            samples = abs(normalizing_flow.sample(num_samples=context_batch.shape[0], context=context_batch)[0]).squeeze(1)
-        adjusted_times = samples.detach().cpu() + add_times[:,0]
-        sampled_data.extend(adjusted_times)
-    # Reorganize sampled data
+def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
     nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    print("Beginning reorganization process")
-    t = tqdm(total = len(final_event_indices))
-    for i, (event, layer, SiPM, particle) in enumerate(zip(final_event_indices, final_layer_indices, final_SiPM_indices,final_particle_indices)):
-        t.update(event)
-        nn_input[event][layer][SiPM].append(sampled_data[i])
-        nn_output[event][layer][SiPM].append(torch.Tensor([momentum_list[i]]))
+    
+    all_context = []
+    all_time_pixels = []
+    all_metadata = []
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    print("Processing data in new_prepare_nn_input...")
+    for event_idx, event_data in tqdm(processed_data.items()):
+        for layer, layer_data in event_data.items():
+            for particle_id, particle_data in layer_data.items():
+                primary_momentum = particle_data["primary_momentum"].item()
+                base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
+                                            dtype=torch.float32)
+                base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
+                                                dtype=torch.float32)
+                base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
+                                                dtype=torch.float32)
+                
+                for SiPM_idx in range(2):
+                    z_pos = particle_data['z_pos']
+                    context = base_context.clone()
+                    context[0] = z_pos
+                    num_pixel_tag = num_pixel_list[SiPM_idx]
+                    all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
+                    if(SiPM_idx == 0):
+                        all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
+                    else:
+                        all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
+                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum)] * particle_data[num_pixel_tag])
+
+    all_context = torch.cat(all_context)
+    all_time_pixels = torch.cat(all_time_pixels)
+    
+    print("Sampling data...")
+    sampled_data = []
+    begin = time.time()
+    for i in tqdm(range(0, len(all_context), batch_size)):
+        batch_end = min(i + batch_size, len(all_context))
+        batch_context = all_context[i:batch_end].to(device)
+        batch_time_pixels = all_time_pixels[i:batch_end]
+        
+        with torch.no_grad():
+            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
+        
+        sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
+    end = time.time()
+    print(f"sampling took {end - begin} seconds")
+    print("Reorganizing data...")
+    begin = time.time()
+    for (event, layer, SiPM, particle, momentum), sample in zip(all_metadata, sampled_data):
+        nn_input[event][layer][SiPM].append(sample)
+        nn_output[event][layer][SiPM].append(torch.tensor([momentum]))
+    end = time.time()
+    print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
 
 
@@ -523,6 +464,227 @@ def prepare_prediction_input_pulse_for_greg(nn_input, nn_output):
         curr_event_num += 1
     return out_df
 
+
+
+class Predictor(nn.Module):
+    def __init__(
+        self,
+        input_size: int = 28 * 2 * 2,
+        num_classes: int = 1,
+        hidden_dim: int = 512,
+        num_layers: int = 10,
+        dropout_rate: float = 0.1,
+        activation: Literal['relu', 'leaky_relu', 'elu'] = 'leaky_relu'
+    ):
+        super().__init__()
+        
+        # Store configuration
+        self.model_name = "Predictor"
+        self.input_size = input_size
+        self.config = {
+            'input_size': input_size,
+            'num_classes': num_classes,
+            'hidden_dim': hidden_dim,
+            'num_layers': num_layers,
+            'dropout_rate': dropout_rate,
+            'activation': activation
+        }
+        
+        # Create activation function
+        self.activation_map = {
+            'relu': nn.ReLU,
+            'leaky_relu': nn.LeakyReLU,
+            'elu': nn.ELU
+        }
+        activation_fn = self.activation_map[activation]
+        
+        # Build network layers
+        layers = []
+        for i in range(num_layers):
+            # Input layer
+            if i == 0:
+                layers.extend([
+                    nn.Linear(input_size, hidden_dim),
+                    activation_fn(inplace=True),
+                    nn.Dropout(dropout_rate)
+                ])
+            # Output layer
+            elif i == num_layers - 1:
+                layers.append(nn.Linear(hidden_dim, num_classes))
+            # Hidden layers
+            else:
+                layers.extend([
+                    nn.Linear(hidden_dim, hidden_dim),
+                    activation_fn(inplace=True),
+                    nn.Dropout(dropout_rate)
+                ])
+        
+        self.layers = nn.Sequential(*layers)
+        
+        # Store expected layer count for verification
+        self._expected_layer_count = self._calculate_expected_layers(num_layers)
+        
+        # Initialize weights
+        self.apply(self._init_weights)
+    
+    def _calculate_expected_layers(self, num_layers: int) -> int:
+        """Calculate expected number of layers based on architecture"""
+        # First n-1 layers have Linear + Activation + Dropout (3 components each)
+        # Last layer has only Linear (1 component)
+        return (num_layers - 1) * 3 + 1
+    
+    def _get_layer_info(self) -> List[Dict[str, Any]]:
+        """Get detailed information about each layer"""
+        layer_info = []
+        for idx, layer in enumerate(self.layers):
+            layer_info.append({
+                'index': idx,
+                'type': layer.__class__.__name__,
+                'params': sum(p.numel() for p in layer.parameters()) if hasattr(layer, 'parameters') else 0
+            })
+        return layer_info
+
+    def _init_weights(self, module):
+        """Initialize network weights"""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                module.bias.data.fill_(0.01)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass"""
+        return self.layers(x)
+
+    def verify_model_integrity(self) -> Dict[str, Any]:
+        """
+        Verify model structure and parameters.
+        Returns dict with verification results.
+        """
+        verification = {
+            'timestamp': dt.utcnow().isoformat(),
+            'architecture_valid': True,
+            'parameter_check': True,
+            'issues': [],
+            'layer_info': self._get_layer_info()
+        }
+        
+        try:
+            # Get actual layer count
+            actual_layers = len(list(self.layers))
+            expected_layers = self._expected_layer_count
+            
+            # Detailed layer verification
+            verification['layer_counts'] = {
+                'actual': actual_layers,
+                'expected': expected_layers,
+                'linear_layers': sum(1 for layer in self.layers if isinstance(layer, nn.Linear)),
+                'activation_layers': sum(1 for layer in self.layers if isinstance(layer, (nn.ReLU, nn.LeakyReLU, nn.ELU))),
+                'dropout_layers': sum(1 for layer in self.layers if isinstance(layer, nn.Dropout))
+            }
+            
+            # Check layer count
+            if expected_layers != actual_layers:
+                verification['architecture_valid'] = False
+                verification['issues'].append(
+                    f'Layer count mismatch: expected {expected_layers}, got {actual_layers}\n'
+                    f'Layer breakdown: {verification["layer_counts"]}'
+                )
+            
+            # Verify parameter shapes and values
+            for name, param in self.named_parameters():
+                if torch.isnan(param).any() or torch.isinf(param).any():
+                    verification['parameter_check'] = False
+                    verification['issues'].append(f'Invalid values in parameter: {name}')
+                    
+        except Exception as e:
+            verification['architecture_valid'] = False
+            verification['issues'].append(f'Verification error: {str(e)}')
+            
+        return verification
+
+    def save(self, save_path: str, include_verification: bool = True):
+        """
+        Save model state and configuration.
+        
+        Args:
+            save_path (str): Path to save the model
+            include_verification (bool): Whether to include model verification info
+        """
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
+        save_dict = {
+            'model_state_dict': self.state_dict(),
+            'config': self.config,
+            'model_name': self.model_name,
+            'pytorch_version': torch.__version__,
+            'expected_layer_count': self._expected_layer_count
+        }
+        
+        if include_verification:
+            save_dict['verification'] = self.verify_model_integrity()
+            
+        # Save main model file
+        torch.save(save_dict, save_path)
+        
+        # Save human-readable config alongside
+        config_path = save_path.replace('.pth', '_config.json')
+        with open(config_path, 'w') as f:
+            json.dump({k: v for k, v in save_dict.items() if k != 'model_state_dict'}, 
+                     f, indent=4)
+    
+    @classmethod
+    def load(cls, 
+             load_path: str, 
+             map_location: Optional[Union[str, torch.device]] = None,
+             verify: bool = True,
+             strict: bool = False) -> 'Predictor':
+        """
+        Load model from saved state with verification.
+        
+        Args:
+            load_path (str): Path to saved model
+            map_location: Optional device mapping for loaded model
+            verify (bool): Whether to verify model integrity after loading
+            strict (bool): If True, raises error on verification failure
+            
+        Returns:
+            Predictor: Loaded model instance
+        """
+        try:
+            save_dict = torch.load(load_path, map_location=map_location)
+            
+            # Verify saved config contains all required keys
+            required_keys = {'model_state_dict', 'config'}
+            if not all(k in save_dict for k in required_keys):
+                raise ValueError(f"Saved model missing required keys: {required_keys - set(save_dict.keys())}")
+            
+            # Create new model instance with saved configuration
+            model = cls(**save_dict['config'])
+            
+            # Load state dictionary
+            model.load_state_dict(save_dict['model_state_dict'])
+            
+            if verify:
+                verification = model.verify_model_integrity()
+                if not verification['architecture_valid'] or not verification['parameter_check']:
+                    issues = '\n'.join(verification['issues'])
+                    message = f"Loaded model verification failed:\n{issues}\n"
+                    message += "\nDetailed layer information:\n"
+                    for layer in verification['layer_info']:
+                        message += f"Layer {layer['index']}: {layer['type']} (params: {layer['params']})\n"
+                    
+                    if strict:
+                        raise ValueError(message)
+                    else:
+                        print(f"Warning: {message}")
+            
+            return model
+            
+        except Exception as e:
+            raise RuntimeError(f"Error loading model from {load_path}: {str(e)}")
+
+#OLD w/broken load/save:
+'''
 class Predictor(nn.Module):
     """
     Neural network for prediction tasks with configurable architecture.
@@ -641,7 +803,11 @@ class Predictor(nn.Module):
     def name(self) -> str:
         """Get model name."""
         return self.model_name
-    
+
+    def get_config(self) -> dict:
+        """Get model configuration."""
+        return self.config.copy()
+
     def save(self, save_path: str):
         """
         Save model state and configuration.
@@ -678,10 +844,9 @@ class Predictor(nn.Module):
         model.load_state_dict(save_dict['model_state_dict'])
         
         return model
+'''
+    
 
-    def get_config(self) -> dict:
-        """Get model configuration."""
-        return self.config.copy()
 
 class oldPredictor(nn.Module):
     """
