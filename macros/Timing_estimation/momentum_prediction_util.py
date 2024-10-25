@@ -237,7 +237,7 @@ def prepare_prediction_input(nn_input, nn_output):
             prediction_input[curr_event_num][layer] = layer_times[:10]
         curr_event_num += 1
     return prediction_input, prediction_output
-def prepare_prediction_input_pulse(nn_input, nn_output):
+def prepare_prediction_input_pulse(nn_input, nn_output,pixel_threshold = 3):
     processor = SiPMSignalProcessor()
     
     #note - some events do not have dictionaries in nn_input due to being empty
@@ -257,21 +257,18 @@ def prepare_prediction_input_pulse(nn_input, nn_output):
                 for SiPM_idx in range(2):
                     if (len(nn_input[event_idx][layer][SiPM_idx])>0):
                         photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
-                        #get relative times
-                        min_time = photon_times[0]
-                        photon_times = photon_times - min_time
 
                         #calculate time and charge
                         time,waveform = processor.generate_waveform(photon_times)
                         charge = processor.integrate_charge(waveform)
-                        timing = processor.cfd_timing(waveform)
+                        timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
                         prediction_input
                         if(not set_output):
                             prediction_output[curr_event_num] = nn_output[event_idx][layer][SiPM_idx][0]
                             set_output = True
 
                         prediction_input[curr_event_num][layer][SiPM_idx][0] = charge * 1e6
-                        prediction_input[curr_event_num][layer][SiPM_idx][1] = (timing + min_time) * 1e8
+                        prediction_input[curr_event_num][layer][SiPM_idx][1] = timing * 1e8
                     else:
                         prediction_input[curr_event_num][layer][SiPM_idx][0] = 0
                         prediction_input[curr_event_num][layer][SiPM_idx][1] = 9999
@@ -419,7 +416,7 @@ def new_prepare_nn_input_for_greg(processed_data, normalizing_flow, batch_size=1
     return nn_input, nn_output
 
 #TODO Need to get particle idx, theta, phi, p, PID from prepare_prediction_input - don't use new indices, just add as extra values bc we don't need these for my nn training
-def prepare_prediction_input_pulse_for_greg(nn_input, nn_output):
+def prepare_prediction_input_pulse_for_greg(nn_input, nn_output,pixel_threshold = 3):
     processor = SiPMSignalProcessor()
     
     #note - some events do not have dictionaries in nn_input due to being empty
@@ -442,13 +439,11 @@ def prepare_prediction_input_pulse_for_greg(nn_input, nn_output):
                     photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
                     #get relative times
                     if(len(photon_times) > 0):
-                        min_time = photon_times[0]
-                        photon_times = photon_times - min_time
 
                         #calculate time and charge
                         time,waveform = processor.generate_waveform(photon_times)
                         charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
-                        charge_times[SiPM_idx][1] = (processor.cfd_timing(waveform) + min_time) * 1e8
+                        charge_times[SiPM_idx][1] = processor.get_pulse_timing(waveform,threshold = pixel_threshold) * 1e8
                     else:
                         charge_times[SiPM_idx][0] = 0
                         charge_times[SiPM_idx][1] = 9999
@@ -1073,8 +1068,8 @@ def calculate_metrics(y_true, y_pred):
 class SiPMSignalProcessor:
     def __init__(self, 
                  sampling_rate=40e9,  # 40 GHz sampling rate
-                 tau_rise=1.1e-9,       # 1 ns rise time
-                 tau_fall=15e-9,      # 50 ns fall time
+                 tau_rise=1e-9,       # 1 ns rise time
+                 tau_fall=10e-9,      # 50 ns fall time
                  window=200e-9,       # 200 ns time window
                  cfd_delay=5e-9,      # 5 ns delay for CFD
                  cfd_fraction=0.3):   # 30% fraction for CFD
@@ -1094,8 +1089,7 @@ class SiPMSignalProcessor:
     
     def _generate_pulse_shape(self):
         """Generate normalized pulse shape for a single photon"""
-#         shape = (1 - np.exp(-self.time/self.tau_rise)) * np.exp(-self.time/self.tau_fall) #Original Guess
-        shape = (np.exp(-self.time/self.tau_fall) - np.exp(-self.time/self.tau_rise)) #From Gerard
+        shape = (1 - np.exp(-self.time/self.tau_rise)) * np.exp(-self.time/self.tau_fall)
         return shape / np.max(shape)  # Normalize
     
     def generate_waveform(self, photon_times):
@@ -1120,28 +1114,98 @@ class SiPMSignalProcessor:
         # Integrate using trapezoidal rule
         charge = np.trapezoid(waveform[start_idx:end_idx], dx=1/self.sampling_rate)
         return charge
-    
-    def cfd_timing(self, waveform):
-        """Implement Constant Fraction Discrimination timing"""
-        # Create delayed and attenuated versions
+    def constant_threshold_timing(self,waveform,threshold):
+        for i in range(len(self.time)):
+            if(waveform[i] > threshold):
+                return self.time[i]
+        return -1
+        
+    def apply_cfd(self, waveform, use_interpolation=True):
+        """Apply Constant Fraction Discrimination to the waveform.
+
+        Parameters:
+        -----------
+        waveform : numpy.ndarray
+            Input waveform to process
+        use_interpolation : bool, optional
+            If True, use linear interpolation for sub-sample precision
+            If False, return the sample index of zero crossing
+            Default is True
+
+        Returns:
+        --------
+        tuple (numpy.ndarray, float)
+            CFD processed waveform and the zero-crossing time in seconds.
+            If use_interpolation is False, zero-crossing time will be aligned
+            to sample boundaries.
+        """
+        # Calculate delay in samples
         delay_samples = int(self.cfd_delay * self.sampling_rate)
-        delayed = np.roll(waveform, delay_samples)
-        attenuated = waveform * self.cfd_fraction
-        
-        # CFD waveform
-        cfd_signal = attenuated - delayed
-        
-        # Find zero crossing
-        zero_crossings = np.where(np.diff(np.signbit(cfd_signal)))[0]
-        
-        if len(zero_crossings) > 0:
-            # Linear interpolation for more precise timing
-            idx = zero_crossings[0]
-            t1, t2 = self.time[idx], self.time[idx+1]
-            v1, v2 = cfd_signal[idx], cfd_signal[idx+1]
-            
-            # Time at zero crossing
-            zero_time = t1 - v1 * (t2 - t1) / (v2 - v1)
-            return zero_time
+
+        # Create delayed and attenuated versions of the waveform
+        delayed_waveform = np.pad(waveform, (delay_samples, 0))[:-delay_samples]
+        attenuated_waveform = -self.cfd_fraction * waveform
+
+        # Calculate CFD waveform
+        cfd_waveform = delayed_waveform + attenuated_waveform
+
+        # Find all zero crossings
+        zero_crossings = np.where(np.diff(np.signbit(cfd_waveform)))[0]
+
+        if len(zero_crossings) < 2:  # Need at least two crossings for valid CFD
+            return cfd_waveform, None
+
+        # Find the rising edge of the original pulse
+        pulse_start = np.where(waveform > np.max(waveform) * 0.1)[0]  # 10% threshold
+        if len(pulse_start) == 0:
+            return cfd_waveform, None
+        pulse_start = pulse_start[0]
+
+        # Find the first zero crossing that occurs after the pulse starts
+        valid_crossings = zero_crossings[zero_crossings > pulse_start]
+        if len(valid_crossings) == 0:
+            return cfd_waveform, None
+
+        crossing_idx = valid_crossings[0]
+
+        if not use_interpolation:
+            # Simply return the sample index converted to time
+            crossing_time = crossing_idx / self.sampling_rate
         else:
+            # Use linear interpolation for sub-sample precision
+            y1 = cfd_waveform[crossing_idx]
+            y2 = cfd_waveform[crossing_idx + 1]
+
+            # Calculate fractional position of zero crossing
+            fraction = -y1 / (y2 - y1)
+
+            # Calculate precise crossing time
+            crossing_time = (crossing_idx + fraction) / self.sampling_rate
+
+        return cfd_waveform, crossing_time
+
+
+    def get_pulse_timing(self, waveform, threshold=0.1):
+        """Get pulse timing using CFD method with additional validation.
+        
+        Parameters:
+        -----------
+        waveform : numpy.ndarray
+            Input waveform to analyze
+        threshold : float
+            Minimum amplitude threshold for valid pulses (relative to max amplitude)
+            
+        Returns:
+        --------
+        float or None
+            Timestamp of the pulse in seconds, or None if no valid pulse found
+        """
+        # Check if pulse amplitude exceeds threshold
+        max_amplitude = np.max(waveform)
+        if max_amplitude < threshold:
             return None
+            
+        # Apply CFD
+        _, crossing_time = self.apply_cfd(waveform)
+        
+        return crossing_time
