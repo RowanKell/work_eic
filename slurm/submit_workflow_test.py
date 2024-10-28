@@ -53,14 +53,8 @@ echo began job
 echo began postprocessing
 cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
 source install/setup.sh
-
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data.py --filePathName {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test.json
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}_with_particleHandler_keepALL.edm4hep.root  --part.userParticleHandler="" --output.part VERBOSE --part.keepAllParticles True
 EOF
-
-source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_for_momentum_NN.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/test.csv
-deactivate
-
 """)
 
         # Submit the job and capture the job ID
@@ -111,7 +105,7 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/trainMo
 def main():
     num_simulations = 1
     simulation_start_num = 0
-    num_events = 20
+    num_events = 5
     particle = "pi-"
 #     particle = "kaon0L"
     runInfo = "run_1"
@@ -131,5 +125,12 @@ if __name__ == "__main__":
 '''
 USE FOR GENERATING ROOT FILE
 
-/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --part.userParticleHandler=""
+
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data.py --filePathName {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test.json
+EOF
+
+source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_for_momentum_NN.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/test.csv
+deactivate
 '''

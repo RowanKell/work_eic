@@ -155,7 +155,7 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
             for layer_idx in layer_keys:
                 segment_keys = nn_input[event_idx][stave_idx][layer_idx].keys()
                 for segment_idx in segment_keys:
-                    charge_times = torch.tensor([[0.0,9999.0],[0.0,9999.0]])
+                    charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
                     SiPM_keys = nn_input[event_idx][stave_idx][layer_idx][segment_idx].keys()
                     set_event_details = False
                     trigger = False
