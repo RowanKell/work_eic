@@ -134,3 +134,11 @@ source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_for_momentum_NN.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/test.csv
 deactivate
 '''
+
+'''
+/usr/local/bin/ddsim  --compactFile ~/eic/epic_klm/epic_klmws_only.xml --numberOfEvents 5 --inputFiles ~/eic/EVGEN/ep_noradcor.10x100_q2_100_1000_run001.hepmc --outputFile root_files/test/hepmc_test.edm4hep.root  --part.userParticleHandler="" --output.part VERBOSE --part.keepAllParticles True
+'''
+
+'''
+../DD4hep/build/bin/ddsim  --compactFile ~/eic/epic_klm/epic_klmws_only.xml --numberOfEvents 5 --inputFiles ~/eic/EVGEN/ep_noradcor.10x100_q2_100_1000_run001.hepmc --outputFile root_files/test/hepmc_test.edm4hep.root  --part.userParticleHandler="" --output.part VERBOSE --part.keepAllParticles True
+'''
