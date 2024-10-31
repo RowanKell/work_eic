@@ -9,6 +9,7 @@ import torch.nn as nn
 from torch.optim import Adam
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from scipy import optimize
 
 from momentum_prediction_util import (
     Predictor,
@@ -143,10 +144,30 @@ def plot_training_loss(loss_hist: List[float], val_hist: List[float], save_path:
     plt.savefig(os.path.join(save_path, f"training_loss_{particle}_{runInfo}.pdf"))
     plt.close()
 
+def fit_func(inputs,x,a):
+    return x / np.sqrt(inputs) + a
+def fit_func_fixed_a(inputs,x):
+    return x / np.sqrt(inputs) + 0
+def fit_func_full_expansion(inputs,a,b):
+    return a / np.sqrt(inputs) + b / inputs
 def plot_rmse_results(bin_centers: np.ndarray, rmse: np.ndarray, 
                      rel_rmse: np.ndarray, real_e: np.ndarray, 
                      model_e: np.ndarray, save_path: str,particle: str,runInfo: str):
     """Plot and save RMSE analysis results."""
+    
+    #fitting RMSE/E:
+    fixed_a = True
+    full_expansion = False
+    if(fixed_a):
+        fitting_func = fit_func_fixed_a
+    elif(full_expansion):
+        fitting_func = fit_func_full_expansion
+    else:
+        fitting_func = fit_func
+    
+    popt, pcov = optimize.curve_fit(fitting_func,bin_centers[2:14],rel_rmse[2:14])
+    fit_inputs = np.linspace(bin_centers[2],bin_centers[13],100)
+    fit_outputs = fitting_func(fit_inputs,*popt)
     # Combined RMSE plots
     fig, axs = plt.subplots(1, 3, figsize=(15, 6))
     fig.suptitle(f"Energy Resolution for {particle}")
@@ -155,9 +176,17 @@ def plot_rmse_results(bin_centers: np.ndarray, rmse: np.ndarray,
     axs[0].set_xlabel("Primary Energy")
     axs[0].set_ylabel("RMSE")
     
-    axs[1].scatter(bin_centers, rel_rmse)
+    axs[1].scatter(bin_centers, rel_rmse, label = "data")
     axs[1].set_xlabel("Primary Energy")
     axs[1].set_ylabel("Relative RMSE")
+    #plot fit
+    axs[1].plot(fit_inputs,fit_outputs,label = "fit")
+    if(fixed_a):
+        axs[1].text(4,0.8,f"fit: x/sqrt(e)\n(x) = (%.2f)"%(popt[0]))
+    elif(full_expansion):
+        axs[1].text(4,0.8,f"fit: a/sqrt(e) + b/e + \n(a,b) = (%.2f,%.2f)"%(popt[0],popt[1]))
+    else:
+        axs[1].text(4,0.8,f"fit: x/sqrt(e) + a\n(x,a) = (%.2f,%.2f)"%(popt[0],popt[1]))
     
     axs[2].scatter(real_e, model_e, alpha=0.1, color="blue")
     axs[2].plot([0, 10], [0, 10], color="red")
@@ -176,7 +205,7 @@ def plot_rmse_results(bin_centers: np.ndarray, rmse: np.ndarray,
     plt.scatter(bin_centers, rel_rmse)
     plt.xlabel("Primary Energy")
     plt.ylabel("Relative RMSE")
-    plt.title(r"Relative RMSE vs Energy for $\pi^-$")
+    plt.title(fr"Relative RMSE vs Energy for {particle}")
     plt.tight_layout()
     plt.savefig(os.path.join(save_path, f"relative_rmse_{particle}_{runInfo}.pdf"))
     plt.close()
