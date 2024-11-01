@@ -17,6 +17,17 @@ def calculate_num_pixels_z_dependence(energy_dep, z_hit):
     efficiency = inverse(770 - z_hit,494.98,9.9733,-0.16796) * 0.5 #0.5 for QE of 50% (approx from simulation)
     return 10 * energy_dep * (1000 * 1000) * efficiency / 100
 
+def find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,particle_instance_idx):
+    if(parent_end_branch[particle_instance_idx] - parent_begin_branch[particle_instance_idx] > 1):
+        print("hit particle has multiple parents... setting trueID to -1")
+        return -1
+    parent_begin_idx = parent_begin_branch[particle_instance_idx] #value to index into _MCP_parent.index
+    parent_MC_instance = parent_idx_branch[parent_begin_idx]
+    if(generatorStatus_branch[parent_MC_instance] == 1): #base case
+        return parent_MC_instance
+    else: #recurrent case
+        return find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,parent_MC_instance)
+
 def process_root_file(file_path,max_events = -1):
     print("began processing")
     #cellID decoding
@@ -36,6 +47,10 @@ def process_root_file(file_path,max_events = -1):
         momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
         
         pid_branch = tree_MCParticles["MCParticles.PDG"].array(library="np")
+        generatorStatus_branch = tree_MCParticles["MCParticles.generatorStatus"].array(library="np")
+        parent_begin_branch = tree_MCParticles["MCParticles.parents_begin"].array(library="np")
+        parent_end_branch = tree_MCParticles["MCParticles.parents_end"].array(library="np")
+        parent_idx_branch = file["events/_MCParticles_parents/_MCParticles_parents.index"].array(library="np")
         
         z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
         x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
@@ -77,23 +92,40 @@ def process_root_file(file_path,max_events = -1):
                             momentum_y[event_idx][hit_idx],
                             momentum_z[event_idx][hit_idx])
                 momentum_mag = np.linalg.norm(momentum)
-                theta = theta_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
+                hittheta = theta_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
                 phi = phi_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
                 particle_id = mc_hit_idx[event_idx][hit_idx]
                 
-                pid = pid_branch[event_idx][particle_id]
+                hitPID = pid_branch[event_idx][particle_id]
+                
+                #find trueID
+                trueID = -1 #need trueID to be ID of final state SIDIS particle
+                if(generatorStatus_branch[event_idx][particle_id] == 1): 
+                    trueID = particle_id
+                else:
+                    trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+                truePID = pid_branch[event_idx][trueID]
+                true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][trueID],
+                            momentum_y_MC[event_idx][trueID],
+                            momentum_z_MC[event_idx][trueID]))
+                true_theta = theta_func(momentum_x[event_idx][trueID], momentum_y[event_idx][trueID], momentum_z[event_idx][trueID])
+                true_phi = phi_func(momentum_x[event_idx][trueID], momentum_y[event_idx][trueID], momentum_z[event_idx][trueID])
+                
                 z_hist.append(z)
                 if stave_idx not in first_hit_per_layer_particle or layer_idx not in first_hit_per_layer_particle[stave_idx] or segment_idx not in first_hit_per_layer_particle[stave_idx][layer_idx] or particle_id not in first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx]:
                     first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx][particle_id] = {
                         "z_pos": z,
                         "x_pos": x,
-                        "momentum": momentum_mag,
-                        "primary_momentum": primary_momentum_mag,
-                        "theta": theta,
+                        "hitmomentum": momentum_mag,
+                        "truemomentum": true_momentum_mag,
+                        "truetheta": true_theta,
+                        "hittheta": hittheta,
                         "time": hit_time[event_idx][hit_idx],
-                        "mc_hit_idx": particle_id,
-                        "pid": pid,
-                        "phi": phi,
+                        "trueID": trueID,
+                        "truePID": truePID,
+                        "hitID": particle_id,
+                        "hitPID": hitPID,
+                        "truephi": true_phi,
                         "edep" : e
                     }
                 else:

@@ -44,7 +44,7 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH -p vossenlab-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=100G
+#SBATCH --mem=10G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 
@@ -53,8 +53,14 @@ echo began job
 echo began postprocessing
 cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
 source install/setup.sh
-/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}_with_particleHandler_keepALL.edm4hep.root  --part.userParticleHandler="" --output.part VERBOSE --part.keepAllParticles True
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_w_solenoid.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --part.userParticleHandler=""
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data.py --filePathName {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_solenoid.json
+
 EOF
+source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_for_momentum_NN.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_solenoid.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/test.csv
+deactivate
+
 """)
 
         # Submit the job and capture the job ID
@@ -124,6 +130,11 @@ if __name__ == "__main__":
     
 '''
 USE FOR GENERATING ROOT FILE
+
+updated 11/1:
+source install/setup.sh
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_w_solenoid.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --part.userParticleHandler="" 
+
 
 /usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --part.userParticleHandler=""
 

@@ -86,8 +86,9 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
             for layer_idx, layer_data in stave_data.items():
                 for segment_idx, segment_data in layer_data.items():
                     for particle_id, particle_data in segment_data.items():
-                        primary_momentum = particle_data["primary_momentum"]
-                        base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
+#                         print(f"keys of particle data: {particle_data.keys()}")
+#                         print(f"types: {type(particle_data['z_pos'])},{type(particle_data['hittheta'])},{type(particle_data['hitmomentum'])}")
+                        base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
                                                     dtype=torch.float32)
                         base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
                                                         dtype=torch.float32)
@@ -104,7 +105,7 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
                                 all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
                             else:
                                 all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
-                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, int(particle_id), particle_data['momentum'],particle_data['mc_hit_idx'],particle_data['pid'],particle_data['theta'],particle_data['phi'])] * particle_data[num_pixel_tag])
+                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'])] * particle_data[num_pixel_tag])
 
     all_context = torch.cat(all_context)
     all_time_pixels = torch.cat(all_time_pixels)
@@ -125,11 +126,11 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     print(f"sampling took {end - begin} seconds")
     print("Reorganizing data...")
     begin = time.time()
-    for (event,stave, layer,segment, SiPM, particle, momentum,mc_hit_idx,pid,theta,phi), sample in zip(all_metadata, sampled_data):
+    for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi), sample in zip(all_metadata, sampled_data):
         nn_input[event][stave][layer][segment][SiPM].append(sample)
 #         print(f"types of nn_output vals: ({type(momentum)},{type(particle)},{type(mc_hit_idx)},{type(pid)},{type(theta)},{type(phi)})")
 #         print(f"vals of nn_output: ({momentum},{particle},{mc_hit_idx},{pid},{theta},{phi})")
-        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,particle,mc_hit_idx,pid,theta,phi]))
+        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi]))
     end = time.time()
     print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
@@ -141,10 +142,12 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
     
     #note - some events do not have dictionaries in nn_input due to being empty
     #need to skip over these and condense tensor
-    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueid','truePID','P','Theta','Phi','Charge1','Time1','Charge2','Time2']
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','Charge1','Time1','Charge2','Time2']
     running_index = 0
     rows = []
     curr_event_num = 0
+    trueID_dict = defaultdict(lambda: -1)
+    trueID_dict_running_idx = 0
     for event_idx in tqdm(list(nn_input)):
         event_input = []
         set_output = False
@@ -179,10 +182,12 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                                 continue
                             if(not set_event_details):
                                 P = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][0]
-                                particle_idx = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][2]
-                                pid = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][3]
-                                theta = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][4]
-                                phi = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][5]
+                                trueID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][1]
+                                truePID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][2]
+                                hitID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][3]
+                                hitPID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][4]
+                                theta = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][5]
+                                phi = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][6]
                                 set_event_details = True
                         else: #no photons, no data
                             continue
@@ -190,20 +195,27 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                         continue
                     if (not trigger):
                         continue;
+                    if(trueID_dict[trueID.item()] == -1):
+                        trueID_dict[trueID.item()] = trueID_dict_running_idx
+                        trueID_dict_running_idx += 1
+                    translated_trueID = trueID_dict[trueID.item()]
+                    
                     new_row = { 
                        out_columns[0] : event_idx,
                        out_columns[1] : stave_idx,
                        out_columns[2] : layer_idx,
                        out_columns[3] : segment_idx,
-                       out_columns[4] : particle_idx, 
-                       out_columns[5] : pid, 
-                       out_columns[6] : P, 
-                       out_columns[7] : theta, 
-                       out_columns[8] : phi, 
-                       out_columns[9] : charge_times[0,0], 
-                      out_columns[10] : charge_times[0,1], 
-                      out_columns[11] : charge_times[1,0], 
-                      out_columns[12] : charge_times[1,1]
+                       out_columns[4] : translated_trueID, 
+                       out_columns[5] : truePID.item(), 
+                       out_columns[6] : hitID.item(),
+                       out_columns[7] : hitPID.item(),
+                       out_columns[8] : P.item(), 
+                       out_columns[9] : theta.item(), 
+                      out_columns[10] : phi.item(), 
+                      out_columns[11] : charge_times[0,0].item(), 
+                      out_columns[12] : charge_times[0,1].item(), 
+                      out_columns[13] : charge_times[1,0].item(), 
+                      out_columns[14] : charge_times[1,1].item(),
                     }
                     rows.append(new_row)
                     running_index += 1
