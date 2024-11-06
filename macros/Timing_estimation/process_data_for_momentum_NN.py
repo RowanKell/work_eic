@@ -20,32 +20,8 @@ import pathlib
 import pandas as pd
 import json
 
-from momentum_prediction_util import Predictor,train,prepare_prediction_input_pulse,new_prepare_nn_input
+from momentum_prediction_util import Predictor,train,prepare_prediction_input_pulse,new_prepare_nn_input,create_nested_defaultdict,convert_dict_to_defaultdict,load_defaultdict
 import argparse
-
-
-
-def create_nested_defaultdict():
-    """Recreate the nested defaultdict structure."""
-    return defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(dict))))
-def convert_dict_to_defaultdict(d, factory):
-    """Convert a dictionary back to nested defaultdict."""
-    result = factory()
-    
-    for k, v in d.items():
-        if isinstance(v, dict):
-            result[k] = convert_dict_to_defaultdict(v, factory)
-        else:
-            result[k] = v
-    return result
-def load_defaultdict(filename):
-    """Load data from JSON file into nested defaultdict."""
-    # Read the JSON file
-    with open(filename, 'r') as f:
-        data = json.load(f)
-    
-    # Convert back to nested defaultdict
-    return convert_dict_to_defaultdict(data, create_nested_defaultdict)
 
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
 
@@ -57,8 +33,39 @@ args = parser.parse_args()
 outputDataframePathName = args.outputDataframePathName
 inputProcessedData = args.inputProcessedData
 
+'''MEMORY PROFILING'''
+import linecache
+import os
+import tracemalloc
 
-# file_name = f"n_5kevents_0_8_to_10GeV_90theta_origin_file_{file_num}.edm4hep.root"
+def display_top(snapshot, key_type='lineno', limit=3):
+    snapshot = snapshot.filter_traces((
+        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+        tracemalloc.Filter(False, "<unknown>"),
+    ))
+    top_stats = snapshot.statistics(key_type)
+
+    print("Top %s lines" % limit)
+    for index, stat in enumerate(top_stats[:limit], 1):
+        frame = stat.traceback[0]
+        # replace "/path/to/module/file.py" with "module/file.py"
+        filename = os.sep.join(frame.filename.split(os.sep)[-2:])
+        print("#%s: %s:%s: %.1f KiB"
+              % (index, filename, frame.lineno, stat.size / 1024))
+        line = linecache.getline(frame.filename, frame.lineno).strip()
+        if line:
+            print('    %s' % line)
+
+    other = top_stats[limit:]
+    if other:
+        size = sum(stat.size for stat in other)
+        print("%s other: %.1f KiB" % (len(other), size / 1024))
+    total = sum(stat.size for stat in top_stats)
+    print("Total allocated size: %.1f KiB" % (total / 1024))
+
+tracemalloc.start()
+    
+'''MEMORY PROFILING SETUP END}'''
 
 layer_map, super_layer_map = create_layer_map()
 
@@ -67,11 +74,6 @@ today = x.strftime("%B_%d")
 
 model_compile = get_compiled_NF_model()
 
-# print("Starting process_root_file")
-# begin = time.time()
-# processed_data = process_root_file(filePathName)
-# end = time.time()
-# print(f"process_root_file took {(end - begin) / 60} minutes")
 processed_data = load_defaultdict(inputProcessedData)
 print("Starting prepare_nn_input")
 begin = time.time()
@@ -88,3 +90,8 @@ print(f"prepare_prediction_input_pulse took {(end - begin) / 60} minutes")
 df.to_csv(outputDataframePathName)
 
 print("finished job")
+print("analyzing memory snapshot")
+
+snapshot = tracemalloc.take_snapshot()
+
+display_top(snapshot)

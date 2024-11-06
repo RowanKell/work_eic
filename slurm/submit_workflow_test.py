@@ -113,7 +113,7 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/trainMo
 def main():
     num_simulations = 1
     simulation_start_num = 0
-    num_events = 1000
+    num_events = 100
 #     particle = "K_L"
     particle = "kaon0L"
     runInfo = "run_1"

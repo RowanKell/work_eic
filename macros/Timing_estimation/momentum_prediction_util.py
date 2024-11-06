@@ -128,8 +128,6 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     begin = time.time()
     for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z), sample in zip(all_metadata, sampled_data):
         nn_input[event][stave][layer][segment][SiPM].append(sample)
-#         print(f"types of nn_output vals: ({type(momentum)},{type(particle)},{type(mc_hit_idx)},{type(pid)},{type(theta)},{type(phi)})")
-#         print(f"vals of nn_output: ({momentum},{particle},{mc_hit_idx},{pid},{theta},{phi})")
         nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z]))
     end = time.time()
     print(f"reorganizing took {end - begin} seconds")
@@ -772,3 +770,26 @@ class SiPMSignalProcessor:
         _, crossing_time = self.apply_cfd(waveform)
         
         return crossing_time
+    
+#functions for process_data_for_momentum_NN.py
+def create_nested_defaultdict():
+    """Recreate the nested defaultdict structure."""
+    return defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(dict))))
+def convert_dict_to_defaultdict(d, factory):
+    """Convert a dictionary back to nested defaultdict."""
+    result = factory()
+    
+    for k, v in d.items():
+        if isinstance(v, dict):
+            result[k] = convert_dict_to_defaultdict(v, factory)
+        else:
+            result[k] = v
+    return result
+def load_defaultdict(filename):
+    """Load data from JSON file into nested defaultdict."""
+    # Read the JSON file
+    with open(filename, 'r') as f:
+        data = json.load(f)
+    
+    # Convert back to nested defaultdict
+    return convert_dict_to_defaultdict(data, create_nested_defaultdict)
