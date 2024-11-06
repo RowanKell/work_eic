@@ -105,7 +105,7 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
                                 all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
                             else:
                                 all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
-                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'])] * particle_data[num_pixel_tag])
+                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'])] * particle_data[num_pixel_tag])
 
     all_context = torch.cat(all_context)
     all_time_pixels = torch.cat(all_time_pixels)
@@ -126,11 +126,11 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     print(f"sampling took {end - begin} seconds")
     print("Reorganizing data...")
     begin = time.time()
-    for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi), sample in zip(all_metadata, sampled_data):
+    for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z), sample in zip(all_metadata, sampled_data):
         nn_input[event][stave][layer][segment][SiPM].append(sample)
 #         print(f"types of nn_output vals: ({type(momentum)},{type(particle)},{type(mc_hit_idx)},{type(pid)},{type(theta)},{type(phi)})")
 #         print(f"vals of nn_output: ({momentum},{particle},{mc_hit_idx},{pid},{theta},{phi})")
-        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi]))
+        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z]))
     end = time.time()
     print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
@@ -142,11 +142,11 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
     
     #note - some events do not have dictionaries in nn_input due to being empty
     #need to skip over these and condense tensor
-    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','Charge1','Time1','Charge2','Time2']
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
     running_index = 0
     rows = []
     curr_event_num = 0
-    trueID_dict = defaultdict(lambda: -1)
+    trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
     trueID_dict_running_idx = 0
     for event_idx in tqdm(list(nn_input)):
         event_input = []
@@ -188,6 +188,9 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                                 hitPID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][4]
                                 theta = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][5]
                                 phi = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][6]
+                                strip_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][7]
+                                strip_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][8]
+                                strip_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][9]
                                 set_event_details = True
                         else: #no photons, no data
                             continue
@@ -195,10 +198,10 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                         continue
                     if (not trigger):
                         continue;
-                    if(trueID_dict[trueID.item()] == -1):
-                        trueID_dict[trueID.item()] = trueID_dict_running_idx
+                    if(trueID_dict[event_idx][trueID.item()] == -1):
+                        trueID_dict[event_idx][trueID.item()] = trueID_dict_running_idx
                         trueID_dict_running_idx += 1
-                    translated_trueID = trueID_dict[trueID.item()]
+                    translated_trueID = trueID_dict[event_idx][trueID.item()]
                     
                     new_row = { 
                        out_columns[0] : event_idx,
@@ -212,10 +215,13 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                        out_columns[8] : P.item(), 
                        out_columns[9] : theta.item(), 
                       out_columns[10] : phi.item(), 
-                      out_columns[11] : charge_times[0,0].item(), 
-                      out_columns[12] : charge_times[0,1].item(), 
-                      out_columns[13] : charge_times[1,0].item(), 
-                      out_columns[14] : charge_times[1,1].item(),
+                      out_columns[11] : strip_x.item(), 
+                      out_columns[12] : strip_y.item(), 
+                      out_columns[13] : strip_z.item(), 
+                      out_columns[14] : charge_times[0,0].item(), 
+                      out_columns[15] : charge_times[0,1].item(), 
+                      out_columns[16] : charge_times[1,0].item(), 
+                      out_columns[17] : charge_times[1,1].item(),
                     }
                     rows.append(new_row)
                     running_index += 1

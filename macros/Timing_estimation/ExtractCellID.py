@@ -33,6 +33,7 @@ def process_root_file(file_path,max_events = -1):
     #cellID decoding
     
     lcdd = load_geometry()
+    world_volume = lcdd.worldVolume()
     root_file = load_root_file(file_path)
     tree = root_file.Get("events")
     z_hist = []
@@ -108,9 +109,19 @@ def process_root_file(file_path,max_events = -1):
                 true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][trueID],
                             momentum_y_MC[event_idx][trueID],
                             momentum_z_MC[event_idx][trueID]))
-                true_theta = theta_func(momentum_x[event_idx][trueID], momentum_y[event_idx][trueID], momentum_z[event_idx][trueID])
-                true_phi = phi_func(momentum_x[event_idx][trueID], momentum_y[event_idx][trueID], momentum_z[event_idx][trueID])
+                true_theta = theta_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
+                true_phi = phi_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
                 
+                #logic for recording strip position:
+                #bar_pos = [x,y,z]
+                bar_pos = find_volume(world_volume, bar_info)
+                try:
+                    strip_x = bar_pos[0]
+                    strip_y = bar_pos[1]
+                    strip_z = bar_pos[2]
+                except TypeError:
+                    print("skipping...")
+                    continue
                 z_hist.append(z)
                 if stave_idx not in first_hit_per_layer_particle or layer_idx not in first_hit_per_layer_particle[stave_idx] or segment_idx not in first_hit_per_layer_particle[stave_idx][layer_idx] or particle_id not in first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx]:
                     first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx][particle_id] = {
@@ -126,7 +137,10 @@ def process_root_file(file_path,max_events = -1):
                         "hitID": particle_id,
                         "hitPID": hitPID,
                         "truephi": true_phi,
-                        "edep" : e
+                        "edep" : e,
+                        "strip_x" : strip_x,
+                        "strip_y" : strip_y,
+                        "strip_z" : strip_z
                     }
                 else:
                     first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx][particle_id]["edep"] += e
@@ -157,7 +171,7 @@ def load_geometry():
     lcdd.fromXML(eic_pref + "epic_klm/epic_klmws_only.xml")
     return lcdd
 
-def load_root_file(fileName = "/hpc/group/vossenlab/rck32/eic/full_sector_50.edm4hep.root"):
+def load_root_file(fileName = "/hpc/group/vossenlab/rck32/eic/work_eic/root_files/momentum_prediction/November_06/hepmc_5000events_test_file_0.edm4hep.root"):
     f = ROOT.TFile(fileName)
     return f
 
@@ -218,14 +232,25 @@ def find_volume(world_volume, hit_info):
     # Access slice directly
     slice_name = f"seg{target_segment}slice{target_slice}_{total_slice}"
     slice_node = layer.GetVolume().FindNode(slice_name)
-    print(f"IDs: (stave, layer, total_slice, target_segment, target_slice) ({target_stave},{target_layer},{total_slice},{target_segment},{target_slice})")
-    print(f"Found slice in (stave_name,layer_name): ({stave_name},{layer_name})")
-    print(f"Found slice name: {slice_name}")
+#     print(f"IDs: (stave, layer, total_slice, target_segment, target_slice) ({target_stave},{target_layer},{total_slice},{target_segment},{target_slice})")
+#     print(f"Found slice in (stave_name,layer_name): ({stave_name},{layer_name})")
+#     print(f"Found slice name: {slice_name}")
     if not slice_node:
         print(f"Slice {slice_name} not found")
         return None
-
-    return get_position(slice_node)
+    position_in_stave = get_position(slice_node) + get_position(layer)
+    x = position_in_stave[0]
+    y = position_in_stave[1]
+    z = position_in_stave[2] + (1420 + 350) / 10 #add in displacement from origin
+    angle = np.arctan2(x,z)
+    r = np.sqrt(z ** 2 + x ** 2)
+#     print(f"target_stave: {target_stave}")
+    angle_prime = ((target_stave) * np.pi / 4) + angle
+#     print(f"angle, angle_prime: {angle},{angle_prime}")
+    x_prime = r * np.sin(angle_prime)# rotating x and z
+#     print(f"x, x_prime: {x},{x_prime}")
+    z_prime = r * np.cos(angle_prime)
+    return np.array([x_prime.item(),y,z_prime.item()])
 
 # Helper function to get position (unchanged)
 def get_position(node):
@@ -233,9 +258,9 @@ def get_position(node):
     x = transformation.GetTranslation()[0]
     y = transformation.GetTranslation()[1]
     z = transformation.GetTranslation()[2]
-    return [x, y, z]
+    return np.array([x, y, z])
 
-# # # Main loop (simplified)
+# # Main loop (simplified)
 # lcdd = load_geometry()
 # file = load_root_file()
 # tree = file.Get("events")
@@ -244,18 +269,16 @@ def get_position(node):
 
 # for event_idx, event in enumerate(tree):
 #     for hit_idx, hit in enumerate(event.HcalBarrelHits):
-#         bar_info = get_bar_info(hit)
-# #         print(bar_info)
-#         if bar_info:
-#             result = find_volume(world_volume, bar_info)
-#             if result:
-#                 x.append(result[0])
-#                 y.append(result[1])
-#                 z.append(result[2])
-#                 break
-#             else:
-#                 print("Skipped one event")
-
+#         bar_info = get_bar_info(lcdd,hit)
+#         result= find_volume(world_volume, bar_info)
+#         try:
+#             x.append(result[0])
+#             y.append(result[1])
+#             z.append(result[2])
+#         except TypeError:
+#             print("skipping...")
 # # Plot histogram (unchanged)
-# plot.hist(x, bins=500)
-# plot.savefig("test/CellIDplot.jpeg")
+# fig, axs = plot.subplots(1,1,figsize = (5,5))
+# axs.hist2d(z,x,bins = 50)
+# fig.tight_layout()
+# fig.savefig("test/CellIDplot.pdf")
