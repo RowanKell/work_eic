@@ -54,13 +54,13 @@ echo began job
 echo began simulation
 cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
 source install/setup.sh
-/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_w_solenoid.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --part.userParticleHandler=""
 echo began postprocessing
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data.py --filePathName {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_solenoid_{num_events}events.json
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_w_inner.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --part.userParticleHandler=""
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data.py --filePathName {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_inner_detectors_{num_events}events.json
 
 EOF
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_for_momentum_NN.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_solenoid_{num_events}events.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/test_{num_events}events.csv
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_for_momentum_NN.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_inner_detectors_{num_events}events.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/test_inner_detectors{num_events}events.csv
 deactivate
 
 """)
@@ -71,6 +71,69 @@ deactivate
         job_ids.append(job_id)
 
     return job_ids
+
+def test_submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,particle):
+    particle_name = particle_name_dict[particle]
+    current_date = datetime.now().strftime("%B_%d")
+    workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
+    slurm_output = f"{workdir}/root_files/Slurm"
+    out_folder = f"{workdir}/slurm/output/output{current_date}"
+    error_folder = f"{workdir}/slurm/error/error{current_date}"
+    root_file_dir = f"{workdir}/root_files/momentum_prediction/{current_date}"
+    tensor_path_name = f"{workdir}/macros/Timing_estimation/data/momentum_prediction_pulse/{current_date}_{particle_name}"
+    
+#     hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/ep_noradcor.10x100_q2_1_10_run001.hepmc"
+#     hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/ep_noradcor.10x100_q2_100_1000_run001.hepmc"
+    hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/ep_run001.hepmc3"
+
+    create_directory(out_folder)
+    create_directory(error_folder)
+    create_directory(tensor_path_name + "/input")
+    create_directory(tensor_path_name + "/output")
+    create_directory(tensor_path_name)
+    create_directory(root_file_dir)
+
+    job_ids = []
+
+    for i in range(simulation_start_num, simulation_start_num + num_simulations):
+        shell_script = f"{workdir}/slurm/shells/prediction_sims_{current_date}_{particle_name}_run_1_{i}.sh"
+        
+        with open(shell_script, 'w') as f:
+            f.write(f"""#!/bin/bash
+#SBATCH --chdir=/hpc/group/vossenlab/rck32/eic/epic_klm
+#SBATCH --job-name=prediction_sims_{current_date}_{particle_name}_run_1_{i}
+#SBATCH --output={out_folder}/%x_mu.out
+#SBATCH --error={error_folder}/%x_mu.err
+#SBATCH -p vossenlab-gpu
+#SBATCH --account=vossenlab
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=100G
+#SBATCH --gpus=1
+#SBATCH --mail-user=rck32@duke.edu
+
+
+echo began job
+echo began simulation
+cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
+source install/setup.sh
+echo began postprocessing
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_w_inner.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_test_Nov_8_file_{i}.edm4hep.root  --part.userParticleHandler=""
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_Nov_8.py --filePathName {root_file_dir}/hepmc_{num_events}events_test_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_Nov_8{num_events}events.csv
+
+EOF
+source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_data_for_momentum_NN_Nov_8.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/test_Nov_8{num_events}events.csv --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/test_Nov_8{num_events}events.csv
+deactivate
+
+""")
+
+        # Submit the job and capture the job ID
+        result = subprocess.run(['sbatch', shell_script], capture_output=True, text=True)
+        job_id = result.stdout.strip().split()[-1]
+        job_ids.append(job_id)
+
+    return job_ids
+
 
 def submit_training_job(dependency_job_ids,particle,runInfo):
     particle_name = particle_name_dict[particle]
@@ -113,13 +176,14 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/trainMo
 def main():
     num_simulations = 1
     simulation_start_num = 0
-    num_events = 100
+    num_events = 10
 #     particle = "K_L"
     particle = "kaon0L"
-    runInfo = "run_1"
+    runInfo = "run_1_w_inner"
 
     # Submit simulation and processing jobs
-    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,particle)
+#     job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,particle)
+    job_ids = test_submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,particle)
     print(f"Submitted {num_simulations} simulation and processing jobs")
 
 # #     Submit training job
