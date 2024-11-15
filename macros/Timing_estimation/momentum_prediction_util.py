@@ -24,6 +24,33 @@ import json
 from datetime import datetime as dt
 import pandas as pd
 
+import cProfile
+import pstats
+from functools import wraps
+from io import StringIO
+from contextlib import contextmanager
+
+def profile_function(func):
+    """
+    Decorator to profile a specific function using cProfile
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        profiler = cProfile.Profile()
+        try:
+            return profiler.runcall(func, *args, **kwargs)
+        finally:
+            s = StringIO()
+            stats = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
+            stats.print_stats(20)  # Print top 20 time-consuming operations
+            print(s.getvalue())
+    return wrapper
+
+
+def print_w_time(message):
+    current_time = datetime.datetime.now().strftime('%H:%M:%S')
+    print(f"{current_time} {message}")
+
 layer_map, super_layer_map = create_layer_map()
 
 
@@ -196,7 +223,7 @@ def create_df(processed_data, normalizing_flow, batch_size=1024, device='cuda',p
                     rows.append(new_row)
                     running_index += 1
     return pd.DataFrame(rows)
-
+@profile_function
 def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
     nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
     nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
@@ -260,7 +287,7 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
 
-
+@profile_function
 def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
     processor = SiPMSignalProcessor()
     
@@ -361,11 +388,14 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
         curr_event_num += 1
     return pd.DataFrame(rows)
 
-def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
-    
+@profile_function
+def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
+    rows = []
+    processor = SiPMSignalProcessor()
     normflow_input = []
     num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
-    print("Processing data in new_prepare_nn_input...")
+    print_w_time("Processing data in generateSiPMOutput...")
     got_row_indexes = False
     labels = []
     for row_idx, row in processed_data.iterrows():
@@ -386,9 +416,11 @@ def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device
     normflow_input_tensor = torch.cat(normflow_input)
 
     data = []
-    print(f"starting sampling")
+    print_w_time(f"starting sampling")
     begin = time.time()
-    for i in tqdm(range(0, len(normflow_input_tensor), batch_size)):
+#     for i in tqdm(range(0, len(normflow_input_tensor), batch_size)):
+    for i in range(0, len(normflow_input_tensor), batch_size):
+        print_w_time(f"Starting batch # {(i / batch_size) + 1} / {int(np.ceil(len(normflow_input_tensor) / batch_size))}")
         batch_end = min(i + batch_size, len(normflow_input_tensor))
         batch_rows = normflow_input_tensor[i:batch_end]
         context_indexes = [label_dict["z_pos"],label_dict["hittheta"],label_dict["hitmomentum"]]
@@ -400,24 +432,24 @@ def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device
             samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1).cpu() + batch_particle_hit_times
         batch_combined_data = torch.cat((batch_rows,samples.unsqueeze(-1)),dim = 1)
         data.extend(batch_combined_data)
-    labels.append("photon_time")
     end = time.time()
-    print(f"sampling took {(end - begin) / 60} minutes")
+    print_w_time(f"sampling took {(end - begin) / 60} minutes")
+    print_w_time("creating df")
+    labels.append("photon_time")
     row_df = pd.DataFrame(data,columns = labels)
-    return row_df
-'''
-
-    for (event_idx, stave_idx, layer_idx, segment_idx),group in df.groupby(['event_idx', 'stave_idx', 'layer_idx','segment_idx']):
+    print_w_time("Beginning pulse process")
+    running_index = 0
+    for (event_idx, stave_idx, layer_idx, segment_idx),group in row_df.groupby(['event_idx', 'stave_idx', 'layer_idx','segment_idx']):
+#         print(f"Starting row # {running_index}\nevent #{event_idx}, stave #{stave_idx}, layer #{layer_idx}, segment #{segment_idx}")
         charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
-        SiPM_keys = nn_input[event_idx][stave_idx][layer_idx][segment_idx].keys()
         set_event_details = False
         trigger = False
         trueID_list_len_max = -1
-        for SiPM_idx in SiPM_keys:
-#                         print(f"SiPM_idx: {SiPM_idx}")
-            if(nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][10] > trueID_list_len_max):
-                trueID_list_len_max = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][10]
-            photon_times = torch.tensor(sorted(nn_input[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx])) * 10 **(-9)
+        for SiPM_idx, SiPM_group in group.groupby(['SiPM_idx']):
+            #need to see if we get more than 1 hit in a segment - greg says to label this as noise
+            trueID_list_len = len(set(SiPM_group["trueID"]))
+            trueID_list_len_max = max(trueID_list_len,trueID_list_len_max)
+            photon_times = torch.tensor(sorted(SiPM_group['photon_time'])) * 10 **(-9)
             #get relative times
             if(len(photon_times) > 0):
                 #calculate time and charge
@@ -434,16 +466,17 @@ def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device
                 else: #no trigger, don't set details yet
                     continue
                 if(not set_event_details):
-                    P = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][0]
-                    trueID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][1]
-                    truePID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][2]
-                    hitID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][3]
-                    hitPID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][4]
-                    theta = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][5]
-                    phi = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][6]
-                    strip_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][7]
-                    strip_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][8]
-                    strip_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][9]
+                    #take the 0th one - if there are multiple, then these are noise anyways
+                    P = SiPM_group['truemomentum'][0]
+                    trueID = SiPM_group['trueID'][0]
+                    truePID = SiPM_group['truePID'][0]
+                    hitID = SiPM_group['hitID'][0]
+                    hitPID = SiPM_group['hitPID'][0]
+                    theta = SiPM_group['truetheta'][0]
+                    phi = SiPM_group['truephi'][0]
+                    strip_x = SiPM_group['strip_x'][0]
+                    strip_y = SiPM_group['strip_y'][0]
+                    strip_z = SiPM_group['strip_z'][0]
                     set_event_details = True
             else: #no photons, no data
                 continue
@@ -484,10 +517,9 @@ def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device
         }
         rows.append(new_row)
         running_index += 1
-        
+    return pd.DataFrame(rows,columns = out_columns)
         
 
-'''
 
 class Predictor(nn.Module):
     def __init__(
@@ -1053,3 +1085,4 @@ def load_defaultdict(filename):
     
     # Convert back to nested defaultdict
     return convert_dict_to_defaultdict(data, create_nested_defaultdict)
+    

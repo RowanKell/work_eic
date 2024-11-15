@@ -28,8 +28,22 @@ def find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_bran
         return parent_MC_instance
     else: #recurrent case
         return find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,parent_MC_instance)
-
-def process_root_file(file_path,max_events = -1):
+'''
+#Need to give any particle w/vertex inside solenoid its own trueID
+def find_parent_w_exclusion(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,vx_branch,vy_branch,particle_instance_idx):
+    if(parent_end_branch[particle_instance_idx] - parent_begin_branch[particle_instance_idx] > 1):
+        print("hit particle has multiple parents... setting trueID to -1")
+        return -1
+    parent_begin_idx = parent_begin_branch[particle_instance_idx] #value to index into _MCP_parent.index
+    parent_MC_instance = parent_idx_branch[parent_begin_idx]
+    r_dist_from_z_axis = np.sqrt(vx_branch[parent_MC_instance] ** 2 + vy_branch[parent_MC_instance] ** 2)
+    if(r_dist_from_z_axis < 1712.01): #base case - solenoid goes out to 1712mm
+        return parent_MC_instance
+    else: #recurrent case
+        return find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,vx_branch,vy_branch,parent_MC_instance)
+'''
+    
+def process_root_file_old(file_path,max_events = -1):
     print("began processing")
     #cellID decoding
     

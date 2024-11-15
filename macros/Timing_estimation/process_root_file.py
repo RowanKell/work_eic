@@ -1,7 +1,12 @@
+import datetime
+def print_w_time(message):
+    current_time = datetime.datetime.now().strftime('%H:%M:%S')
+    print(f"{current_time} {message}")
+
 import numpy as np
 import time
 import pickle
-from ExtractCellID import process_root_file_to_csv
+from ExtractCellID import process_root_file_to_csv,process_root_file
 from collections import defaultdict
 import argparse
 import json
@@ -16,11 +21,17 @@ parser.add_argument('--processedDataPath', type=str, default="NA",
 args = parser.parse_args()
 filePathName = args.filePathName
 processedDataPath = args.processedDataPath
-
 print("Starting process_root_file")
 begin = time.time()
-processed_data = process_root_file_to_csv(filePathName)
+processed_data = process_root_file(filePathName)
 end = time.time()
 print(f"process_root_file took {(end - begin) / 60} minutes")
 
-processed_data.to_csv(processedDataPath)
+# print_w_time("Starting process_root_file")
+# begin = time.time()
+# processed_data_csv = process_root_file_to_csv(filePathName)
+# end = time.time()
+# print_w_time(f"process_root_file took {(end - begin) / 60} minutes")
+
+# processed_data_csv.to_csv(processedDataPath)
+# print_w_time("saved processed root file data to csv")

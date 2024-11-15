@@ -1,28 +1,32 @@
+import datetime
+def print_w_time(message):
+    current_time = datetime.datetime.now().strftime('%H:%M:%S')
+    print(f"{current_time} {message}")
+
+print_w_time("began analyze_data")
+
 import uproot
 import numpy as np
-import torch
-from collections import defaultdict
-from util import get_layer, theta_func,create_layer_map, calculate_num_pixels_z_dependence
-from time_res_util import get_compiled_NF_model
+from  torch import device as torchdevice
+from torch.cuda import is_available as torchcudaisavailable
 import matplotlib.pyplot as plot
 import time
-from collections import defaultdict
 # Get device to be used
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-import os
+device = torchdevice('cuda' if torchcudaisavailable() else 'cpu')
+from os.path import exists as ospathexists
+from os import makedirs as osmakedirs
 def checkdir(path):
-    if not os.path.exists(path): 
-        os.makedirs(path)
-from IPython.display import clear_output
+    if not ospathexists(path): 
+        osmakedirs(path)
 from tqdm import tqdm
 import datetime
-import pathlib
-import pandas as pd
-import json
-
+from  pandas import read_csv as pd_read_csv
+print_w_time("finished library imports in analyze data")
+from util import get_layer, theta_func,create_layer_map, calculate_num_pixels_z_dependence
+from time_res_util import get_compiled_NF_model
 from momentum_prediction_util import Predictor,train,prepare_prediction_input_pulse,new_prepare_nn_input,create_nested_defaultdict,convert_dict_to_defaultdict,load_defaultdict,generateSiPMOutput
 import argparse
-
+print_w_time("finished local imports in analyze data")
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
 
 parser.add_argument('--inputProcessedData', type=str, default="NA",
@@ -32,7 +36,7 @@ parser.add_argument('--outputDataframePathName', type=str, default="NA",
 args = parser.parse_args()
 outputDataframePathName = args.outputDataframePathName
 inputProcessedData = args.inputProcessedData
-
+print_w_time("got to main part of analyze_data")
 '''MEMORY PROFILING'''
 import linecache
 import os
@@ -67,32 +71,23 @@ tracemalloc.start()
     
 '''MEMORY PROFILING SETUP END}'''
 
-layer_map, super_layer_map = create_layer_map()
-
-x = datetime.datetime.now()
-today = x.strftime("%B_%d")
-
 model_compile = get_compiled_NF_model()
-
-processed_data = pd.read_csv(inputProcessedData)
-print("Starting prepare_nn_input")
+print_w_time("loaded nf model")
+processed_data = pd_read_csv(inputProcessedData)
+print_w_time("Opened processed data... Starting generateSiPMOutput")
 begin = time.time()
 df = generateSiPMOutput(processed_data, model_compile,batch_size = 50000)
 end = time.time()
-print(f"new_prepare_nn_input took {(end - begin) / 60} minutes")
-df.to_csv(outputDataframePathName)
+print_w_time(f"generateSiPMOutput took {(end - begin) / 60} minutes")
 
-'''
-print("Starting prepare_prediction_input")
-begin = time.time()
-df = prepare_prediction_input_pulse(nn_input,nn_output)
-end = time.time()
-print(f"prepare_prediction_input_pulse took {(end - begin) / 60} minutes")
-
-df.to_csv(outputDataframePathName)
-'''
-print("finished job")
-print("analyzing memory snapshot")
+def print_df_info(df):
+    print(f"DataFrame has {len(df)} rows.")
+    print("Column names:")
+    for col in df.columns:
+        print(f"- {col}")
+print_df_info(df)
+print_w_time("finished job")
+print_w_time("analyzing memory snapshot")
 
 snapshot = tracemalloc.take_snapshot()
 
