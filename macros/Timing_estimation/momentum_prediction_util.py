@@ -306,7 +306,7 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     return nn_input, nn_output
 
 @profile_function
-def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 200):
+def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 5):
     processor = SiPMSignalProcessor()
     
     #note - some events do not have dictionaries in nn_input due to being empty

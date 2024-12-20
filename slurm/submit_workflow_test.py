@@ -122,13 +122,13 @@ cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
 source install/setup.sh
 
 echo began process root file
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/hepmc_{num_events}events_dev_branch_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/old_{num_events}events_high_thresh.json
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/hepmc_{num_events}events_dev_branch_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/old_{num_events}events_cluster.json
 echo finished process_root_file
 EOF
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 
 echo began analyze data
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data_old.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/old_{num_events}events_high_thresh.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/old_{num_events}events_high_thresh.csv
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data_old.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/old_{num_events}events_cluster.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/old_{num_events}events_cluster.csv
 echo finished analyze data
 deactivate
 
