@@ -259,7 +259,24 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
                                 all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
                             else:
                                 all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
-                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'],len(trueID_list))] * particle_data[num_pixel_tag])
+                            # Assuming particle_data is a dictionary-like object and trueID_list is defined
+                            fields = [
+                                'truemomentum', 'trueID', 'truePID', 'hitID', 'hitPID', 
+                                'truetheta', 'truephi', 'strip_x', 'strip_y', 'strip_z', 
+                                'hit_x', 'hit_y', 'hit_z', 'KMU_trueID', 'KMU_truePID', 
+                                'KMU_true_phi', 'KMU_true_momentum_mag', 'KMU_endpoint_x', 
+                                'KMU_endpoint_y', 'KMU_endpoint_z'
+                            ]
+
+                            # Print types of each particle_data field
+#                             for field in fields:
+#                                 value = particle_data.get(field, None)
+#                                 print(f"{field}: {type(value)}")
+
+#                             # Print the type of len(trueID_list)
+#                             print(f"len(trueID_list): {type(len(trueID_list))}")
+
+                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'],len(trueID_list),particle_data['hit_x'],particle_data['hit_y'],particle_data['hit_z'],particle_data['KMU_trueID'],particle_data['KMU_truePID'],particle_data['KMU_true_phi'],particle_data['KMU_true_momentum_mag'],particle_data['KMU_endpoint_x'],particle_data['KMU_endpoint_y'],particle_data['KMU_endpoint_z'])] * particle_data[num_pixel_tag])
 
     all_context = torch.cat(all_context)
     all_time_pixels = torch.cat(all_time_pixels)
@@ -280,26 +297,28 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     print(f"sampling took {end - begin} seconds")
     print("Reorganizing data...")
     begin = time.time()
-    for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len), sample in zip(all_metadata, sampled_data):
+    for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z), sample in zip(all_metadata, sampled_data):
         nn_input[event][stave][layer][segment][SiPM].append(sample)
-        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len]))
+
+        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z]))
     end = time.time()
     print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
 
 @profile_function
-def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
+def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 200):
     processor = SiPMSignalProcessor()
     
     #note - some events do not have dictionaries in nn_input due to being empty
     #need to skip over these and condense tensor
-    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','hit_x','hit_y','hit_z','KMU_trueID','KMU_truePID','KMU_true_phi','KMU_true_momentum_mag','KMU_endpoint_x','KMU_endpoint_y','KMU_endpoint_z','Charge1','Time1','Charge2','Time2']
     running_index = 0
     rows = []
     curr_event_num = 0
     trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
     trueID_dict_running_idx = 0
     for event_idx in tqdm(list(nn_input)):
+        event_first_hit = np.ones(3) * 999
         event_input = []
         set_output = False
         stave_keys = nn_input[event_idx].keys()
@@ -345,6 +364,16 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                                 strip_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][7]
                                 strip_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][8]
                                 strip_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][9]
+                                hit_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][11]
+                                hit_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][12]
+                                hit_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][13]
+                                KMU_trueID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][14]
+                                KMU_truePID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][15]
+                                KMU_true_phi = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][16]
+                                KMU_true_momentum_mag = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][17]
+                                KMU_true_endpoint_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][18]
+                                KMU_true_endpoint_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][19]
+                                KMU_true_endpoint_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][20]
                                 set_event_details = True
                         else: #no photons, no data
                             continue
@@ -362,6 +391,14 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                         translated_trueID = trueID_dict[event_idx][trueID.item()]
                     else:
                         translated_trueID = -1
+                    
+                    #clustering
+                    hit_max_time = np.maximum(charge_times[0,1],charge_times[1,1])
+                    if(hit_max_time < event_first_hit[0]):
+                        event_first_hit[0] = hit_max_time
+                        event_first_hit[1] = strip_z #really x
+                        event_first_hit[2] = strip_x #really y
+                        
                     new_row = { 
                        out_columns[0] : event_idx,
                        out_columns[1] : stave_idx,
@@ -378,10 +415,23 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 3):
                       out_columns[11] : strip_z.item(), 
                       out_columns[12] : strip_x.item(), 
                       out_columns[13] : strip_y.item(), 
-                      out_columns[14] : charge_times[0,0].item(), 
-                      out_columns[15] : charge_times[0,1].item(), 
-                      out_columns[16] : charge_times[1,0].item(), 
-                      out_columns[17] : charge_times[1,1].item(),
+                      out_columns[14] : hit_x.item(), 
+                      out_columns[15] : hit_y.item(), 
+                      out_columns[16] : hit_z.item(), 
+                      out_columns[17] : KMU_trueID.item(), 
+                      out_columns[18] : KMU_truePID.item(), 
+                      out_columns[19] : KMU_true_phi.item(), 
+                      out_columns[20] : KMU_true_momentum_mag.item(), 
+                      out_columns[21] : KMU_true_endpoint_x.item(), 
+                      out_columns[22] : KMU_true_endpoint_y.item(), 
+                      out_columns[23] : KMU_true_endpoint_z.item(), 
+                      out_columns[24] : charge_times[0,0].item(), 
+                      out_columns[25] : charge_times[0,1].item(), 
+                      out_columns[26] : charge_times[1,0].item(), 
+                      out_columns[27] : charge_times[1,1].item(),
+                      "first hit time": event_first_hit[0],
+                      "first hit x": event_first_hit[1],
+                      "first hit y": event_first_hit[2]
                     }
                     rows.append(new_row)
                     running_index += 1

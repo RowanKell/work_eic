@@ -28,8 +28,17 @@ def find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_bran
         return parent_MC_instance
     else: #recurrent case
         return find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,parent_MC_instance)
+    
+# def findparentparticle(particle):
+#     if(particle.getPDG() == 130 or particle.getPDG() == 13):
+#         return particle
+#     else:
+#         for parent in particle.getParents():
+#             return findparentparticle(parent)
+    
 '''
 #Need to give any particle w/vertex inside solenoid its own trueID
+'''
 def find_parent_w_exclusion(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,vx_branch,vy_branch,particle_instance_idx):
     if(parent_end_branch[particle_instance_idx] - parent_begin_branch[particle_instance_idx] > 1):
         print("hit particle has multiple parents... setting trueID to -1")
@@ -40,8 +49,16 @@ def find_parent_w_exclusion(PDG_branch,parent_idx_branch,parent_begin_branch,par
     if(r_dist_from_z_axis < 1712.01): #base case - solenoid goes out to 1712mm
         return parent_MC_instance
     else: #recurrent case
-        return find_parent(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,vx_branch,vy_branch,parent_MC_instance)
-'''
+        return find_parent_w_exclusion(PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,vx_branch,vy_branch,parent_MC_instance)
+    
+# def findparentparticle_w_exclusion(particle):
+#     vertex = particle.getVertex()
+#     r_dist_from_z_axs = np.sqrt(vertex[0],vertex[1])
+#     if(r_dist_from_z_axis < 1712.01):
+#         return particle
+#     else:
+#         for parent in particle.getParents():
+#             return findparentparticle_w_exclusion(parent)
     
 def process_root_file_old(file_path,max_events = -1):
     print("began processing")
@@ -62,6 +79,13 @@ def process_root_file_old(file_path,max_events = -1):
         momentum_y_MC = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
         momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
         
+        endpoint_x_MC = tree_MCParticles["MCParticles.endpoint.x"].array(library="np")
+        endpoint_y_MC = tree_MCParticles["MCParticles.endpoint.y"].array(library="np")
+        endpoint_z_MC = tree_MCParticles["MCParticles.endpoint.z"].array(library="np")
+        
+        vertex_x_MC = tree_MCParticles["MCParticles.vertex.x"].array(library="np")
+        vertex_y_MC = tree_MCParticles["MCParticles.vertex.y"].array(library="np")
+        
         pid_branch = tree_MCParticles["MCParticles.PDG"].array(library="np")
         generatorStatus_branch = tree_MCParticles["MCParticles.generatorStatus"].array(library="np")
         parent_begin_branch = tree_MCParticles["MCParticles.parents_begin"].array(library="np")
@@ -69,6 +93,7 @@ def process_root_file_old(file_path,max_events = -1):
         parent_idx_branch = file["events/_MCParticles_parents/_MCParticles_parents.index"].array(library="np")
         
         z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
+        y_pos = tree_HcalBarrelHits["HcalBarrelHits.position.y"].array(library="np")
         x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
         energy = tree_HcalBarrelHits["HcalBarrelHits.EDep"].array(library="np")
         momentum_x = tree_HcalBarrelHits["HcalBarrelHits.momentum.x"].array(library="np")
@@ -102,6 +127,7 @@ def process_root_file_old(file_path,max_events = -1):
                 slice_idx = (slice_absolute_idx % 7) + 1 #no need for 0 indexing
                 
                 z = z_pos[event_idx][hit_idx]
+                y = y_pos[event_idx][hit_idx]
                 x = x_pos[event_idx][hit_idx]
                 e = energy[event_idx][hit_idx]
                 momentum = (momentum_x[event_idx][hit_idx],
@@ -119,13 +145,24 @@ def process_root_file_old(file_path,max_events = -1):
                 if(generatorStatus_branch[event_idx][particle_id] == 1): 
                     trueID = particle_id
                 else:
-                    trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+                    trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
+                    #PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,vx_branch,vy_branch,particle_instance_idx
+                KMU_trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
                 truePID = pid_branch[event_idx][trueID]
+                KMU_truePID = pid_branch[event_idx][KMU_trueID]
                 true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][trueID],
                             momentum_y_MC[event_idx][trueID],
                             momentum_z_MC[event_idx][trueID]))
+                KMU_true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][KMU_trueID],
+                            momentum_y_MC[event_idx][KMU_trueID],
+                            momentum_z_MC[event_idx][KMU_trueID]))
                 true_theta = theta_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
                 true_phi = phi_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
+                KMU_true_phi = phi_func(momentum_x_MC[event_idx][KMU_trueID], momentum_y_MC[event_idx][KMU_trueID], momentum_z_MC[event_idx][KMU_trueID])
+                
+                KMU_true_endpointx = endpoint_x_MC[event_idx][KMU_trueID]
+                KMU_true_endpointy = endpoint_y_MC[event_idx][KMU_trueID]
+                KMU_true_endpointz = endpoint_z_MC[event_idx][KMU_trueID]
                 
                 #logic for recording strip position:
                 #bar_pos = [x,y,z]
@@ -155,7 +192,17 @@ def process_root_file_old(file_path,max_events = -1):
                         "edep" : e,
                         "strip_x" : strip_x,
                         "strip_y" : strip_y,
-                        "strip_z" : strip_z
+                        "strip_z" : strip_z,
+                        "hit_x" : x,
+                        "hit_y" : y,
+                        "hit_z" : z,
+                        "KMU_trueID" : KMU_trueID,
+                        "KMU_truePID" : KMU_truePID,
+                        "KMU_true_phi" : KMU_true_phi,
+                        "KMU_true_momentum_mag" : KMU_true_momentum_mag,
+                        "KMU_endpoint_x" : KMU_true_endpointx,
+                        "KMU_endpoint_y" : KMU_true_endpointy,
+                        "KMU_endpoint_z" : KMU_true_endpointz
                     }
                 else:
                     first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx][particle_id]["edep"] += e
@@ -198,6 +245,13 @@ def process_root_file_to_csv(file_path,max_events = -1):
         momentum_x_MC = tree_MCParticles["MCParticles.momentum.x"].array(library="np")
         momentum_y_MC = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
         momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
+        
+        endpoint_x_MC = tree_MCParticles["MCParticles.endpoint.x"].array(library="np")
+        endpoint_y_MC = tree_MCParticles["MCParticles.endpoint.y"].array(library="np")
+        endpoint_z_MC = tree_MCParticles["MCParticles.endpoint.z"].array(library="np")
+        
+        vertex_x_MC = tree_MCParticles["MCParticles.vertex.x"].array(library="np")
+        vertex_y_MC = tree_MCParticles["MCParticles.vertex.y"].array(library="np")
         
         pid_branch = tree_MCParticles["MCParticles.PDG"].array(library="np")
         generatorStatus_branch = tree_MCParticles["MCParticles.generatorStatus"].array(library="np")
@@ -256,13 +310,27 @@ def process_root_file_to_csv(file_path,max_events = -1):
                 if(generatorStatus_branch[event_idx][particle_id] == 1): 
                     trueID = particle_id
                 else:
-                    trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+                    trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
+#                     trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
                 truePID = pid_branch[event_idx][trueID]
                 true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][trueID],
                             momentum_y_MC[event_idx][trueID],
                             momentum_z_MC[event_idx][trueID]))
                 true_theta = theta_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
                 true_phi = phi_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
+                
+                KMU_trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+                KMU_truePID = pid_branch[event_idx][KMU_trueID]
+                
+                KMU_true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][KMU_trueID],
+                            momentum_y_MC[event_idx][KMU_trueID],
+                            momentum_z_MC[event_idx][KMU_trueID]))
+                
+                KMU_true_phi = phi_func(momentum_x_MC[event_idx][KMU_trueID], momentum_y_MC[event_idx][KMU_trueID], momentum_z_MC[event_idx][KMU_trueID])
+                
+                KMU_true_endpointx = endpoint_x_MC[event_idx][KMU_trueID]
+                KMU_true_endpointy = endpoint_y_MC[event_idx][KMU_trueID]
+                KMU_true_endpointz = endpoint_z_MC[event_idx][KMU_trueID]
                 
                 #logic for recording strip position:
                 #bar_pos = [x,y,z]
@@ -292,7 +360,17 @@ def process_root_file_to_csv(file_path,max_events = -1):
                         "edep" : e,
                         "strip_x" : strip_x,
                         "strip_y" : strip_y,
-                        "strip_z" : strip_z
+                        "strip_z" : strip_z,
+                        "hit_x" : x,
+                        "hit_y" : y,
+                        "hit_z" : z,
+                        "KMU_trueID" : KMU_trueID,
+                        "KMU_truePID" : KMU_truePID,
+                        "KMU_true_phi" : KMU_true_phi,
+                        "KMU_true_momentum_mag" : KMU_true_momentum_mag,
+                        "KMU_endpoint_x" : KMU_true_endpointx,
+                        "KMU_endpoint_y" : KMU_true_endpointy,
+                        "KMU_endpoint_z" : KMU_true_endpointz
                     }
                 else:
                     first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx][particle_id]["edep"] += e
@@ -438,6 +516,10 @@ pid_branch = tree_MCParticles["MCParticles.PDG"].array(library="np")
 px_branch = tree_MCParticles["MCParticles.momentum.x"].array(library="np")
 py_branch = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
 pz_branch = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
+        
+vertex_x_MC = tree_MCParticles["MCParticles.vertex.x"].array(library="np")
+vertex_y_MC = tree_MCParticles["MCParticles.vertex.y"].array(library="np")
+
 generatorStatus_branch = tree_MCParticles["MCParticles.generatorStatus"].array(library="np")
 parent_begin_branch = tree_MCParticles["MCParticles.parents_begin"].array(library="np")
 parent_end_branch = tree_MCParticles["MCParticles.parents_end"].array(library="np")
@@ -445,12 +527,39 @@ parent_idx_branch = up_file["events/_MCParticles_parents/_MCParticles_parents.in
 
 fig2,axs2 = plot.subplots(5,5,figsize = (15,15))
 
-colors = ["red","blue","green","orange","black","purple","yellow","pink"]
+# colors = ["red","blue","green","orange","black","purple","yellow","pink"]
+colors = [
+    '#1f77b4',  # blue
+    '#d62728',  # red
+    '#2ca02c',  # green
+    '#9467bd',  # purple
+    '#ff7f0e',  # orange
+    '#8c564b',  # brown
+    '#e377c2',  # pink
+    '#7f7f7f',  # gray
+    '#bcbd22',  # yellow-green
+    '#17becf',  # cyan
+    '#393b79',  # dark blue
+    '#b82d2d',  # dark red
+    '#316931',  # dark green
+    '#9e4596',  # dark purple
+    '#a05d00',  # dark orange
+    '#ad494a',  # dark pink
+    '#5254a3',  # medium blue
+    '#637939',  # olive
+    '#8c6d31',  # gold
+    '#843c39',  # dark red-brown
+    '#7b4173',  # medium purple
+    '#4a784c',  # forest green
+    '#e7969c',  # light red
+    '#7b4173'   # plum
+]
 
 num_plots = 0
 for event_idx, event in enumerate(tree):
     x, y, z = [], [], []
     hit_x,hit_y,hit_z = [], [], []
+#     parent_x,parent_y,parent_z = [],[],[]
     has_hits = False
     trueID_list = []
     trueID_theta_list = []
@@ -470,7 +579,9 @@ for event_idx, event in enumerate(tree):
         if(generatorStatus_branch[event_idx][particle_id] == 1): 
             trueID = particle_id
         else:
-            trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+            trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
+#             trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+#         parent_x.append()
         trueID_theta = phi_func(px_branch[event_idx][trueID],py_branch[event_idx][trueID],pz_branch[event_idx][trueID])
         if(trueID not in color_dict.keys()):
             color_dict[trueID] = colors[len(color_dict.keys())]
@@ -493,11 +604,11 @@ for event_idx, event in enumerate(tree):
 #         axs2[row,column].scatter(np.array(z),x, alpha = 0.5) #this plots the segment position - lines up with hits
         axs2[row,column].scatter(hit_x,hit_y, alpha = 0.5,color = [color_dict[trueID] for trueID in trueID_list])
         axs2[row,column].set_title(f"Event #{event_idx}")
-        for trueID_idx in range(len(trueID_list)):
-            arrow_y = []
-            for i in range(100):
-                arrow_y.append(i * np.tan(trueID_theta_list[trueID_idx]))
-            axs2[row,column].plot(range(100),arrow_y)
+#         for trueID_idx in range(len(trueID_list)):
+#             arrow_y = []
+#             for i in range(100):
+#                 arrow_y.append(i * np.tan(trueID_theta_list[trueID_idx]))
+#             axs2[row,column].plot(range(100),arrow_y)
         axs2[row,column].set_xlim(-360,360)
         axs2[row,column].set_ylim(-360,360)
         num_plots += 1
@@ -520,7 +631,7 @@ for i in range(5):
         axs2[i,j].set_xlim(-360,360)
         axs2[i,j].set_ylim(-360,360)
 fig2.tight_layout()
-fig2.savefig("test/scatter_inner_detectors.pdf")
+fig2.savefig("test/scatter_inner_detectors_new_parent_func.pdf")
 '''
         
 # # Plot histogram (unchanged)
