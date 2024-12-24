@@ -111,7 +111,7 @@ def submit_simulation_and_processing_jobs_old(num_simulations,simulation_start_n
 #SBATCH -p vossenlab-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=10G
+#SBATCH --mem=100G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 
@@ -120,6 +120,7 @@ echo began job
 echo began simulation
 cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
 source install/setup.sh
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_dev_branch_file_{i}.edm4hep.root  --part.userParticleHandler=""
 
 echo began process root file
 python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/hepmc_{num_events}events_dev_branch_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/old_{num_events}events_cluster.json
@@ -145,7 +146,7 @@ deactivate
 def main():
     num_simulations = 1
     simulation_start_num = 0
-    num_events =50
+    num_events =500
     particle = "kaon0L"
     runInfo = "run_1_w_inner"
 
