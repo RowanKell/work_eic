@@ -111,7 +111,7 @@ def submit_simulation_and_processing_jobs_old(num_simulations,simulation_start_n
 #SBATCH -p vossenlab-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=100G
+#SBATCH --mem=90G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 
@@ -146,9 +146,9 @@ deactivate
 def main():
     num_simulations = 1
     simulation_start_num = 0
-    num_events =500
+    num_events =100
     particle = "kaon0L"
-    runInfo = "run_1_w_inner"
+    runInfo = "run_1_multi"
 
     # Submit simulation and processing jobs
 #     job_ids = submit_simulation_and_processing_jobs_new(num_simulations,simulation_start_num, num_events,particle)
@@ -187,4 +187,7 @@ deactivate
 
 '''
 ../DD4hep/build/bin/ddsim  --compactFile ~/eic/epic_klm/epic_klmws_only.xml --numberOfEvents 5 --inputFiles ~/eic/EVGEN/ep_noradcor.10x100_q2_100_1000_run001.hepmc --outputFile root_files/test/hepmc_test.edm4hep.root  --part.userParticleHandler="" --output.part VERBOSE --part.keepAllParticles True
+
+ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_w_inner_no_endcaps.xml --numberOfEvents 100 --inputFiles /hpc/group/vossenlab/rck32/eic/EVGEN/ep_run001.hepmc3 --outputFile /hpc/group/vossenlab/rck32/eic/work_eic/root_files/test/sensitive_inner_detectors.edm4hep.root  --part.userParticleHandler=""
+
 '''

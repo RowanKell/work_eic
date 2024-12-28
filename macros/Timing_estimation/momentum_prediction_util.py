@@ -337,7 +337,7 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 5):
 #                         print(f"SiPM_idx: {SiPM_idx}")
                         if(nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][10] > trueID_list_len_max):
                             trueID_list_len_max = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][10]
-                        photon_times = torch.tensor(sorted(nn_input[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx])) * 10 **(-9)
+                        photon_times = torch.tensor(nn_input[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx]) * 10 **(-9)
                         #get relative times
                         if(len(photon_times) > 0):
                             #calculate time and charge
