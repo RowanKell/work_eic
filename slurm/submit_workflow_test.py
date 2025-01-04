@@ -83,12 +83,13 @@ def submit_simulation_and_processing_jobs_old(num_simulations,simulation_start_n
     slurm_output = f"{workdir}/root_files/Slurm"
     out_folder = f"{workdir}/slurm/output/output{current_date}"
     error_folder = f"{workdir}/slurm/error/error{current_date}"
-    root_file_dir = f"{workdir}/root_files/momentum_prediction/{current_date}"
+    root_file_dir = f"{workdir}/root_files/Clustering/{current_date}"
     tensor_path_name = f"{workdir}/macros/Timing_estimation/data/momentum_prediction_pulse/{current_date}_{particle_name}"
+    run_name = "inner_SIDIS_run_2_1000events"
     
 #     hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/ep_noradcor.10x100_q2_1_10_run001.hepmc"
 #     hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/ep_noradcor.10x100_q2_100_1000_run001.hepmc"
-    hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/ep_run001.hepmc3"
+    hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/K_L_only.hepmc3"
 
     create_directory(out_folder)
     create_directory(error_folder)
@@ -120,16 +121,16 @@ echo began job
 echo began simulation
 cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
 source install/setup.sh
-/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/hepmc_{num_events}events_dev_branch_file_{i}.edm4hep.root  --part.userParticleHandler=""
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_w_inner_no_endcaps.xml --numberOfEvents {num_events} --inputFiles {hepmc_file} --outputFile {root_file_dir}/{run_name}.edm4hep.root  --part.userParticleHandler=""
 
 echo began process root file
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/hepmc_{num_events}events_dev_branch_file_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/old_{num_events}events_cluster.json
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/{run_name}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}.json
 echo finished process_root_file
 EOF
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 
 echo began analyze data
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data_old.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/old_{num_events}events_cluster.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/old_{num_events}events_cluster.csv
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data_old.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}.csv
 echo finished analyze data
 deactivate
 
@@ -146,7 +147,7 @@ deactivate
 def main():
     num_simulations = 1
     simulation_start_num = 0
-    num_events =100
+    num_events =2000
     particle = "kaon0L"
     runInfo = "run_1_multi"
 

@@ -6,13 +6,13 @@ SIM = DD4hepSimulation()
 
 # Specify particle gun:
 SIM.enableGun
-SIM.gun.thetaMin = 78*deg
-SIM.gun.thetaMax = 112*deg
+SIM.gun.thetaMin = 90*deg
+SIM.gun.thetaMax = 90*deg
 SIM.gun.distribution = "uniform"
-SIM.gun.phiMin = -22*deg
-SIM.gun.phiMax = 22*deg
-SIM.gun.momentumMin = 1.0*GeV
-SIM.gun.momentumMax = 10.0*GeV
+SIM.gun.phiMin = 0*deg
+SIM.gun.phiMax = 0*deg
+SIM.gun.momentumMin = 3.0*GeV
+SIM.gun.momentumMax = 3.0*GeV
 #SIM.gun.particle = "kaon0L"
 SIM.physics.list = "FTFP_BERT"
 SIM.physics.decays = False
@@ -20,7 +20,7 @@ SIM.physics.decays = False
 #SIM.output.part = "VERBOSE"
 
 
-SIM.part.keepAllParticles = True
+#SIM.part.keepAllParticles = True
 '''
 def setupCerenkov(kernel):
   from DDG4 import PhysicsList
