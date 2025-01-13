@@ -1,3 +1,5 @@
+print("starting analyze_data script")
+
 import datetime
 def print_w_time(message):
     current_time = datetime.datetime.now().strftime('%H:%M:%S')

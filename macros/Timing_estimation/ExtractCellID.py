@@ -145,8 +145,8 @@ def process_root_file_old(file_path,max_events = -1):
                 if(generatorStatus_branch[event_idx][particle_id] == 1): 
                     trueID = particle_id
                 else:
-                    trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
-                    #PDG_branch,parent_idx_branch,parent_begin_branch,parent_end_branch,generatorStatus_branch,vx_branch,vy_branch,particle_instance_idx
+                    trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+#                     trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
                 try:
                     KMU_trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
                 except:
@@ -262,6 +262,7 @@ def process_root_file_to_csv(file_path,max_events = -1):
         parent_end_branch = tree_MCParticles["MCParticles.parents_end"].array(library="np")
         parent_idx_branch = file["events/_MCParticles_parents/_MCParticles_parents.index"].array(library="np")
         
+        y_pos = tree_HcalBarrelHits["HcalBarrelHits.position.y"].array(library="np")
         z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
         x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
         energy = tree_HcalBarrelHits["HcalBarrelHits.EDep"].array(library="np")
@@ -296,6 +297,7 @@ def process_root_file_to_csv(file_path,max_events = -1):
                 slice_idx = (slice_absolute_idx % 7) + 1 #no need for 0 indexing
                 
                 z = z_pos[event_idx][hit_idx]
+                y = y_pos[event_idx][hit_idx]
                 x = x_pos[event_idx][hit_idx]
                 e = energy[event_idx][hit_idx]
                 momentum = (momentum_x[event_idx][hit_idx],
@@ -313,8 +315,8 @@ def process_root_file_to_csv(file_path,max_events = -1):
                 if(generatorStatus_branch[event_idx][particle_id] == 1): 
                     trueID = particle_id
                 else:
-                    trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
-#                     trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+#                     trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
+                    trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
                 truePID = pid_branch[event_idx][trueID]
                 true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][trueID],
                             momentum_y_MC[event_idx][trueID],

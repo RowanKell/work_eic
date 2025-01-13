@@ -448,6 +448,179 @@ def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device
     print_w_time("Processing data in generateSiPMOutput...")
     got_row_indexes = False
     labels = []
+    begin = time.time()
+    for row_idx, row in processed_data.iterrows():
+        for SiPM_idx in range(2):
+            num_pixel_tag = num_pixel_list[SiPM_idx] #get the name of the number of pixels for this SiPM
+            #create a new row for each of the photons/pixels
+            row_copy = row.copy()
+            row_copy['SiPM_idx'] = SiPM_idx
+            if(not got_row_indexes):
+                labels = row_copy.index.to_list()
+                got_row_indexes = True
+            normflow_input.append(torch.tensor(row_copy.values,dtype=torch.float32).repeat(int(row_copy[num_pixel_tag]), 1))
+    #Create a dict like{label : index in row}
+    label_dict = {}
+    for i in range(len(labels)):
+        label_dict[labels[i]] = i
+        
+    normflow_input_tensor = torch.cat(normflow_input)
+    end = time.time()
+    print(f"first loop took {end - begin} seconds")
+
+    data = []
+    print_w_time(f"starting sampling")
+    begin = time.time()
+#     for i in tqdm(range(0, len(normflow_input_tensor), batch_size)):
+    for i in range(0, len(normflow_input_tensor), batch_size):
+        print_w_time(f"Starting batch # {(i / batch_size) + 1} / {int(np.ceil(len(normflow_input_tensor) / batch_size))}")
+        batch_end = min(i + batch_size, len(normflow_input_tensor))
+        batch_rows = normflow_input_tensor[i:batch_end]
+        context_indexes = [label_dict["z_pos"],label_dict["hittheta"],label_dict["hitmomentum"]]
+        time_index = label_dict["time"]
+        batch_context = batch_rows[:,context_indexes].to(device)
+        batch_particle_hit_times = batch_rows[:,time_index]
+        
+        with torch.no_grad():
+            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1).cpu() + batch_particle_hit_times
+        batch_combined_data = torch.cat((batch_rows,samples.unsqueeze(-1)),dim = 1)
+        data.extend(batch_combined_data)
+    end = time.time()
+    print_w_time(f"sampling took {(end - begin)} seconds")
+    print_w_time("creating df")
+    labels.append("photon_time")
+    row_df = pd.DataFrame(data,columns = labels)
+    print_w_time("Beginning pulse process")
+    results = []
+
+    trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
+    trueID_dict_running_idx = 0
+
+
+    # Get the column values as numpy arrays for faster access
+    event_indices = row_df['event_idx'].values
+    stave_indices = row_df['stave_idx'].values
+    layer_indices = row_df['layer_idx'].values
+    segment_indices = row_df['segment_idx'].values
+
+    current_indices = [-1, -1, -1, -1]  # [event, stave, layer, segment]
+    segment_start = 0
+    running_segment_idx = 0
+    # loop over all hits in df
+    begin = time.time()
+    for i in range(len(row_df) + 1):
+        # Check if we've reached a new segment or the end of the dataset
+        if i == len(row_df) or (
+            event_indices[i] != current_indices[0] or
+            stave_indices[i] != current_indices[1] or
+            layer_indices[i] != current_indices[2] or
+            segment_indices[i] != current_indices[3]
+        ):
+            # Process the previous segment if it exists
+            if current_indices[0] != -1:
+                #get all hits in segment
+                segment_data = row_df.iloc[segment_start:i]
+                running_segment_idx += 1
+                # Your processing logic here
+
+
+                charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
+                set_event_details = False
+                trigger = False
+                trueID_list_len_max = -1
+                for SiPM_idx, SiPM_group in segment_data.groupby(['SiPM_idx']):
+                    SiPM_idx_int = int(SiPM_idx[0].item())
+                    #need to see if we get more than 1 hit in a segment - greg says to label this as noise
+                    trueID_list_len = len(set(SiPM_group["trueID"].apply(lambda x: x.item())))
+                    trueID_list_len_max = max(trueID_list_len,trueID_list_len_max)
+                    photon_times = torch.tensor(SiPM_group['photon_time'].to_list()) * 10 **(-9)
+                    #get relative times
+                    if(len(photon_times) > 0):
+                        #calculate time and charge
+                        time_arr,waveform = processor.generate_waveform(photon_times)
+                        timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
+                        if(timing is not None):
+                            curr_charge = processor.integrate_charge(waveform) * 1e6
+                            curr_timing = timing * 1e8
+                            charge_times[SiPM_idx_int][0] = processor.integrate_charge(waveform) * 1e6
+                            charge_times[SiPM_idx_int][1] = timing * 1e8
+            #                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
+                            trigger = True
+                        else: #no trigger, don't set details yet
+                            continue
+                        if(not set_event_details):
+                            #take the 0th one - if there are multiple, then these are noise anyways
+                            P = SiPM_group['truemomentum'].iloc[0]
+                            trueID = SiPM_group['trueID'].iloc[0]
+                            truePID = SiPM_group['truePID'].iloc[0]
+                            hitID = SiPM_group['hitID'].iloc[0]
+                            hitPID = SiPM_group['hitPID'].iloc[0]
+                            theta = SiPM_group['truetheta'].iloc[0]
+                            phi = SiPM_group['truephi'].iloc[0]
+                            strip_x = SiPM_group['strip_x'].iloc[0]
+                            strip_y = SiPM_group['strip_y'].iloc[0]
+                            strip_z = SiPM_group['strip_z'].iloc[0]
+                            set_event_details = True
+                    else: #no photons, no data
+                        continue
+                noise = False
+                if(trueID_list_len_max > 1):
+                    noise = True
+                if(not noise) and trigger:
+                    if(trueID_dict[current_indices[0]][trueID.item()] == -1):
+                        trueID_dict[current_indices[0]][trueID.item()] = trueID_dict_running_idx
+                        trueID_dict_running_idx += 1
+                    translated_trueID = trueID_dict[current_indices[0]][trueID.item()]
+                else:
+                    translated_trueID = -1
+                if(set_event_details) and (trigger):
+                    new_row = { 
+                       out_columns[0] : current_indices[0],
+                       out_columns[1] : current_indices[1],
+                       out_columns[2] : current_indices[2],
+                       out_columns[3] : current_indices[3],
+                       out_columns[4] : translated_trueID, 
+                       "original_trueID" : trueID.item(), 
+                       out_columns[5] : truePID.item(), 
+                       out_columns[6] : hitID.item(),
+                       out_columns[7] : hitPID.item(),
+                       out_columns[8] : P.item(), 
+                       out_columns[9] : theta.item(), 
+                      out_columns[10] : phi.item(), 
+                      out_columns[11] : strip_z.item(), 
+                      out_columns[12] : strip_x.item(), 
+                      out_columns[13] : strip_y.item(), 
+                      out_columns[14] : charge_times[0,0].item(), 
+                      out_columns[15] : charge_times[0,1].item(), 
+                      out_columns[16] : charge_times[1,0].item(), 
+                      out_columns[17] : charge_times[1,1].item(),
+                    }
+                    results.append(new_row)
+            if i < len(row_df):
+                # Update indices for the new segment
+                current_indices = [
+                    event_indices[i],
+                    stave_indices[i],
+                    layer_indices[i],
+                    segment_indices[i]
+                ]
+                #save the index of the beginning of segment so we know
+                #which hits are in this segment
+                segment_start = i
+    end = time.time()
+    print(f"second loop took {end - begin} seconds")
+    return pd.DataFrame(results)
+
+@profile_function
+def generateSiPMOutputOld(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
+    rows = []
+    processor = SiPMSignalProcessor()
+    normflow_input = []
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    print_w_time("Processing data in generateSiPMOutput...")
+    got_row_indexes = False
+    labels = []
     for row_idx, row in processed_data.iterrows():
         for SiPM_idx in range(2):
             num_pixel_tag = num_pixel_list[SiPM_idx] #get the name of the number of pixels for this SiPM
@@ -483,7 +656,7 @@ def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device
         batch_combined_data = torch.cat((batch_rows,samples.unsqueeze(-1)),dim = 1)
         data.extend(batch_combined_data)
     end = time.time()
-    print_w_time(f"sampling took {(end - begin) / 60} minutes")
+    print_w_time(f"sampling took {(end - begin)} seconds")
     print_w_time("creating df")
     labels.append("photon_time")
     row_df = pd.DataFrame(data,columns = labels)
@@ -508,7 +681,7 @@ def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device
                 if(timing is not None):
                     curr_charge = processor.integrate_charge(waveform) * 1e6
                     curr_timing = timing * 1e8
-
+                    print(f"curr_charge: {curr_charge}")
                     charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
                     charge_times[SiPM_idx][1] = timing * 1e8
 #                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
