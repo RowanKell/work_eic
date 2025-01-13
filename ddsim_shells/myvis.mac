@@ -25,7 +25,8 @@
 
 #/vis/viewer/set/pan [right-increment] [up-increment] [unit] default unit meter
 /vis/viewer/panTo -0.1 0.
-/vis/viewer/addCutawayPlane 0 0 0 m 1 0 0
+#cut in half if desired
+#/vis/viewer/addCutawayPlane 0 0 0 m 1 0 0
 
 # Camera and lights commands
 #/vis/viewer/set/viewpointVector 0.000424748 4.92661e-16 1
@@ -49,8 +50,8 @@
 /vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
 # For example, select colour by particle ID
 /vis/modeling/trajectories/create/drawByParticleID
-/vis/modeling/trajectories/drawByParticleID-0/set e- red
-/vis/modeling/trajectories/drawByParticleID-0/set e+ red
+/vis/modeling/trajectories/drawByParticleID-0/set e- yellow
+/vis/modeling/trajectories/drawByParticleID-0/set e+ yellow
 /vis/modeling/trajectories/drawByParticleID-0/set mu- orange
 /vis/modeling/trajectories/drawByParticleID-0/set mu+ orange
 /vis/modeling/trajectories/drawByParticleID-0/set pi- magenta
@@ -63,6 +64,7 @@
 /vis/modeling/trajectories/drawByParticleID-0/set anti_neutron white
 /vis/modeling/trajectories/drawByParticleID-0/set gamma green
 /vis/modeling/trajectories/drawByParticleID-0/set opticalphoton yellow
+/vis/modeling/trajectories/drawByParticleID-0/set kaon0L red
 /vis/modeling/trajectories/drawByParticleID-0/setRGBA opticalphoton 1 0.8 0 0.3
 /vis/modeling/trajectories/drawByParticleID-0/set nu_mu pink
 # remove low energy stuff
