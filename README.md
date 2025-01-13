@@ -3,6 +3,10 @@
 
 This codebase was created to run ddsim simulations with the epic-klm geometry, and then process and analyze the resulting data.
 
+## Note
+Take hepmc files from
+/work/eic2/EPIC/EVGEN/SIDIS/pythia6/ep_18x275/hepmc_ip6/
+
 ## Workflows
 ### Basic Simulation
 

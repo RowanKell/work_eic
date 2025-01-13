@@ -15,3 +15,4 @@ macros/Timing_estimation/data/
 macros/Timing_estimation/models/August_07/run_7_3context_8flows_26hl_256hu_2000bs*
 slurm/output/
 macros/Timing_estimation/hyper_param_optim*/
+status_codes/

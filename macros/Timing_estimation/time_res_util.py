@@ -2,6 +2,9 @@ import numpy as np
 import uproot as up
 import os
 from util import time_func,p_func
+import normflows as nf
+import torch
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #time_func(p,m,dx)
 
 def checkdir(path):
@@ -129,3 +132,38 @@ def get_all_times(uproot_path,threshold = 10, multipleFiles = False):
     flattened_times = np.concatenate(times)
 #         for i in range(len(times[event_num])):
     return flattened_times
+def get_compiled_NF_model():
+    run_num = 7
+    run_num_str = str(run_num)
+
+    #NF Stuff
+
+    K = 8 #num flows
+
+    latent_size = 1 #dimension of PDF
+    hidden_units = 256 #nodes in hidden layers
+    hidden_layers = 26
+    context_size = 3 #conditional variables for PDF
+    num_context = 3
+
+    K_str = str(K)
+    batch_size= 2000
+    hidden_units_str = str(hidden_units)
+    hidden_layers_str = str(hidden_layers)
+    batch_size_str = str(batch_size)
+    flows = []
+    for i in range(K):
+        flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units, 
+                                                                 num_context_channels=context_size)]
+        flows += [nf.flows.LULinearPermute(latent_size)]
+
+    # Set base distribution
+    q0 = nf.distributions.DiagGaussian(1, trainable=False)
+
+    # Construct flow model
+    model = nf.ConditionalNormalizingFlow(q0, flows)
+
+    model_path = "/hpc/group/vossenlab/rck32/NF_time_res_models/"
+
+    model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth")
+    return torch.compile(model,mode = "reduce-overhead").to(device)
