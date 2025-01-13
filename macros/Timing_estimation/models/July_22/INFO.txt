@@ -1,1 +1,0 @@
-First three runs were 1 epoch, and more to see how loss curve would look. Following models were run with slurm for actual use
