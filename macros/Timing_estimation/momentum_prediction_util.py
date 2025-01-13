@@ -2,7 +2,7 @@ import uproot
 import numpy as np
 import torch
 from collections import defaultdict
-from util import get_layer, theta_func,create_layer_map,calculate_num_pixels_z_dependence
+from util import get_layer, theta_func,phi_func,create_layer_map,calculate_num_pixels_z_dependence
 import matplotlib.pyplot as plot
 import time
 from collections import defaultdict
@@ -22,9 +22,36 @@ import optuna
 from typing import Optional, Union, Literal, Dict, Any, List,Tuple
 import json
 from datetime import datetime as dt
+import pandas as pd
+
+import cProfile
+import pstats
+from functools import wraps
+from io import StringIO
+from contextlib import contextmanager
+
+def profile_function(func):
+    """
+    Decorator to profile a specific function using cProfile
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        profiler = cProfile.Profile()
+        try:
+            return profiler.runcall(func, *args, **kwargs)
+        finally:
+            s = StringIO()
+            stats = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
+            stats.print_stats(20)  # Print top 20 time-consuming operations
+            print(s.getvalue())
+    return wrapper
+
+
+def print_w_time(message):
+    current_time = datetime.datetime.now().strftime('%H:%M:%S')
+    print(f"{current_time} {message}")
 
 layer_map, super_layer_map = create_layer_map()
-
 
 
 def load_and_concatenate_tensors(directory):
@@ -71,86 +98,135 @@ def filter_tensors_by_values(tensor1, tensor2, threshold1=200, threshold2=10000,
     print("fraction %.2f of events survived filters"%(len(filtered_tensor2) / len(tensor2)))
     return filtered_tensor1, filtered_tensor2
 
-def process_root_file(file_path,max_events = -1):
-    print("began processing")
-    with uproot.open(file_path) as file:
-        tree_HcalBarrelHits = file["events/HcalBarrelHits"]
-        tree_MCParticles = file["events/MCParticles"]
-        
-        
-        momentum_x_MC = tree_MCParticles["MCParticles.momentum.x"].array(library="np")
-        momentum_y_MC = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
-        momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
-        
-        z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
-        x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
-        energy = tree_HcalBarrelHits["HcalBarrelHits.EDep"].array(library="np")
-        momentum_x = tree_HcalBarrelHits["HcalBarrelHits.momentum.x"].array(library="np")
-        momentum_y = tree_HcalBarrelHits["HcalBarrelHits.momentum.y"].array(library="np")
-        momentum_z = tree_HcalBarrelHits["HcalBarrelHits.momentum.z"].array(library="np")
-        hit_time = tree_HcalBarrelHits["HcalBarrelHits.time"].array(library="np")
-        mc_hit_idx = file["events/_HcalBarrelHits_MCParticle/_HcalBarrelHits_MCParticle.index"].array(library="np")  # Add PDG code for particle identification
-        print("finished loading branches")
-        
-        processed_data = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
-        
-        for event_idx in tqdm(range(len(z_pos))):
-            if(len(z_pos[event_idx]) == 0):
-                continue
-            primary_momentum = (momentum_x_MC[event_idx][0],
-                            momentum_y_MC[event_idx][0],
-                            momentum_z_MC[event_idx][0])
-            primary_momentum_mag = np.linalg.norm(primary_momentum)
-            if(primary_momentum_mag <= 0):
-                continue
-            if(primary_momentum_mag > 100):
-                continue
-            energy_per_layer_particle = defaultdict(lambda: defaultdict(float))
-            first_hit_per_layer_particle = defaultdict(dict)
-            # First pass: collect first hit data and calculate energy per layer per particle
-            for hit_idx in range(len(z_pos[event_idx])):
-                z = z_pos[event_idx][hit_idx]
-                x = x_pos[event_idx][hit_idx]
-                e = energy[event_idx][hit_idx]
-                momentum = (momentum_x[event_idx][hit_idx],
-                            momentum_y[event_idx][hit_idx],
-                            momentum_z[event_idx][hit_idx])
-                momentum_mag = np.linalg.norm(momentum)
-                theta = theta_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
-                layer = get_layer(x)
-                particle_id = mc_hit_idx[event_idx][hit_idx]
-                
-                energy_per_layer_particle[layer][particle_id] += e
-                
-                if layer not in first_hit_per_layer_particle or particle_id not in first_hit_per_layer_particle[layer]:
-                    first_hit_per_layer_particle[layer][particle_id] = {
-                        "z_pos": z,
-                        "x_pos": x,
-                        "momentum": momentum_mag,
-                        "primary_momentum": primary_momentum_mag,
-                        "theta": theta,
-                        "time": hit_time[event_idx][hit_idx],
-                        "mc_hit_idx": particle_id
+
+def create_df(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
+    processor = SiPMSignalProcessor()
+    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
+    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
+    
+    all_context = []
+    all_time_pixels = []
+    all_metadata = []
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
+    running_index = 0
+    rows = []
+    trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
+    trueID_dict_running_idx = 0
+    
+    print("Processing data in new_prepare_nn_input...")
+    for event_idx, event_data in tqdm(processed_data.items()):
+        for stave_idx, stave_data in event_data.items():
+            for layer_idx, layer_data in stave_data.items():
+                for segment_idx, segment_data in layer_data.items():
+                    SiPM_high_z_times = [] #SiPM index 0
+                    SiPM_low_z_times = [] #SiPM index 1
+                    SiPM_z_times = [SiPM_high_z_times,SiPM_low_z_times]
+                    #if there are multiple trueID particles with hits in one segment, treat it as noise: trueID = -1 (Greg)
+                    #to preserve some info about the "noise" we can keep the other info of the particle with the most pixels
+                    curr_noise_option = -1
+                    curr_noise_pixels = -1
+                    #need to save segment-level info (trueID, etc)
+                    trueID_list = []
+                    for particle_id, particle_data in segment_data.items():
+                        #case where just one particle has hits - unambiguous
+                        trueID = particle_data["trueID"]
+                        truePID = particle_data['truePID']
+                        hitPID = particle_data['hitPID']
+                        hitID = particle_data['hitID']
+                        P = particle_data['truemomentum']
+                        theta = particle_data['truetheta']
+                        phi= particle_data['truephi']
+                        if(trueID not in trueID_list):
+                            trueID_list.append(trueID)
+                        strip_x = particle_data['strip_x'] #doesn't depend on particle
+                        strip_y = particle_data['strip_y']
+                        strip_z = particle_data['strip_z']
+                        base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
+                                                    dtype=torch.float32)
+                        base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
+                                                        dtype=torch.float32)
+                        base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
+                                                        dtype=torch.float32)
+                        base_time_pixels_extended = [base_time_pixels_high.repeat(particle_data["num_pixels_high_z"], 1),
+                                                     base_time_pixels_low.repeat(particle_data["num_pixels_low_z"], 1)]
+                        for SiPM_idx in range(2):
+                            if(SiPM_idx == 0 and particle_data["num_pixels_high_z"] == 0):
+                                continue
+                            if(SiPM_idx == 1 and particle_data["num_pixels_low_z"] == 0):
+                                continue
+                            z_pos = particle_data['z_pos']
+                            context = base_context.clone()
+                            context[0] = z_pos
+                            num_pixel_tag = num_pixel_list[SiPM_idx]
+                            context_extended = context.repeat(particle_data[num_pixel_tag], 1).to(device) #context w/length of num samples
+                            with torch.no_grad():
+                                samples = abs(normalizing_flow.sample(num_samples=len(context_extended), context=context_extended)[0]).squeeze(1)
+                            SiPM_z_times[SiPM_idx].extend(samples.cpu() + base_time_pixels_extended[SiPM_idx][:,0])
+                    
+                    #for each strip, calculate charge and timing, then save to dataframe
+                    charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
+                    trigger = False
+                    for SiPM_idx in range(2):
+                        if(len(SiPM_z_times[SiPM_idx]) == 0):
+                            continue
+                        photon_times = torch.tensor(sorted(SiPM_z_times[SiPM_idx])) * 10 **(-9)
+                        
+                        time_arr,waveform = processor.generate_waveform(photon_times)
+                        timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
+                        if(timing is not None):
+                            curr_charge = processor.integrate_charge(waveform) * 1e6
+                            curr_timing = timing * 1e8
+
+                            charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
+                            charge_times[SiPM_idx][1] = timing * 1e8
+#                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
+                            trigger = True
+                        else: #no trigger, don't set details yet
+                            continue
+                    if(not trigger):
+                        continue
+                    
+                    #deal with strips with more than one hit
+                    if(len(trueID_list) > 1):
+                        trueID = -1
+                    
+                    if(trueID != -1):
+                        if(trueID_dict[event_idx][trueID] == -1):
+                            trueID_dict[event_idx][trueID] = trueID_dict_running_idx
+                            trueID_dict_running_idx += 1
+                        translated_trueID = trueID_dict[event_idx][trueID]
+                    else:
+                        translated_trueID = -1
+                    
+                    new_row = { 
+                       out_columns[0] : event_idx,
+                       out_columns[1] : stave_idx,
+                       out_columns[2] : layer_idx,
+                       out_columns[3] : segment_idx,
+                       out_columns[4] : translated_trueID, 
+                       out_columns[5] : truePID, 
+                       out_columns[6] : hitID,
+                       out_columns[7] : hitPID,
+                       out_columns[8] : P, 
+                       out_columns[9] : theta, 
+                      out_columns[10] : phi, 
+                      out_columns[11] : strip_z, 
+                      out_columns[12] : strip_x, 
+                      out_columns[13] : strip_y, 
+                      out_columns[14] : charge_times[0,0].item(), 
+                      out_columns[15] : charge_times[0,1].item(), 
+                      out_columns[16] : charge_times[1,0].item(), 
+                      out_columns[17] : charge_times[1,1].item(),
                     }
-            
-            
-            # Second pass: process first hit with total layer energy per particle
-            for layer, particle_data in first_hit_per_layer_particle.items():
-                for particle_id, hit_data in particle_data.items():
-                    layer_particle_energy = energy_per_layer_particle[layer][particle_id]
-                    num_pixels_high_z = calculate_num_pixels_z_dependence(layer_particle_energy, hit_data["z_pos"])
-                    num_pixels_low_z = calculate_num_pixels_z_dependence(layer_particle_energy, -1 * hit_data["z_pos"])
-                    hit_data["num_pixels_high_z"] = int(np.floor(num_pixels_high_z))
-                    hit_data["num_pixels_low_z"] = int(np.floor(num_pixels_low_z))
-                    hit_data["layer_energy"] = layer_particle_energy  # Store total layer energy for this particle
-                    processed_data[event_idx][layer][particle_id.item()] = hit_data
-            if(max_events > 0 and event_idx > max_events):
-                break
-    print("finished processing")
-    return processed_data
+                    rows.append(new_row)
+                    running_index += 1
+    return pd.DataFrame(rows)
+@profile_function
 def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
-    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
+    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
     
     all_context = []
     all_time_pixels = []
@@ -158,27 +234,49 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
     print("Processing data in new_prepare_nn_input...")
     for event_idx, event_data in tqdm(processed_data.items()):
-        for layer, layer_data in event_data.items():
-            for particle_id, particle_data in layer_data.items():
-                primary_momentum = particle_data["primary_momentum"].item()
-                base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
-                                            dtype=torch.float32)
-                base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
-                                                dtype=torch.float32)
-                base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
-                                                dtype=torch.float32)
-                
-                for SiPM_idx in range(2):
-                    z_pos = particle_data['z_pos']
-                    context = base_context.clone()
-                    context[0] = z_pos
-                    num_pixel_tag = num_pixel_list[SiPM_idx]
-                    all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
-                    if(SiPM_idx == 0):
-                        all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
-                    else:
-                        all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
-                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum)] * particle_data[num_pixel_tag])
+        for stave_idx, stave_data in event_data.items():
+            for layer_idx, layer_data in stave_data.items():
+                for segment_idx, segment_data in layer_data.items():
+                    trueID_list = []
+                    for particle_id, particle_data in segment_data.items():
+#                         print(f"keys of particle data: {particle_data.keys()}")
+#                         print(f"types: {type(particle_data['z_pos'])},{type(particle_data['hittheta'])},{type(particle_data['hitmomentum'])}")
+                        base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
+                                                    dtype=torch.float32)
+                        base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
+                                                        dtype=torch.float32)
+                        base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
+                                                        dtype=torch.float32)
+                        if particle_data['trueID'] not in  trueID_list:
+                            trueID_list.append(particle_data['trueID'])
+                        for SiPM_idx in range(2):
+                            z_pos = particle_data['z_pos']
+                            context = base_context.clone()
+                            context[0] = z_pos
+                            num_pixel_tag = num_pixel_list[SiPM_idx]
+                            all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
+                            if(SiPM_idx == 0):
+                                all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
+                            else:
+                                all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
+                            # Assuming particle_data is a dictionary-like object and trueID_list is defined
+                            fields = [
+                                'truemomentum', 'trueID', 'truePID', 'hitID', 'hitPID', 
+                                'truetheta', 'truephi', 'strip_x', 'strip_y', 'strip_z', 
+                                'hit_x', 'hit_y', 'hit_z', 'KMU_trueID', 'KMU_truePID', 
+                                'KMU_true_phi', 'KMU_true_momentum_mag', 'KMU_endpoint_x', 
+                                'KMU_endpoint_y', 'KMU_endpoint_z'
+                            ]
+
+                            # Print types of each particle_data field
+#                             for field in fields:
+#                                 value = particle_data.get(field, None)
+#                                 print(f"{field}: {type(value)}")
+
+#                             # Print the type of len(trueID_list)
+#                             print(f"len(trueID_list): {type(len(trueID_list))}")
+
+                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'],len(trueID_list),particle_data['hit_x'],particle_data['hit_y'],particle_data['hit_z'],particle_data['KMU_trueID'],particle_data['KMU_truePID'],particle_data['KMU_true_phi'],particle_data['KMU_true_momentum_mag'],particle_data['KMU_endpoint_x'],particle_data['KMU_endpoint_y'],particle_data['KMU_endpoint_z'])] * particle_data[num_pixel_tag])
 
     all_context = torch.cat(all_context)
     all_time_pixels = torch.cat(all_time_pixels)
@@ -199,269 +297,451 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     print(f"sampling took {end - begin} seconds")
     print("Reorganizing data...")
     begin = time.time()
-    for (event, layer, SiPM, particle, momentum), sample in zip(all_metadata, sampled_data):
-        nn_input[event][layer][SiPM].append(sample)
-        nn_output[event][layer][SiPM].append(torch.tensor([momentum]))
+    for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z), sample in zip(all_metadata, sampled_data):
+        nn_input[event][stave][layer][segment][SiPM].append(sample)
+
+        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z]))
     end = time.time()
     print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
 
-
-
-def prepare_prediction_input(nn_input, nn_output):
-    #note - some events do not have dictionaries in nn_input due to being empty
-    #need to skip over these and condense tensor
-    prediction_input = torch.ones(len(nn_input),28,10) * 999
-    prediction_output = torch.ones(len(nn_input)) * 999
-    
-    input_dict = defaultdict(lambda: defaultdict(list))
-    output_dict = {}
-    curr_event_num = 0
-    for event_idx in tqdm(list(nn_input)):
-        event_input = []
-        set_output = False
-        layer_keys = nn_input[event_idx].keys()
-        for layer in range(28):
-            if(layer in layer_keys):
-                layer_times = torch.tensor(sorted(nn_input[event_idx][layer]))
-                # Pad or truncate to exactly 10 times per layer
-                if len(layer_times) < 10:
-                    padding = torch.full((10 - len(layer_times),), float(999))
-                    layer_times = torch.cat([layer_times, padding])
-                if(not set_output):
-                    prediction_output[curr_event_num] = nn_output[event_idx][layer][0]
-                    set_output = True
-            else:
-                layer_times = torch.full([28],999)
-
-            prediction_input[curr_event_num][layer] = layer_times[:10]
-        curr_event_num += 1
-    return prediction_input, prediction_output
-def prepare_prediction_input_pulse(nn_input, nn_output,pixel_threshold = 3):
+@profile_function
+def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 5):
     processor = SiPMSignalProcessor()
     
     #note - some events do not have dictionaries in nn_input due to being empty
     #need to skip over these and condense tensor
-    prediction_input = torch.ones(len(nn_input),28,2,2) * 9999
-    prediction_output = torch.ones(len(nn_input)) * 9999
-    
-    input_dict = defaultdict(lambda: defaultdict(list))
-    output_dict = {}
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','hit_x','hit_y','hit_z','KMU_trueID','KMU_truePID','KMU_true_phi','KMU_true_momentum_mag','KMU_endpoint_x','KMU_endpoint_y','KMU_endpoint_z','Charge1','Time1','Charge2','Time2']
+    running_index = 0
+    rows = []
     curr_event_num = 0
+    trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
+    trueID_dict_running_idx = 0
     for event_idx in tqdm(list(nn_input)):
+        event_first_hit = np.ones(3) * 999
         event_input = []
         set_output = False
-        layer_keys = nn_input[event_idx].keys()
-        for layer in range(28):
-            if(layer in layer_keys):
-                for SiPM_idx in range(2):
-                    if (len(nn_input[event_idx][layer][SiPM_idx])>0):
-                        photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
-
-                        #calculate time and charge
-                        time,waveform = processor.generate_waveform(photon_times)
-                        charge = processor.integrate_charge(waveform)
-                        timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
-                        if(not set_output):
-                            prediction_output[curr_event_num] = nn_output[event_idx][layer][SiPM_idx][0]
-                            set_output = True
-                        if(timing is not None):
-                            prediction_input[curr_event_num][layer][SiPM_idx][0] = charge * 1e6
-                            prediction_input[curr_event_num][layer][SiPM_idx][1] = timing * 1e8
-                        else: #pad with 0 and 9999 if SiPM pulse doesn't meet threshold
-                            prediction_input[curr_event_num][layer][SiPM_idx][0] = 0
-                            prediction_input[curr_event_num][layer][SiPM_idx][1] = 9999
-                            
+        stave_keys = nn_input[event_idx].keys()
+        for stave_idx in stave_keys:
+#             print(f"nn_input[event_idx][stave_idx]: {nn_input[event_idx][stave_idx]}")
+            layer_keys = nn_input[event_idx][stave_idx].keys()
+            for layer_idx in layer_keys:
+                segment_keys = nn_input[event_idx][stave_idx][layer_idx].keys()
+                for segment_idx in segment_keys:
+                    charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
+                    SiPM_keys = nn_input[event_idx][stave_idx][layer_idx][segment_idx].keys()
+                    set_event_details = False
+                    trigger = False
+                    trueID_list_len_max = -1
+                    for SiPM_idx in SiPM_keys:
+#                         print(f"SiPM_idx: {SiPM_idx}")
+                        if(nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][10] > trueID_list_len_max):
+                            trueID_list_len_max = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][10]
+                        photon_times = torch.tensor(nn_input[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx]) * 10 **(-9)
+                        #get relative times
+                        if(len(photon_times) > 0):
+                            #calculate time and charge
+                            time_arr,waveform = processor.generate_waveform(photon_times)
+                            timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
+                            if(timing is not None):
+                                curr_charge = processor.integrate_charge(waveform) * 1e6
+                                curr_timing = timing * 1e8
+                                
+                                charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
+                                charge_times[SiPM_idx][1] = timing * 1e8
+#                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
+                                trigger = True
+                            else: #no trigger, don't set details yet
+                                continue
+                            if(not set_event_details):
+                                P = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][0]
+                                trueID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][1]
+                                truePID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][2]
+                                hitID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][3]
+                                hitPID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][4]
+                                theta = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][5]
+                                phi = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][6]
+                                strip_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][7]
+                                strip_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][8]
+                                strip_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][9]
+                                hit_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][11]
+                                hit_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][12]
+                                hit_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][13]
+                                KMU_trueID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][14]
+                                KMU_truePID = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][15]
+                                KMU_true_phi = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][16]
+                                KMU_true_momentum_mag = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][17]
+                                KMU_true_endpoint_x = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][18]
+                                KMU_true_endpoint_y = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][19]
+                                KMU_true_endpoint_z = nn_output[event_idx][stave_idx][layer_idx][segment_idx][SiPM_idx][0][20]
+                                set_event_details = True
+                        else: #no photons, no data
+                            continue
+                    if(not set_event_details):
+                        continue
+                    if (not trigger):
+                        continue;
+                    noise = False
+                    if(trueID_list_len_max > 1):
+                        noise = True
+                    if(not noise):
+                        if(trueID_dict[event_idx][trueID.item()] == -1):
+                            trueID_dict[event_idx][trueID.item()] = trueID_dict_running_idx
+                            trueID_dict_running_idx += 1
+                        translated_trueID = trueID_dict[event_idx][trueID.item()]
                     else:
-                        prediction_input[curr_event_num][layer][SiPM_idx][0] = 0
-                        prediction_input[curr_event_num][layer][SiPM_idx][1] = 9999
-            else:
-                charge = 0
-                timing = 9999
-                prediction_input[curr_event_num][layer][0][0] = charge
-                prediction_input[curr_event_num][layer][0][1] = timing
-                prediction_input[curr_event_num][layer][1][0] = charge
-                prediction_input[curr_event_num][layer][1][1] = timing
-
-        curr_event_num += 1
-    return prediction_input, prediction_output
-def process_root_file_for_greg(file_path):
-    print("began processing")
-    with uproot.open(file_path) as file:
-        tree_HcalBarrelHits = file["events/HcalBarrelHits"]
-        tree_MCParticles = file["events/MCParticles"]
-        
-        
-        momentum_x_MC = tree_MCParticles["MCParticles.momentum.x"].array(library="np")
-        momentum_y_MC = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
-        momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
-        
-        z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
-        x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
-        energy = tree_HcalBarrelHits["HcalBarrelHits.EDep"].array(library="np")
-        momentum_x = tree_HcalBarrelHits["HcalBarrelHits.momentum.x"].array(library="np")
-        momentum_y = tree_HcalBarrelHits["HcalBarrelHits.momentum.y"].array(library="np")
-        momentum_z = tree_HcalBarrelHits["HcalBarrelHits.momentum.z"].array(library="np")
-        hit_time = tree_HcalBarrelHits["HcalBarrelHits.time"].array(library="np")
-        mc_hit_idx = file["events/_HcalBarrelHits_MCParticle/_HcalBarrelHits_MCParticle.index"].array(library="np")  # Add PDG code for particle identification
-        print("finished loading branches")
-        
-        processed_data = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
-        
-        for event_idx in tqdm(range(len(z_pos))):
-            if(len(z_pos[event_idx]) == 0):
-                continue
-            primary_momentum = (momentum_x_MC[event_idx][0],
-                            momentum_y_MC[event_idx][0],
-                            momentum_z_MC[event_idx][0])
-            primary_momentum_mag = np.linalg.norm(primary_momentum)
-            if(primary_momentum_mag <= 0):
-                continue
-            if(primary_momentum_mag > 100):
-                continue
-            energy_per_layer_particle = defaultdict(lambda: defaultdict(float))
-            first_hit_per_layer_particle = defaultdict(dict)
-            # First pass: collect first hit data and calculate energy per layer per particle
-            for hit_idx in range(len(z_pos[event_idx])):
-                z = z_pos[event_idx][hit_idx]
-                x = x_pos[event_idx][hit_idx]
-                e = energy[event_idx][hit_idx]
-                momentum = (momentum_x[event_idx][hit_idx],
-                            momentum_y[event_idx][hit_idx],
-                            momentum_z[event_idx][hit_idx])
-                momentum_mag = np.linalg.norm(momentum)
-                theta = theta_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
-                layer = get_layer(x)
-                particle_id = mc_hit_idx[event_idx][hit_idx]
-                
-                energy_per_layer_particle[layer][particle_id] += e
-                
-                if layer not in first_hit_per_layer_particle or particle_id not in first_hit_per_layer_particle[layer]:
-                    first_hit_per_layer_particle[layer][particle_id] = {
-                        "z_pos": z,
-                        "x_pos": x,
-                        "momentum": momentum_mag,
-                        "primary_momentum": primary_momentum_mag,
-                        "theta": theta,
-                        "time": hit_time[event_idx][hit_idx],
-                        "mc_hit_idx": particle_id,
-                        "pid": pid,
-                        "phi": phi
+                        translated_trueID = -1
+                    
+                    #clustering
+                    hit_max_time = np.maximum(charge_times[0,1],charge_times[1,1])
+                    if(hit_max_time < event_first_hit[0]):
+                        event_first_hit[0] = hit_max_time
+                        event_first_hit[1] = strip_z #really x
+                        event_first_hit[2] = strip_x #really y
+                        
+                    new_row = { 
+                       out_columns[0] : event_idx,
+                       out_columns[1] : stave_idx,
+                       out_columns[2] : layer_idx,
+                       out_columns[3] : segment_idx,
+                       out_columns[4] : translated_trueID, 
+                       "original_trueID" : trueID.item(), 
+                       out_columns[5] : truePID.item(), 
+                       out_columns[6] : hitID.item(),
+                       out_columns[7] : hitPID.item(),
+                       out_columns[8] : P.item(), 
+                       out_columns[9] : theta.item(), 
+                      out_columns[10] : phi.item(), 
+                      out_columns[11] : strip_z.item(), 
+                      out_columns[12] : strip_x.item(), 
+                      out_columns[13] : strip_y.item(), 
+                      out_columns[14] : hit_x.item(), 
+                      out_columns[15] : hit_y.item(), 
+                      out_columns[16] : hit_z.item(), 
+                      out_columns[17] : KMU_trueID.item(), 
+                      out_columns[18] : KMU_truePID.item(), 
+                      out_columns[19] : KMU_true_phi.item(), 
+                      out_columns[20] : KMU_true_momentum_mag.item(), 
+                      out_columns[21] : KMU_true_endpoint_x.item(), 
+                      out_columns[22] : KMU_true_endpoint_y.item(), 
+                      out_columns[23] : KMU_true_endpoint_z.item(), 
+                      out_columns[24] : charge_times[0,0].item(), 
+                      out_columns[25] : charge_times[0,1].item(), 
+                      out_columns[26] : charge_times[1,0].item(), 
+                      out_columns[27] : charge_times[1,1].item(),
+                      "first hit time": event_first_hit[0],
+                      "first hit x": event_first_hit[1],
+                      "first hit y": event_first_hit[2]
                     }
-            
-            
-            # Second pass: process first hit with total layer energy per particle
-            for layer, particle_data in first_hit_per_layer_particle.items():
-                for particle_id, hit_data in particle_data.items():
-                    layer_particle_energy = energy_per_layer_particle[layer][particle_id]
-                    num_pixels_high_z = calculate_num_pixels_z_dependence(layer_particle_energy, hit_data["z_pos"])
-                    num_pixels_low_z = calculate_num_pixels_z_dependence(layer_particle_energy, -1 * hit_data["z_pos"])
-                    hit_data["num_pixels_high_z"] = int(np.floor(num_pixels_high_z))
-                    hit_data["num_pixels_low_z"] = int(np.floor(num_pixels_low_z))
-                    hit_data["layer_energy"] = layer_particle_energy  # Store total layer energy for this particle
-                    processed_data[event_idx][layer][particle_id.item()] = hit_data
-    
-    print("finished processing")
-    return processed_data
-def new_prepare_nn_input_for_greg(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
-    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    
-    all_context = []
-    all_time_pixels = []
-    all_metadata = []
-    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
-    
-    print("Processing data...")
-    for event_idx, event_data in tqdm(processed_data.items()):
-        for layer, layer_data in event_data.items():
-            for particle_id, particle_data in layer_data.items():
-                primary_momentum = particle_data["primary_momentum"].item()
-                base_context = torch.tensor([particle_data['z_pos'], particle_data['theta'], particle_data['momentum']], 
-                                            dtype=torch.float32)
-                base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
-                                                dtype=torch.float32)
-                base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
-                                                dtype=torch.float32)
-                
-                for SiPM_idx in range(2):
-                    z_pos = particle_data['z_pos']
-                    context = base_context.clone()
-                    context[0] = z_pos
-                    num_pixel_tag = num_pixel_list[SiPM_idx]
-                    all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
-                    if(SiPM_idx == 0):
-                        all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
-                    else:
-                        all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
-                    all_metadata.extend([(event_idx, layer, SiPM_idx, particle_id, primary_momentum,particle_data['mc_hit_idx'],particle_data['pid'],particle_data['theta'],particle_data['phi'])] * particle_data[num_pixel_tag])
+                    rows.append(new_row)
+                    running_index += 1
+        curr_event_num += 1
+    return pd.DataFrame(rows)
 
-    all_context = torch.cat(all_context)
-    all_time_pixels = torch.cat(all_time_pixels)
-    
-    print("Sampling data...")
-    sampled_data = []
-    for i in tqdm(range(0, len(all_context), batch_size)):
-        batch_context = all_context[i:i+batch_size].to(device)
-        batch_time_pixels = all_time_pixels[i:i+batch_size]
+@profile_function
+def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
+    rows = []
+    processor = SiPMSignalProcessor()
+    normflow_input = []
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    print_w_time("Processing data in generateSiPMOutput...")
+    got_row_indexes = False
+    labels = []
+    begin = time.time()
+    for row_idx, row in processed_data.iterrows():
+        for SiPM_idx in range(2):
+            num_pixel_tag = num_pixel_list[SiPM_idx] #get the name of the number of pixels for this SiPM
+            #create a new row for each of the photons/pixels
+            row_copy = row.copy()
+            row_copy['SiPM_idx'] = SiPM_idx
+            if(not got_row_indexes):
+                labels = row_copy.index.to_list()
+                got_row_indexes = True
+            normflow_input.append(torch.tensor(row_copy.values,dtype=torch.float32).repeat(int(row_copy[num_pixel_tag]), 1))
+    #Create a dict like{label : index in row}
+    label_dict = {}
+    for i in range(len(labels)):
+        label_dict[labels[i]] = i
+        
+    normflow_input_tensor = torch.cat(normflow_input)
+    end = time.time()
+    print(f"first loop took {end - begin} seconds")
+
+    data = []
+    print_w_time(f"starting sampling")
+    begin = time.time()
+#     for i in tqdm(range(0, len(normflow_input_tensor), batch_size)):
+    for i in range(0, len(normflow_input_tensor), batch_size):
+        print_w_time(f"Starting batch # {(i / batch_size) + 1} / {int(np.ceil(len(normflow_input_tensor) / batch_size))}")
+        batch_end = min(i + batch_size, len(normflow_input_tensor))
+        batch_rows = normflow_input_tensor[i:batch_end]
+        context_indexes = [label_dict["z_pos"],label_dict["hittheta"],label_dict["hitmomentum"]]
+        time_index = label_dict["time"]
+        batch_context = batch_rows[:,context_indexes].to(device)
+        batch_particle_hit_times = batch_rows[:,time_index]
         
         with torch.no_grad():
-            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context[:,:3])[0]).squeeze(1)
-        
-        adjusted_times = samples.cpu() + batch_time_pixels[:, 0]
-        sampled_data.extend(adjusted_times)
+            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1).cpu() + batch_particle_hit_times
+        batch_combined_data = torch.cat((batch_rows,samples.unsqueeze(-1)),dim = 1)
+        data.extend(batch_combined_data)
+    end = time.time()
+    print_w_time(f"sampling took {(end - begin)} seconds")
+    print_w_time("creating df")
+    labels.append("photon_time")
+    row_df = pd.DataFrame(data,columns = labels)
+    print_w_time("Beginning pulse process")
+    results = []
 
-    print("Reorganizing data...")
-    for (event, layer, SiPM, particle, momentum,mc_hit_idx,pid,theta,phi), sample in zip(all_metadata, sampled_data):
-        nn_input[event][layer][SiPM].append(sample)
-        nn_output[event][layer][SiPM].append(torch.tensor([momentum,particle,mc_hit_idx,pid,theta,phi]))
+    trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
+    trueID_dict_running_idx = 0
 
-    return nn_input, nn_output
 
-#TODO Need to get particle idx, theta, phi, p, PID from prepare_prediction_input - don't use new indices, just add as extra values bc we don't need these for my nn training
-def prepare_prediction_input_pulse_for_greg(nn_input, nn_output,pixel_threshold = 3):
-    processor = SiPMSignalProcessor()
-    
-    #note - some events do not have dictionaries in nn_input due to being empty
-    #need to skip over these and condense tensor
-    out_columns = ['event_idx','layer_idx','trueid','truePID','P','Theta','Phi','Charge1','Time1','Charge2','Time2']
-    running_index = 0
-    out_df = pd.DataFrame(columns = out_columns)
-    
-    input_dict = defaultdict(lambda: defaultdict(list))
-    output_dict = {}
-    curr_event_num = 0
-    for event_idx in tqdm(list(nn_input)):
-        event_input = []
-        set_output = False
-        layer_keys = nn_input[event_idx].keys()
-        for layer in range(28):
-            charge_times = np.empty(2,2)
-            if(layer in layer_keys): #ignore layers with no hits
-                for SiPM_idx in range(2):
-                    photon_times = torch.tensor(sorted(nn_input[event_idx][layer][SiPM_idx])) * 10 **(-9)
+    # Get the column values as numpy arrays for faster access
+    event_indices = row_df['event_idx'].values
+    stave_indices = row_df['stave_idx'].values
+    layer_indices = row_df['layer_idx'].values
+    segment_indices = row_df['segment_idx'].values
+
+    current_indices = [-1, -1, -1, -1]  # [event, stave, layer, segment]
+    segment_start = 0
+    running_segment_idx = 0
+    # loop over all hits in df
+    begin = time.time()
+    for i in range(len(row_df) + 1):
+        # Check if we've reached a new segment or the end of the dataset
+        if i == len(row_df) or (
+            event_indices[i] != current_indices[0] or
+            stave_indices[i] != current_indices[1] or
+            layer_indices[i] != current_indices[2] or
+            segment_indices[i] != current_indices[3]
+        ):
+            # Process the previous segment if it exists
+            if current_indices[0] != -1:
+                #get all hits in segment
+                segment_data = row_df.iloc[segment_start:i]
+                running_segment_idx += 1
+                # Your processing logic here
+
+
+                charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
+                set_event_details = False
+                trigger = False
+                trueID_list_len_max = -1
+                for SiPM_idx, SiPM_group in segment_data.groupby(['SiPM_idx']):
+                    SiPM_idx_int = int(SiPM_idx[0].item())
+                    #need to see if we get more than 1 hit in a segment - greg says to label this as noise
+                    trueID_list_len = len(set(SiPM_group["trueID"].apply(lambda x: x.item())))
+                    trueID_list_len_max = max(trueID_list_len,trueID_list_len_max)
+                    photon_times = torch.tensor(SiPM_group['photon_time'].to_list()) * 10 **(-9)
                     #get relative times
                     if(len(photon_times) > 0):
-
                         #calculate time and charge
-                        time,waveform = processor.generate_waveform(photon_times)
-                        charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
-                        charge_times[SiPM_idx][1] = processor.get_pulse_timing(waveform,threshold = pixel_threshold) * 1e8
-                    else:
-                        charge_times[SiPM_idx][0] = 0
-                        charge_times[SiPM_idx][1] = 9999
-                    
-                P = nn_output[event_idx][layer][0][0]
-                particle_idx = nn_output[event_idx][layer][0][2]
-                pid = nn_output[event_idx][layer][0][3]
-                theta = nn_output[event_idx][layer][0][4]
-                phi = nn_output[event_idx][layer][0][5]
-                new_row = [event_idx,layer_idx,particle_idx,pid,P,theta,phi,charge_times[0,0],charge_times[0,1],charge_times[1,0],charge_times[1,1]]
-                out_df.append(new_row,columns=out_columns,index = running_index)
-                running_index += 1
-        curr_event_num += 1
-    return out_df
+                        time_arr,waveform = processor.generate_waveform(photon_times)
+                        timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
+                        if(timing is not None):
+                            curr_charge = processor.integrate_charge(waveform) * 1e6
+                            curr_timing = timing * 1e8
+                            charge_times[SiPM_idx_int][0] = processor.integrate_charge(waveform) * 1e6
+                            charge_times[SiPM_idx_int][1] = timing * 1e8
+            #                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
+                            trigger = True
+                        else: #no trigger, don't set details yet
+                            continue
+                        if(not set_event_details):
+                            #take the 0th one - if there are multiple, then these are noise anyways
+                            P = SiPM_group['truemomentum'].iloc[0]
+                            trueID = SiPM_group['trueID'].iloc[0]
+                            truePID = SiPM_group['truePID'].iloc[0]
+                            hitID = SiPM_group['hitID'].iloc[0]
+                            hitPID = SiPM_group['hitPID'].iloc[0]
+                            theta = SiPM_group['truetheta'].iloc[0]
+                            phi = SiPM_group['truephi'].iloc[0]
+                            strip_x = SiPM_group['strip_x'].iloc[0]
+                            strip_y = SiPM_group['strip_y'].iloc[0]
+                            strip_z = SiPM_group['strip_z'].iloc[0]
+                            set_event_details = True
+                    else: #no photons, no data
+                        continue
+                noise = False
+                if(trueID_list_len_max > 1):
+                    noise = True
+                if(not noise) and trigger:
+                    if(trueID_dict[current_indices[0]][trueID.item()] == -1):
+                        trueID_dict[current_indices[0]][trueID.item()] = trueID_dict_running_idx
+                        trueID_dict_running_idx += 1
+                    translated_trueID = trueID_dict[current_indices[0]][trueID.item()]
+                else:
+                    translated_trueID = -1
+                if(set_event_details) and (trigger):
+                    new_row = { 
+                       out_columns[0] : current_indices[0],
+                       out_columns[1] : current_indices[1],
+                       out_columns[2] : current_indices[2],
+                       out_columns[3] : current_indices[3],
+                       out_columns[4] : translated_trueID, 
+                       "original_trueID" : trueID.item(), 
+                       out_columns[5] : truePID.item(), 
+                       out_columns[6] : hitID.item(),
+                       out_columns[7] : hitPID.item(),
+                       out_columns[8] : P.item(), 
+                       out_columns[9] : theta.item(), 
+                      out_columns[10] : phi.item(), 
+                      out_columns[11] : strip_z.item(), 
+                      out_columns[12] : strip_x.item(), 
+                      out_columns[13] : strip_y.item(), 
+                      out_columns[14] : charge_times[0,0].item(), 
+                      out_columns[15] : charge_times[0,1].item(), 
+                      out_columns[16] : charge_times[1,0].item(), 
+                      out_columns[17] : charge_times[1,1].item(),
+                    }
+                    results.append(new_row)
+            if i < len(row_df):
+                # Update indices for the new segment
+                current_indices = [
+                    event_indices[i],
+                    stave_indices[i],
+                    layer_indices[i],
+                    segment_indices[i]
+                ]
+                #save the index of the beginning of segment so we know
+                #which hits are in this segment
+                segment_start = i
+    end = time.time()
+    print(f"second loop took {end - begin} seconds")
+    return pd.DataFrame(results)
 
+@profile_function
+def generateSiPMOutputOld(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
+    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
+    rows = []
+    processor = SiPMSignalProcessor()
+    normflow_input = []
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    print_w_time("Processing data in generateSiPMOutput...")
+    got_row_indexes = False
+    labels = []
+    for row_idx, row in processed_data.iterrows():
+        for SiPM_idx in range(2):
+            num_pixel_tag = num_pixel_list[SiPM_idx] #get the name of the number of pixels for this SiPM
+            #create a new row for each of the photons/pixels
+            row_copy = row.copy()
+            row_copy['SiPM_idx'] = SiPM_idx
+            if(not got_row_indexes):
+                labels = row_copy.index.to_list()
+                got_row_indexes = True
+            normflow_input.append(torch.tensor(row_copy.values,dtype=torch.float32).repeat(int(row_copy[num_pixel_tag]), 1))
+    #Create a dict like{label : index in row}
+    label_dict = {}
+    for i in range(len(labels)):
+        label_dict[labels[i]] = i
+        
+    normflow_input_tensor = torch.cat(normflow_input)
+
+    data = []
+    print_w_time(f"starting sampling")
+    begin = time.time()
+#     for i in tqdm(range(0, len(normflow_input_tensor), batch_size)):
+    for i in range(0, len(normflow_input_tensor), batch_size):
+        print_w_time(f"Starting batch # {(i / batch_size) + 1} / {int(np.ceil(len(normflow_input_tensor) / batch_size))}")
+        batch_end = min(i + batch_size, len(normflow_input_tensor))
+        batch_rows = normflow_input_tensor[i:batch_end]
+        context_indexes = [label_dict["z_pos"],label_dict["hittheta"],label_dict["hitmomentum"]]
+        time_index = label_dict["time"]
+        batch_context = batch_rows[:,context_indexes].to(device)
+        batch_particle_hit_times = batch_rows[:,time_index]
+        
+        with torch.no_grad():
+            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1).cpu() + batch_particle_hit_times
+        batch_combined_data = torch.cat((batch_rows,samples.unsqueeze(-1)),dim = 1)
+        data.extend(batch_combined_data)
+    end = time.time()
+    print_w_time(f"sampling took {(end - begin)} seconds")
+    print_w_time("creating df")
+    labels.append("photon_time")
+    row_df = pd.DataFrame(data,columns = labels)
+    print_w_time("Beginning pulse process")
+    running_index = 0
+    for (event_idx, stave_idx, layer_idx, segment_idx),group in row_df.groupby(['event_idx', 'stave_idx', 'layer_idx','segment_idx']):
+#         print(f"Starting row # {running_index}\nevent #{event_idx}, stave #{stave_idx}, layer #{layer_idx}, segment #{segment_idx}")
+        charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
+        set_event_details = False
+        trigger = False
+        trueID_list_len_max = -1
+        for SiPM_idx, SiPM_group in group.groupby(['SiPM_idx']):
+            #need to see if we get more than 1 hit in a segment - greg says to label this as noise
+            trueID_list_len = len(set(SiPM_group["trueID"]))
+            trueID_list_len_max = max(trueID_list_len,trueID_list_len_max)
+            photon_times = torch.tensor(sorted(SiPM_group['photon_time'])) * 10 **(-9)
+            #get relative times
+            if(len(photon_times) > 0):
+                #calculate time and charge
+                time_arr,waveform = processor.generate_waveform(photon_times)
+                timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
+                if(timing is not None):
+                    curr_charge = processor.integrate_charge(waveform) * 1e6
+                    curr_timing = timing * 1e8
+                    print(f"curr_charge: {curr_charge}")
+                    charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
+                    charge_times[SiPM_idx][1] = timing * 1e8
+#                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
+                    trigger = True
+                else: #no trigger, don't set details yet
+                    continue
+                if(not set_event_details):
+                    #take the 0th one - if there are multiple, then these are noise anyways
+                    P = SiPM_group['truemomentum'][0]
+                    trueID = SiPM_group['trueID'][0]
+                    truePID = SiPM_group['truePID'][0]
+                    hitID = SiPM_group['hitID'][0]
+                    hitPID = SiPM_group['hitPID'][0]
+                    theta = SiPM_group['truetheta'][0]
+                    phi = SiPM_group['truephi'][0]
+                    strip_x = SiPM_group['strip_x'][0]
+                    strip_y = SiPM_group['strip_y'][0]
+                    strip_z = SiPM_group['strip_z'][0]
+                    set_event_details = True
+            else: #no photons, no data
+                continue
+        if(not set_event_details):
+            continue
+        if (not trigger):
+            continue;
+        noise = False
+        if(trueID_list_len_max > 1):
+            noise = True
+        if(not noise):
+            if(trueID_dict[event_idx][trueID.item()] == -1):
+                trueID_dict[event_idx][trueID.item()] = trueID_dict_running_idx
+                trueID_dict_running_idx += 1
+            translated_trueID = trueID_dict[event_idx][trueID.item()]
+        else:
+            translated_trueID = -1
+        new_row = { 
+           out_columns[0] : event_idx,
+           out_columns[1] : stave_idx,
+           out_columns[2] : layer_idx,
+           out_columns[3] : segment_idx,
+           out_columns[4] : translated_trueID, 
+           "original_trueID" : trueID.item(), 
+           out_columns[5] : truePID.item(), 
+           out_columns[6] : hitID.item(),
+           out_columns[7] : hitPID.item(),
+           out_columns[8] : P.item(), 
+           out_columns[9] : theta.item(), 
+          out_columns[10] : phi.item(), 
+          out_columns[11] : strip_z.item(), 
+          out_columns[12] : strip_x.item(), 
+          out_columns[13] : strip_y.item(), 
+          out_columns[14] : charge_times[0,0].item(), 
+          out_columns[15] : charge_times[0,1].item(), 
+          out_columns[16] : charge_times[1,0].item(), 
+          out_columns[17] : charge_times[1,1].item(),
+        }
+        rows.append(new_row)
+        running_index += 1
+    return pd.DataFrame(rows,columns = out_columns)
+        
 
 
 class Predictor(nn.Module):
@@ -681,214 +961,7 @@ class Predictor(nn.Module):
         except Exception as e:
             raise RuntimeError(f"Error loading model from {load_path}: {str(e)}")
 
-#OLD w/broken load/save:
-'''
-class Predictor(nn.Module):
-    """
-    Neural network for prediction tasks with configurable architecture.
-    
-    Args:
-        input_size (int): Number of input features
-        num_classes (int): Number of output classes/values
-        hidden_dim (int): Dimension of hidden layers
-        num_layers (int): Number of hidden layers
-        dropout_rate (float): Dropout probability between layers
-        activation (str): Activation function to use ('relu', 'leaky_relu', or 'elu')
-    """
-    def __init__(
-        self,
-        input_size: int = 28 * 2 * 2,
-        num_classes: int = 1,
-        hidden_dim: int = 512,
-        num_layers: int = 10,
-        dropout_rate: float = 0.1,
-        activation: Literal['relu', 'leaky_relu', 'elu'] = 'leaky_relu'
-    ):
-        super().__init__()
-        
-        # Store configuration
-        self.model_name = "Predictor"
-        self.input_size = input_size
-        self.config = {
-            'input_size': input_size,
-            'num_classes': num_classes,
-            'hidden_dim': hidden_dim,
-            'num_layers': num_layers,
-            'dropout_rate': dropout_rate,
-            'activation': activation
-        }
-        
-        # Create activation function
-        activation_map = {
-            'relu': nn.ReLU,
-            'leaky_relu': nn.LeakyReLU,
-            'elu': nn.ELU
-        }
-        activation_fn = activation_map[activation]
-        
-        # Build network layers
-        layers = []
-        for i in range(num_layers):
-            # Input layer
-            if i == 0:
-                layers.extend([
-                    nn.Linear(input_size, hidden_dim),
-                    activation_fn(inplace=True),
-                    nn.Dropout(dropout_rate)
-                ])
-            # Output layer
-            elif i == num_layers - 1:
-                layers.append(nn.Linear(hidden_dim, num_classes))
-            # Hidden layers
-            else:
-                layers.extend([
-                    nn.Linear(hidden_dim, hidden_dim),
-                    activation_fn(inplace=True),
-                    nn.Dropout(dropout_rate)
-                ])
-        
-        self.layers = nn.Sequential(*layers)
-        
-        # Initialize weights
-        self.apply(self._init_weights)
 
-    def _init_weights(self, module):
-        """Initialize network weights using Xavier/Glorot initialization."""
-        if isinstance(module, nn.Linear):
-            torch.nn.init.xavier_uniform_(module.weight)
-            if module.bias is not None:
-                torch.nn.init.zeros_(module.bias)
-
-    def _check_input_shape(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Check and reshape input tensor if necessary.
-        
-        Args:
-            x (torch.Tensor): Input tensor
-            
-        Returns:
-            torch.Tensor: Properly shaped input tensor
-        """
-        if x.dim() == 1:
-            x = x.unsqueeze(0)  # Add batch dimension
-            
-        if x.dim() > 2:
-            # Flatten all dimensions except batch dimension
-            x = x.view(x.size(0), -1)
-            
-        if x.size(-1) != self.input_size:
-            raise ValueError(
-                f"Expected input size {self.input_size}, but got {x.size(-1)}. "
-                f"Input shape: {tuple(x.shape)}"
-            )
-            
-        return x
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass through the network.
-        
-        Args:
-            x (torch.Tensor): Input tensor of shape (batch_size, input_size) or (input_size,)
-            
-        Returns:
-            torch.Tensor: Output predictions
-        """
-        x = self._check_input_shape(x)
-        return self.layers(x)
-
-    @property
-    def name(self) -> str:
-        """Get model name."""
-        return self.model_name
-
-    def get_config(self) -> dict:
-        """Get model configuration."""
-        return self.config.copy()
-
-    def save(self, save_path: str):
-        """
-        Save model state and configuration.
-        
-        Args:
-            save_path (str): Path to save the model
-        """
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        
-        save_dict = {
-            'model_state_dict': self.state_dict(),
-            'config': self.config
-        }
-        torch.save(save_dict, save_path)
-    
-    @classmethod
-    def load(cls, load_path: str, map_location: Optional[Union[str, torch.device]] = None):
-        """
-        Load model from saved state.
-        
-        Args:
-            load_path (str): Path to saved model
-            map_location: Optional device mapping for loaded model
-            
-        Returns:
-            Predictor: Loaded model instance
-        """
-        save_dict = torch.load(load_path, map_location=map_location)
-        
-        # Create new model instance with saved configuration
-        model = cls(**save_dict['config'])
-        
-        # Load state dictionary
-        model.load_state_dict(save_dict['model_state_dict'])
-        
-        return model
-'''
-    
-
-
-class oldPredictor(nn.Module):
-    """
-    Prediction network
-    """
-    def __init__(self, input_size=28*2*2, num_classes=2, hidden_dim = 512, num_layers = 10):
-        super(Predictor, self).__init__()
-        self.layer = nn.Sequential()
-        for i in range(num_layers):
-            if(i == 0):
-                self.layer.append(
-                nn.Linear(input_size, hidden_dim)
-                )
-                self.layer.append(
-                    nn.LeakyReLU(inplace=True)
-                )
-            elif(i == num_layers - 1):
-                self.layer.append(
-                nn.Linear(hidden_dim, num_classes)
-                )
-            else:
-                self.layer.append(
-                    nn.Linear(hidden_dim, hidden_dim)
-                )
-                self.layer.append(
-                    nn.LeakyReLU(inplace=True)
-                )
-        self.name = "Predictor"
-#         self.double()
-        
-    def forward(self, h):
-        c = self.layer(h)
-        return c
-    
-    # @property
-    def name(self):
-        """
-        Name of model.
-        """
-        return self.name
-    def save(self, save_loc):
-        torch.save(self.layer,save_loc)
-    def load(self,load_loc):
-        self.layer = torch.load(load_loc)
         
 def split_data(inputs, outputs, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, seed=42):
     """
@@ -1212,3 +1285,27 @@ class SiPMSignalProcessor:
         _, crossing_time = self.apply_cfd(waveform)
         
         return crossing_time
+    
+#functions for process_data_for_momentum_NN.py
+def create_nested_defaultdict():
+    """Recreate the nested defaultdict structure."""
+    return defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(dict))))
+def convert_dict_to_defaultdict(d, factory):
+    """Convert a dictionary back to nested defaultdict."""
+    result = factory()
+    
+    for k, v in d.items():
+        if isinstance(v, dict):
+            result[k] = convert_dict_to_defaultdict(v, factory)
+        else:
+            result[k] = v
+    return result
+def load_defaultdict(filename):
+    """Load data from JSON file into nested defaultdict."""
+    # Read the JSON file
+    with open(filename, 'r') as f:
+        data = json.load(f)
+    
+    # Convert back to nested defaultdict
+    return convert_dict_to_defaultdict(data, create_nested_defaultdict)
+    
