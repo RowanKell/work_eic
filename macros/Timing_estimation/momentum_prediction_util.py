@@ -99,130 +99,6 @@ def filter_tensors_by_values(tensor1, tensor2, threshold1=200, threshold2=10000,
     return filtered_tensor1, filtered_tensor2
 
 
-def create_df(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
-    processor = SiPMSignalProcessor()
-    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
-    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
-    
-    all_context = []
-    all_time_pixels = []
-    all_metadata = []
-    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
-    
-    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
-    running_index = 0
-    rows = []
-    trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
-    trueID_dict_running_idx = 0
-    
-    print("Processing data in new_prepare_nn_input...")
-    for event_idx, event_data in tqdm(processed_data.items()):
-        for stave_idx, stave_data in event_data.items():
-            for layer_idx, layer_data in stave_data.items():
-                for segment_idx, segment_data in layer_data.items():
-                    SiPM_high_z_times = [] #SiPM index 0
-                    SiPM_low_z_times = [] #SiPM index 1
-                    SiPM_z_times = [SiPM_high_z_times,SiPM_low_z_times]
-                    #if there are multiple trueID particles with hits in one segment, treat it as noise: trueID = -1 (Greg)
-                    #to preserve some info about the "noise" we can keep the other info of the particle with the most pixels
-                    curr_noise_option = -1
-                    curr_noise_pixels = -1
-                    #need to save segment-level info (trueID, etc)
-                    trueID_list = []
-                    for particle_id, particle_data in segment_data.items():
-                        #case where just one particle has hits - unambiguous
-                        trueID = particle_data["trueID"]
-                        truePID = particle_data['truePID']
-                        hitPID = particle_data['hitPID']
-                        hitID = particle_data['hitID']
-                        P = particle_data['truemomentum']
-                        theta = particle_data['truetheta']
-                        phi= particle_data['truephi']
-                        if(trueID not in trueID_list):
-                            trueID_list.append(trueID)
-                        strip_x = particle_data['strip_x'] #doesn't depend on particle
-                        strip_y = particle_data['strip_y']
-                        strip_z = particle_data['strip_z']
-                        base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
-                                                    dtype=torch.float32)
-                        base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
-                                                        dtype=torch.float32)
-                        base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
-                                                        dtype=torch.float32)
-                        base_time_pixels_extended = [base_time_pixels_high.repeat(particle_data["num_pixels_high_z"], 1),
-                                                     base_time_pixels_low.repeat(particle_data["num_pixels_low_z"], 1)]
-                        for SiPM_idx in range(2):
-                            if(SiPM_idx == 0 and particle_data["num_pixels_high_z"] == 0):
-                                continue
-                            if(SiPM_idx == 1 and particle_data["num_pixels_low_z"] == 0):
-                                continue
-                            z_pos = particle_data['z_pos']
-                            context = base_context.clone()
-                            context[0] = z_pos
-                            num_pixel_tag = num_pixel_list[SiPM_idx]
-                            context_extended = context.repeat(particle_data[num_pixel_tag], 1).to(device) #context w/length of num samples
-                            with torch.no_grad():
-                                samples = abs(normalizing_flow.sample(num_samples=len(context_extended), context=context_extended)[0]).squeeze(1)
-                            SiPM_z_times[SiPM_idx].extend(samples.cpu() + base_time_pixels_extended[SiPM_idx][:,0])
-                    
-                    #for each strip, calculate charge and timing, then save to dataframe
-                    charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
-                    trigger = False
-                    for SiPM_idx in range(2):
-                        if(len(SiPM_z_times[SiPM_idx]) == 0):
-                            continue
-                        photon_times = torch.tensor(sorted(SiPM_z_times[SiPM_idx])) * 10 **(-9)
-                        
-                        time_arr,waveform = processor.generate_waveform(photon_times)
-                        timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
-                        if(timing is not None):
-                            curr_charge = processor.integrate_charge(waveform) * 1e6
-                            curr_timing = timing * 1e8
-
-                            charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
-                            charge_times[SiPM_idx][1] = timing * 1e8
-#                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
-                            trigger = True
-                        else: #no trigger, don't set details yet
-                            continue
-                    if(not trigger):
-                        continue
-                    
-                    #deal with strips with more than one hit
-                    if(len(trueID_list) > 1):
-                        trueID = -1
-                    
-                    if(trueID != -1):
-                        if(trueID_dict[event_idx][trueID] == -1):
-                            trueID_dict[event_idx][trueID] = trueID_dict_running_idx
-                            trueID_dict_running_idx += 1
-                        translated_trueID = trueID_dict[event_idx][trueID]
-                    else:
-                        translated_trueID = -1
-                    
-                    new_row = { 
-                       out_columns[0] : event_idx,
-                       out_columns[1] : stave_idx,
-                       out_columns[2] : layer_idx,
-                       out_columns[3] : segment_idx,
-                       out_columns[4] : translated_trueID, 
-                       out_columns[5] : truePID, 
-                       out_columns[6] : hitID,
-                       out_columns[7] : hitPID,
-                       out_columns[8] : P, 
-                       out_columns[9] : theta, 
-                      out_columns[10] : phi, 
-                      out_columns[11] : strip_z, 
-                      out_columns[12] : strip_x, 
-                      out_columns[13] : strip_y, 
-                      out_columns[14] : charge_times[0,0].item(), 
-                      out_columns[15] : charge_times[0,1].item(), 
-                      out_columns[16] : charge_times[1,0].item(), 
-                      out_columns[17] : charge_times[1,1].item(),
-                    }
-                    rows.append(new_row)
-                    running_index += 1
-    return pd.DataFrame(rows)
 @profile_function
 def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
     nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
@@ -304,6 +180,192 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     end = time.time()
     print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
+
+@profile_function
+def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 5):
+    processer = SiPMSignalProcessor()
+    
+    all_context = []
+    all_time_pixels = []
+    all_metadata = []
+    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    print("Processing data in new_prepare_nn_input...")
+    for event_idx, event_data in tqdm(processed_data.items()):
+        for stave_idx, stave_data in event_data.items():
+            for layer_idx, layer_data in stave_data.items():
+                for segment_idx, segment_data in layer_data.items():
+                    trueID_list = []
+                    for particle_id, particle_data in segment_data.items():
+#                         print(f"keys of particle data: {particle_data.keys()}")
+#                         print(f"types: {type(particle_data['z_pos'])},{type(particle_data['hittheta'])},{type(particle_data['hitmomentum'])}")
+                        base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
+                                                    dtype=torch.float32)
+                        base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
+                                                        dtype=torch.float32)
+                        base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
+                                                        dtype=torch.float32)
+                        if particle_data['trueID'] not in  trueID_list:
+                            trueID_list.append(particle_data['trueID'])
+                        for SiPM_idx in range(2):
+                            z_pos = particle_data['z_pos']
+                            context = base_context.clone()
+                            context[0] = z_pos
+                            num_pixel_tag = num_pixel_list[SiPM_idx]
+                            all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
+                            if(SiPM_idx == 0):
+                                all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
+                            else:
+                                all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
+                            # Assuming particle_data is a dictionary-like object and trueID_list is defined
+                            fields = [
+                                'truemomentum', 'trueID', 'truePID', 'hitID', 'hitPID', 
+                                'truetheta', 'truephi', 'strip_x', 'strip_y', 'strip_z', 
+                                'hit_x', 'hit_y', 'hit_z', 'KMU_trueID', 'KMU_truePID', 
+                                'KMU_true_phi', 'KMU_true_momentum_mag', 'KMU_endpoint_x', 
+                                'KMU_endpoint_y', 'KMU_endpoint_z'
+                            ]
+
+                            # Print types of each particle_data field
+#                             for field in fields:
+#                                 value = particle_data.get(field, None)
+#                                 print(f"{field}: {type(value)}")
+
+#                             # Print the type of len(trueID_list)
+#                             print(f"len(trueID_list): {type(len(trueID_list))}")
+
+                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'],len(trueID_list),particle_data['hit_x'],particle_data['hit_y'],particle_data['hit_z'],particle_data['KMU_trueID'],particle_data['KMU_truePID'],particle_data['KMU_true_phi'],particle_data['KMU_true_momentum_mag'],particle_data['KMU_endpoint_x'],particle_data['KMU_endpoint_y'],particle_data['KMU_endpoint_z'])] * particle_data[num_pixel_tag])
+
+    all_context = torch.cat(all_context)
+    all_time_pixels = torch.cat(all_time_pixels)
+    
+    print("Sampling data...")
+    sampled_data = []
+    begin = time.time()
+    for i in tqdm(range(0, len(all_context), batch_size)):
+        batch_end = min(i + batch_size, len(all_context))
+        batch_context = all_context[i:batch_end].to(device)
+        batch_time_pixels = all_time_pixels[i:batch_end]
+        
+        with torch.no_grad():
+            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
+        
+        sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
+    end = time.time()
+    print(f"sampling took {end - begin} seconds")
+    print("Processing signal...")
+    
+    
+    # VARIABLES FOR SAVING DATA AS DF
+    processer = SiPMSignalProcessor()
+    rows = []
+
+    seen_keys = []
+    curr_key = (-1,-1,-1,-1)
+
+    current_samples = [[],[]] 
+    processor = SiPMSignalProcessor()
+
+    translated_trueID = 0
+    trueID_dict_running_idx = 0
+    trueID_dict = {}
+
+    begin = time.time()
+
+    sample_idx = 0
+    for (event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z), sample in zip(all_metadata, sampled_data):
+
+        #progress bar
+        floor_percent = int(np.floor(len(sampled_data) / 100))
+        if(sample_idx % floor_percent == 0):
+            curr_time = time.time()
+            print(f"Signal Processing is now {int(np.floor(sample_idx / len(sampled_data) * 100))}% complete (time elapsed: {curr_time - begin})")
+#             clear_output(wait = True)
+        sample_idx += 1
+
+        # Work with all samples of one SiPM together
+        key = (event_idx, stave_idx, layer_idx, segment_idx)
+        if key in seen_keys:
+            if key == curr_key:
+                current_samples[SiPM_idx].append(sample)
+            else:
+                continue
+                print(f"ERROR: key: {key} | curr_key: {curr_key}")
+        # First key
+        elif curr_key == (-1,-1,-1,-1):
+            current_samples[SiPM_idx].append(sample)
+            seen_keys.append(key)
+            curr_key = key
+        # End of curr_key: perform calc
+        else:
+            #calculate photon stuff on current_samples
+
+            '''IMPLEMENTING PREDICTION INPUT PULSE SEGMENT BY SEGMENT'''
+            curr_event_idx = curr_key[0]
+            curr_stave_idx = curr_key[1]
+            curr_layer_idx = curr_key[2]
+            curr_segment_idx = curr_key[3]
+            for curr_SiPM_idx in range(2):
+                trigger = False
+                photon_times = np.array(current_samples[curr_SiPM_idx]) * 10 **(-9)
+                if(len(photon_times) > 0):
+                    time_arr,waveform = processor.generate_waveform(photon_times)
+                    timing = processer.get_pulse_timing(waveform,threshold = pixel_threshold)
+                    if(timing is not None):
+                        #scale inputs to avoid exploding gradients
+                        curr_charge = processor.integrate_charge(waveform) * 1e6
+                        curr_timing = timing * 1e8
+                        trigger = True
+                    #skip segments that don't pass the threshold
+                    else:
+                        continue
+                #skip segments with no photon hits
+                else:
+                    continue
+                if(trueID_list_len > 1):
+                    translated_trueID = -1
+                else:
+                    if((event_idx,trueID) not in trueID_dict):
+                        trueID_dict[(event_idx,trueID)] = trueID_dict_running_idx
+                        trueID_dict_running_idx += 1
+                    translated_trueID = trueID_dict[(event_idx,trueID)]
+                new_row = {
+                    "event_idx"      : curr_event_idx,
+                    "stave_idx"      : curr_stave_idx,
+                    "layer_idx"      : curr_layer_idx,
+                    "segment_idx"    : curr_segment_idx,
+                    "SiPM_idx"    : curr_SiPM_idx,
+                    "trueID"         : translated_trueID,
+                    "truePID"        : trueID,
+                    "hitID"          : hitID,
+                    "P"              : momentum,
+                    "Theta"          : theta,
+                    "Phi"            : phi,
+                    "strip_x"        : strip_z,
+                    "strip_y"        : strip_x,
+                    "strip_z"        : strip_y,
+                    "hit_x"          : hit_x,
+                    "hit_y"          : hit_y,
+                    "hit_z"          : hit_z,
+                    "KMU_endpoint_x" : KMU_endpoint_x,
+                    "KMU_endpoint_y" : KMU_endpoint_y,
+                    "KMU_endpoint_z" : KMU_endpoint_z,
+                    "Charge"         : curr_charge,
+                    "Time"           : curr_timing
+                }
+                rows.append(new_row)
+            ''' END IMPLEMENTATION '''
+            #reset current samples for new key
+            seen_keys.append(key)
+            current_samples = [[],[]]
+            current_samples.append(sample)
+            curr_key = key
+
+
+    end = time.time()
+    ret_df = pd.DataFrame(rows)
+    print(f"Creating DF took {end - begin} seconds")
+    return ret_df
+
 
 @profile_function
 def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 5):
@@ -438,309 +500,6 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 5):
         curr_event_num += 1
     return pd.DataFrame(rows)
 
-@profile_function
-def generateSiPMOutput(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
-    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
-    rows = []
-    processor = SiPMSignalProcessor()
-    normflow_input = []
-    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
-    print_w_time("Processing data in generateSiPMOutput...")
-    got_row_indexes = False
-    labels = []
-    begin = time.time()
-    for row_idx, row in processed_data.iterrows():
-        for SiPM_idx in range(2):
-            num_pixel_tag = num_pixel_list[SiPM_idx] #get the name of the number of pixels for this SiPM
-            #create a new row for each of the photons/pixels
-            row_copy = row.copy()
-            row_copy['SiPM_idx'] = SiPM_idx
-            if(not got_row_indexes):
-                labels = row_copy.index.to_list()
-                got_row_indexes = True
-            normflow_input.append(torch.tensor(row_copy.values,dtype=torch.float32).repeat(int(row_copy[num_pixel_tag]), 1))
-    #Create a dict like{label : index in row}
-    label_dict = {}
-    for i in range(len(labels)):
-        label_dict[labels[i]] = i
-        
-    normflow_input_tensor = torch.cat(normflow_input)
-    end = time.time()
-    print(f"first loop took {end - begin} seconds")
-
-    data = []
-    print_w_time(f"starting sampling")
-    begin = time.time()
-#     for i in tqdm(range(0, len(normflow_input_tensor), batch_size)):
-    for i in range(0, len(normflow_input_tensor), batch_size):
-        print_w_time(f"Starting batch # {(i / batch_size) + 1} / {int(np.ceil(len(normflow_input_tensor) / batch_size))}")
-        batch_end = min(i + batch_size, len(normflow_input_tensor))
-        batch_rows = normflow_input_tensor[i:batch_end]
-        context_indexes = [label_dict["z_pos"],label_dict["hittheta"],label_dict["hitmomentum"]]
-        time_index = label_dict["time"]
-        batch_context = batch_rows[:,context_indexes].to(device)
-        batch_particle_hit_times = batch_rows[:,time_index]
-        
-        with torch.no_grad():
-            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1).cpu() + batch_particle_hit_times
-        batch_combined_data = torch.cat((batch_rows,samples.unsqueeze(-1)),dim = 1)
-        data.extend(batch_combined_data)
-    end = time.time()
-    print_w_time(f"sampling took {(end - begin)} seconds")
-    print_w_time("creating df")
-    labels.append("photon_time")
-    row_df = pd.DataFrame(data,columns = labels)
-    print_w_time("Beginning pulse process")
-    results = []
-
-    trueID_dict = defaultdict(lambda: defaultdict(lambda: -1))
-    trueID_dict_running_idx = 0
-
-
-    # Get the column values as numpy arrays for faster access
-    event_indices = row_df['event_idx'].values
-    stave_indices = row_df['stave_idx'].values
-    layer_indices = row_df['layer_idx'].values
-    segment_indices = row_df['segment_idx'].values
-
-    current_indices = [-1, -1, -1, -1]  # [event, stave, layer, segment]
-    segment_start = 0
-    running_segment_idx = 0
-    # loop over all hits in df
-    begin = time.time()
-    for i in range(len(row_df) + 1):
-        # Check if we've reached a new segment or the end of the dataset
-        if i == len(row_df) or (
-            event_indices[i] != current_indices[0] or
-            stave_indices[i] != current_indices[1] or
-            layer_indices[i] != current_indices[2] or
-            segment_indices[i] != current_indices[3]
-        ):
-            # Process the previous segment if it exists
-            if current_indices[0] != -1:
-                #get all hits in segment
-                segment_data = row_df.iloc[segment_start:i]
-                running_segment_idx += 1
-                # Your processing logic here
-
-
-                charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
-                set_event_details = False
-                trigger = False
-                trueID_list_len_max = -1
-                for SiPM_idx, SiPM_group in segment_data.groupby(['SiPM_idx']):
-                    SiPM_idx_int = int(SiPM_idx[0].item())
-                    #need to see if we get more than 1 hit in a segment - greg says to label this as noise
-                    trueID_list_len = len(set(SiPM_group["trueID"].apply(lambda x: x.item())))
-                    trueID_list_len_max = max(trueID_list_len,trueID_list_len_max)
-                    photon_times = torch.tensor(SiPM_group['photon_time'].to_list()) * 10 **(-9)
-                    #get relative times
-                    if(len(photon_times) > 0):
-                        #calculate time and charge
-                        time_arr,waveform = processor.generate_waveform(photon_times)
-                        timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
-                        if(timing is not None):
-                            curr_charge = processor.integrate_charge(waveform) * 1e6
-                            curr_timing = timing * 1e8
-                            charge_times[SiPM_idx_int][0] = processor.integrate_charge(waveform) * 1e6
-                            charge_times[SiPM_idx_int][1] = timing * 1e8
-            #                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
-                            trigger = True
-                        else: #no trigger, don't set details yet
-                            continue
-                        if(not set_event_details):
-                            #take the 0th one - if there are multiple, then these are noise anyways
-                            P = SiPM_group['truemomentum'].iloc[0]
-                            trueID = SiPM_group['trueID'].iloc[0]
-                            truePID = SiPM_group['truePID'].iloc[0]
-                            hitID = SiPM_group['hitID'].iloc[0]
-                            hitPID = SiPM_group['hitPID'].iloc[0]
-                            theta = SiPM_group['truetheta'].iloc[0]
-                            phi = SiPM_group['truephi'].iloc[0]
-                            strip_x = SiPM_group['strip_x'].iloc[0]
-                            strip_y = SiPM_group['strip_y'].iloc[0]
-                            strip_z = SiPM_group['strip_z'].iloc[0]
-                            set_event_details = True
-                    else: #no photons, no data
-                        continue
-                noise = False
-                if(trueID_list_len_max > 1):
-                    noise = True
-                if(not noise) and trigger:
-                    if(trueID_dict[current_indices[0]][trueID.item()] == -1):
-                        trueID_dict[current_indices[0]][trueID.item()] = trueID_dict_running_idx
-                        trueID_dict_running_idx += 1
-                    translated_trueID = trueID_dict[current_indices[0]][trueID.item()]
-                else:
-                    translated_trueID = -1
-                if(set_event_details) and (trigger):
-                    new_row = { 
-                       out_columns[0] : current_indices[0],
-                       out_columns[1] : current_indices[1],
-                       out_columns[2] : current_indices[2],
-                       out_columns[3] : current_indices[3],
-                       out_columns[4] : translated_trueID, 
-                       "original_trueID" : trueID.item(), 
-                       out_columns[5] : truePID.item(), 
-                       out_columns[6] : hitID.item(),
-                       out_columns[7] : hitPID.item(),
-                       out_columns[8] : P.item(), 
-                       out_columns[9] : theta.item(), 
-                      out_columns[10] : phi.item(), 
-                      out_columns[11] : strip_z.item(), 
-                      out_columns[12] : strip_x.item(), 
-                      out_columns[13] : strip_y.item(), 
-                      out_columns[14] : charge_times[0,0].item(), 
-                      out_columns[15] : charge_times[0,1].item(), 
-                      out_columns[16] : charge_times[1,0].item(), 
-                      out_columns[17] : charge_times[1,1].item(),
-                    }
-                    results.append(new_row)
-            if i < len(row_df):
-                # Update indices for the new segment
-                current_indices = [
-                    event_indices[i],
-                    stave_indices[i],
-                    layer_indices[i],
-                    segment_indices[i]
-                ]
-                #save the index of the beginning of segment so we know
-                #which hits are in this segment
-                segment_start = i
-    end = time.time()
-    print(f"second loop took {end - begin} seconds")
-    return pd.DataFrame(results)
-
-@profile_function
-def generateSiPMOutputOld(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 3):
-    out_columns = ['event_idx','stave_idx','layer_idx','segment_idx','trueID','truePID','hitID','hitPID','P','Theta','Phi','strip_x','strip_y','strip_z','Charge1','Time1','Charge2','Time2']
-    rows = []
-    processor = SiPMSignalProcessor()
-    normflow_input = []
-    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
-    print_w_time("Processing data in generateSiPMOutput...")
-    got_row_indexes = False
-    labels = []
-    for row_idx, row in processed_data.iterrows():
-        for SiPM_idx in range(2):
-            num_pixel_tag = num_pixel_list[SiPM_idx] #get the name of the number of pixels for this SiPM
-            #create a new row for each of the photons/pixels
-            row_copy = row.copy()
-            row_copy['SiPM_idx'] = SiPM_idx
-            if(not got_row_indexes):
-                labels = row_copy.index.to_list()
-                got_row_indexes = True
-            normflow_input.append(torch.tensor(row_copy.values,dtype=torch.float32).repeat(int(row_copy[num_pixel_tag]), 1))
-    #Create a dict like{label : index in row}
-    label_dict = {}
-    for i in range(len(labels)):
-        label_dict[labels[i]] = i
-        
-    normflow_input_tensor = torch.cat(normflow_input)
-
-    data = []
-    print_w_time(f"starting sampling")
-    begin = time.time()
-#     for i in tqdm(range(0, len(normflow_input_tensor), batch_size)):
-    for i in range(0, len(normflow_input_tensor), batch_size):
-        print_w_time(f"Starting batch # {(i / batch_size) + 1} / {int(np.ceil(len(normflow_input_tensor) / batch_size))}")
-        batch_end = min(i + batch_size, len(normflow_input_tensor))
-        batch_rows = normflow_input_tensor[i:batch_end]
-        context_indexes = [label_dict["z_pos"],label_dict["hittheta"],label_dict["hitmomentum"]]
-        time_index = label_dict["time"]
-        batch_context = batch_rows[:,context_indexes].to(device)
-        batch_particle_hit_times = batch_rows[:,time_index]
-        
-        with torch.no_grad():
-            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1).cpu() + batch_particle_hit_times
-        batch_combined_data = torch.cat((batch_rows,samples.unsqueeze(-1)),dim = 1)
-        data.extend(batch_combined_data)
-    end = time.time()
-    print_w_time(f"sampling took {(end - begin)} seconds")
-    print_w_time("creating df")
-    labels.append("photon_time")
-    row_df = pd.DataFrame(data,columns = labels)
-    print_w_time("Beginning pulse process")
-    running_index = 0
-    for (event_idx, stave_idx, layer_idx, segment_idx),group in row_df.groupby(['event_idx', 'stave_idx', 'layer_idx','segment_idx']):
-#         print(f"Starting row # {running_index}\nevent #{event_idx}, stave #{stave_idx}, layer #{layer_idx}, segment #{segment_idx}")
-        charge_times = torch.tensor([[0.0,0.0],[0.0,0.0]])
-        set_event_details = False
-        trigger = False
-        trueID_list_len_max = -1
-        for SiPM_idx, SiPM_group in group.groupby(['SiPM_idx']):
-            #need to see if we get more than 1 hit in a segment - greg says to label this as noise
-            trueID_list_len = len(set(SiPM_group["trueID"]))
-            trueID_list_len_max = max(trueID_list_len,trueID_list_len_max)
-            photon_times = torch.tensor(sorted(SiPM_group['photon_time'])) * 10 **(-9)
-            #get relative times
-            if(len(photon_times) > 0):
-                #calculate time and charge
-                time_arr,waveform = processor.generate_waveform(photon_times)
-                timing = processor.get_pulse_timing(waveform,threshold = pixel_threshold)
-                if(timing is not None):
-                    curr_charge = processor.integrate_charge(waveform) * 1e6
-                    curr_timing = timing * 1e8
-                    print(f"curr_charge: {curr_charge}")
-                    charge_times[SiPM_idx][0] = processor.integrate_charge(waveform) * 1e6
-                    charge_times[SiPM_idx][1] = timing * 1e8
-#                                 print(f"SiPM idx {SiPM_idx} triggered, (time,charge) : ({curr_timing},{curr_charge})")
-                    trigger = True
-                else: #no trigger, don't set details yet
-                    continue
-                if(not set_event_details):
-                    #take the 0th one - if there are multiple, then these are noise anyways
-                    P = SiPM_group['truemomentum'][0]
-                    trueID = SiPM_group['trueID'][0]
-                    truePID = SiPM_group['truePID'][0]
-                    hitID = SiPM_group['hitID'][0]
-                    hitPID = SiPM_group['hitPID'][0]
-                    theta = SiPM_group['truetheta'][0]
-                    phi = SiPM_group['truephi'][0]
-                    strip_x = SiPM_group['strip_x'][0]
-                    strip_y = SiPM_group['strip_y'][0]
-                    strip_z = SiPM_group['strip_z'][0]
-                    set_event_details = True
-            else: #no photons, no data
-                continue
-        if(not set_event_details):
-            continue
-        if (not trigger):
-            continue;
-        noise = False
-        if(trueID_list_len_max > 1):
-            noise = True
-        if(not noise):
-            if(trueID_dict[event_idx][trueID.item()] == -1):
-                trueID_dict[event_idx][trueID.item()] = trueID_dict_running_idx
-                trueID_dict_running_idx += 1
-            translated_trueID = trueID_dict[event_idx][trueID.item()]
-        else:
-            translated_trueID = -1
-        new_row = { 
-           out_columns[0] : event_idx,
-           out_columns[1] : stave_idx,
-           out_columns[2] : layer_idx,
-           out_columns[3] : segment_idx,
-           out_columns[4] : translated_trueID, 
-           "original_trueID" : trueID.item(), 
-           out_columns[5] : truePID.item(), 
-           out_columns[6] : hitID.item(),
-           out_columns[7] : hitPID.item(),
-           out_columns[8] : P.item(), 
-           out_columns[9] : theta.item(), 
-          out_columns[10] : phi.item(), 
-          out_columns[11] : strip_z.item(), 
-          out_columns[12] : strip_x.item(), 
-          out_columns[13] : strip_y.item(), 
-          out_columns[14] : charge_times[0,0].item(), 
-          out_columns[15] : charge_times[0,1].item(), 
-          out_columns[16] : charge_times[1,0].item(), 
-          out_columns[17] : charge_times[1,1].item(),
-        }
-        rows.append(new_row)
-        running_index += 1
-    return pd.DataFrame(rows,columns = out_columns)
         
 
 
