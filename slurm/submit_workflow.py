@@ -131,7 +131,7 @@ def submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_
     error_folder = f"{workdir}/slurm/error/error{current_date}"
     root_file_dir = f"{workdir}/root_files/Clustering/{current_date}"
     tensor_path_name = f"{workdir}/macros/Timing_estimation/data/momentum_prediction_pulse/{current_date}_{particle_name}"
-    run_name = f"jan_13_old_analyze_{num_events}events"
+    run_name = f"jan_15_new_w_fix_analyze_{num_events}events"
     
     sts_pref="/hpc/group/vossenlab/rck32/eic/work_eic/slurm/status_codes/"
     hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/K_L_only.hepmc3"

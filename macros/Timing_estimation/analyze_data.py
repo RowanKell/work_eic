@@ -75,7 +75,7 @@ today = x.strftime("%B_%d")
 model_compile = get_compiled_NF_model()
 
 processed_data = load_defaultdict(inputProcessedData)
-'''
+
 print("Starting prepare_nn_input")
 begin = time.time()
 ret_df = newer_prepare_nn_input(processed_data, model_compile,batch_size = 50000)
@@ -93,7 +93,7 @@ begin = time.time()
 ret_df = prepare_prediction_input_pulse(nn_input,nn_output)
 end = time.time()
 print(f"prepare_prediction_input_pulse took {(end - begin) / 60} minutes")
-
+'''
 ret_df.to_csv(outputDataframePathName)
 
 print("finished job")

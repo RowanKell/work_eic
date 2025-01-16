@@ -259,7 +259,7 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, de
     processer = SiPMSignalProcessor()
     rows = []
 
-    seen_keys = []
+    seen_keys = set()
     curr_key = (-1,-1,-1,-1)
 
     current_samples = [[],[]] 
@@ -271,16 +271,16 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, de
 
     begin = time.time()
 
-    sample_idx = 0
+#     sample_idx = 0
     for (event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z), sample in zip(all_metadata, sampled_data):
 
         #progress bar
-        floor_percent = int(np.floor(len(sampled_data) / 100))
-        if(sample_idx % floor_percent == 0):
-            curr_time = time.time()
-            print(f"Signal Processing is now {int(np.floor(sample_idx / len(sampled_data) * 100))}% complete (time elapsed: {curr_time - begin})")
-#             clear_output(wait = True)
-        sample_idx += 1
+#         floor_percent = int(np.floor(len(sampled_data) / 100))
+#         if(sample_idx % floor_percent == 0):
+#             curr_time = time.time()
+#             print(f"Signal Processing is now {int(np.floor(sample_idx / len(sampled_data) * 100))}% complete (time elapsed: {curr_time - begin})")
+# #             clear_output(wait = True)
+#         sample_idx += 1
 
         # Work with all samples of one SiPM together
         key = (event_idx, stave_idx, layer_idx, segment_idx)
@@ -293,7 +293,7 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, de
         # First key
         elif curr_key == (-1,-1,-1,-1):
             current_samples[SiPM_idx].append(sample)
-            seen_keys.append(key)
+            seen_keys.add(key)
             curr_key = key
         # End of curr_key: perform calc
         else:
@@ -355,7 +355,7 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, de
                 rows.append(new_row)
             ''' END IMPLEMENTATION '''
             #reset current samples for new key
-            seen_keys.append(key)
+            seen_keys.add(key)
             current_samples = [[],[]]
             current_samples.append(sample)
             curr_key = key
