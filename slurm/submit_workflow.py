@@ -122,7 +122,7 @@ echo ENDING JOB
         job_ids.append(job_id)
 
     return job_ids
-def submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_num, num_events,particle,hepmc_bool = 1):
+def submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_num, num_events,particle,run_name,hepmc_bool = 1):
     particle_name = particle_name_dict[particle]
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
@@ -131,7 +131,6 @@ def submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_
     error_folder = f"{workdir}/slurm/error/error{current_date}"
     root_file_dir = f"{workdir}/root_files/Clustering/{current_date}"
     tensor_path_name = f"{workdir}/macros/Timing_estimation/data/momentum_prediction_pulse/{current_date}_{particle_name}"
-    run_name = f"jan_15_new_w_fix_analyze_{num_events}events"
     
     sts_pref="/hpc/group/vossenlab/rck32/eic/work_eic/slurm/status_codes/"
     hepmc_file = "/hpc/group/vossenlab/rck32/eic/EVGEN/K_L_only.hepmc3"
@@ -156,10 +155,10 @@ def submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_
 #SBATCH --job-name={run_name}_{current_date}_{i}
 #SBATCH --output={out_folder}/%x.out
 #SBATCH --error={error_folder}/%x.err
-#SBATCH -p vossenlab-gpu
+#SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=100G
+#SBATCH --mem=10G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 
@@ -173,17 +172,17 @@ source install/setup.sh
 
 #########   DDSIM    ##########
 echo "Running ddsim with steeringFile input"
-/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G --numberOfEvents {num_events} --steeringFile {steeringFile} --outputFile {root_file_dir}/{run_name}_{num_events}.edm4hep.root  --part.userParticleHandler=""
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G --numberOfEvents {num_events} --steeringFile {steeringFile} --outputFile {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --part.userParticleHandler=""
 echo "DDSIM completed successfully"
 echo began process root file
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/{run_name}_{num_events}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}.json
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json
 EOF
 
 echo "Beginning Analysis with analyze_data_old.py"    
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 
 #########   ANALYZE OLD    ##########
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}.csv
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv
 
 deactivate
 echo ENDING JOB
@@ -198,13 +197,14 @@ echo ENDING JOB
 
 
 def main():
-    num_simulations = 1
-    simulation_start_num = 0
-    num_events =300
+    num_simulations = 30
+    simulation_start_num = 11
+    num_events = 50
+    run_name = f"jan_17_{num_events}events"
     particle = "kaon0L"
 
     # Submit simulation and processing jobs
-    job_ids = submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_num, num_events,particle)
+    job_ids = submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_num, num_events,particle,run_name)
     print(f"Submitted {num_simulations} simulation and processing jobs")
 
 

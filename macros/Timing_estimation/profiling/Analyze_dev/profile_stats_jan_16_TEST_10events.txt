@@ -1,0 +1,217 @@
+Timer unit: 1e-09 s
+
+Total time: 46.9072 s
+File: /tmp/ipykernel_3759123/2665105534.py
+Function: test_newer_prepare_nn_input at line 1
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+     1                                           def test_newer_prepare_nn_input(processed_data = processed_data, normalizing_flow=model_compile, batch_size=50000, device='cuda',pixel_threshold = 5):
+     2         1    1017981.0    1e+06      0.0      processer = SiPMSignalProcessor()
+     3                                           
+     4         1       1288.0   1288.0      0.0      pixel_dict = {}
+     5                                           
+     6         1       1665.0   1665.0      0.0      all_context = []
+     7         1       1198.0   1198.0      0.0      all_time_pixels = []
+     8         1       1346.0   1346.0      0.0      all_metadata = []
+     9         1       3492.0   3492.0      0.0      num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
+    10         1     166397.0 166397.0      0.0      print("Preparing input for NF")
+    11        11   15436357.0    1e+06      0.0      for event_idx, event_data in tqdm(processed_data.items()):
+    12        36      49823.0   1384.0      0.0          for stave_idx, stave_data in event_data.items():
+    13       164     172327.0   1050.8      0.0              for layer_idx, layer_data in stave_data.items():
+    14      1237    1011382.0    817.6      0.0                  for segment_idx, segment_data in layer_data.items():
+    15      1099     568574.0    517.4      0.0                      trueID_list = []
+    16     17178    9310993.0    542.0      0.0                      for particle_id, particle_data in segment_data.items():
+    17                                               #                         print(f"keys of particle data: {particle_data.keys()}")
+    18                                               #                         print(f"types: {type(particle_data['z_pos'])},{type(particle_data['hittheta'])},{type(particle_data['hitmomentum'])}")
+    19     32158  170215264.0   5293.1      0.4                          base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
+    20     16079    4253381.0    264.5      0.0                                                      dtype=torch.float32)
+    21     32158  153952783.0   4787.4      0.3                          base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
+    22     16079    4457129.0    277.2      0.0                                                          dtype=torch.float32)
+    23     32158  150584263.0   4682.6      0.3                          base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
+    24     16079    4422512.0    275.0      0.0                                                          dtype=torch.float32)
+    25     16079    6442592.0    400.7      0.0                          if particle_data['trueID'] not in  trueID_list:
+    26      1099    1310282.0   1192.2      0.0                              trueID_list.append(particle_data['trueID'])
+    27     48237   34751041.0    720.4      0.1                          for SiPM_idx in range(2):
+    28     32158    9936754.0    309.0      0.0                              z_pos = particle_data['z_pos']
+    29     32158  156252467.0   4858.9      0.3                              context = base_context.clone()
+    30     32158  170197309.0   5292.5      0.4                              context[0] = z_pos
+    31     32158   11711690.0    364.2      0.0                              num_pixel_tag = num_pixel_list[SiPM_idx]
+    32     32158  253241418.0   7874.9      0.5                              all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
+    33     32158   11335199.0    352.5      0.0                              if(SiPM_idx == 0):
+    34     16079  120453976.0   7491.4      0.3                                  all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
+    35                                                                       else:
+    36     16079  114960968.0   7149.8      0.2                                  all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
+    37                                                                       # Assuming particle_data is a dictionary-like object and trueID_list is defined
+    38     32158   30117059.0    936.5      0.1                              fields = [
+    39                                                                           'truemomentum', 'trueID', 'truePID', 'hitID', 'hitPID', 
+    40                                                                           'truetheta', 'truephi', 'strip_x', 'strip_y', 'strip_z', 
+    41                                                                           'hit_x', 'hit_y', 'hit_z', 'KMU_trueID', 'KMU_truePID', 
+    42                                                                           'KMU_true_phi', 'KMU_true_momentum_mag', 'KMU_endpoint_x', 
+    43                                                                           'KMU_endpoint_y', 'KMU_endpoint_z'
+    44                                                                       ]
+    45                                           
+    46     32158  132714421.0   4126.9      0.3                              all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'],len(trueID_list),particle_data['hit_x'],particle_data['hit_y'],particle_data['hit_z'],particle_data['KMU_trueID'],particle_data['KMU_truePID'],particle_data['KMU_true_phi'],particle_data['KMU_true_momentum_mag'],particle_data['KMU_endpoint_x'],particle_data['KMU_endpoint_y'],particle_data['KMU_endpoint_z'])] * particle_data[num_pixel_tag])
+    47     32158   16978696.0    528.0      0.0                              particle_key = (event_idx,stave_idx,layer_idx,segment_idx)
+    48     32158   13233645.0    411.5      0.0                              if(particle_key in pixel_dict):
+    49     31059   23672726.0    762.2      0.1                                  pixel_dict[particle_key][0] +=particle_data["num_pixels_high_z"]
+    50     31059   23946950.0    771.0      0.1                                  pixel_dict[particle_key][1] +=particle_data["num_pixels_low_z"]
+    51                                                                       else:
+    52      1099    1305191.0   1187.6      0.0                                  pixel_dict[particle_key] =[particle_data["num_pixels_high_z"],particle_data["num_pixels_low_z"]]
+    53         1   81417611.0    8e+07      0.2      all_context = torch.cat(all_context)
+    54         1   85799786.0    9e+07      0.2      all_time_pixels = torch.cat(all_time_pixels)
+    55                                           
+    56         1     172232.0 172232.0      0.0      print("Sampling data...")
+    57         1       1456.0   1456.0      0.0      sampled_data = []
+    58         1       3372.0   3372.0      0.0      begin = time.time()
+    59        22   38027773.0    2e+06      0.1      for i in tqdm(range(0, len(all_context), batch_size)):
+    60        21     660834.0  31468.3      0.0          batch_end = min(i + batch_size, len(all_context))
+    61        21   31376012.0    1e+06      0.1          batch_context = all_context[i:batch_end].to(device)
+    62        21     444943.0  21187.8      0.0          batch_time_pixels = all_time_pixels[i:batch_end]
+    63                                           
+    64        21     898667.0  42793.7      0.0          with torch.no_grad():
+    65        21        1e+10    6e+08     26.8              samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
+    66                                           
+    67        21 2161354539.0    1e+08      4.6          sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
+    68         1       2966.0   2966.0      0.0      end = time.time()
+    69         1     111874.0 111874.0      0.0      print(f"sampling took {end - begin} seconds")
+    70         1      30895.0  30895.0      0.0      print("Processing signal...")
+    71                                               
+    72                                               
+    73                                               # VARIABLES FOR SAVING DATA AS DF
+    74         1    1760942.0    2e+06      0.0      processer = SiPMSignalProcessor()
+    75         1       1503.0   1503.0      0.0      rows = []
+    76                                           
+    77         1       2946.0   2946.0      0.0      seen_keys = set()
+    78         1       1305.0   1305.0      0.0      curr_key = (-1,-1,-1,-1)
+    79                                           
+    80         1       6462.0   6462.0      0.0      pixel_counter = np.zeros(2,dtype=int)
+    81         1     161425.0 161425.0      0.0      processor = SiPMSignalProcessor()
+    82                                           
+    83         1        974.0    974.0      0.0      translated_trueID = 0
+    84         1        520.0    520.0      0.0      trueID_dict_running_idx = 0
+    85         1        721.0    721.0      0.0      trueID_dict = {}
+    86                                           
+    87         1       1995.0   1995.0      0.0      begin = time.time()
+    88                                           
+    89                                               #     sample_idx = 0
+    90   1022506  576439077.0    563.8      1.2      for (event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z), sample in zip(all_metadata, sampled_data):
+    91                                           
+    92                                                   #progress bar
+    93                                               #         floor_percent = int(np.floor(len(sampled_data) / 100))
+    94                                               #         if(sample_idx % floor_percent == 0):
+    95                                               #             curr_time = time.time()
+    96                                               #             print(f"Signal Processing is now {int(np.floor(sample_idx / len(sampled_data) * 100))}% complete (time elapsed: {curr_time - begin})")
+    97                                               #             clear_output(wait = True)
+    98                                               #         sample_idx += 1
+    99                                           
+   100                                                   # Work with all samples of one SiPM together
+   101   1022505  580031550.0    567.3      1.2          key = (event_idx, stave_idx, layer_idx, segment_idx)
+   102   1022505  381502966.0    373.1      0.8          if key in seen_keys:
+   103   1021488  347949968.0    340.6      0.7              if key == curr_key:
+   104   1021488 2996894767.0   2933.9      6.4                  current_samples[SiPM_idx][pixel_counter[SiPM_idx]] = sample
+   105   1021488 2204970962.0   2158.6      4.7                  pixel_counter[SiPM_idx] = pixel_counter[SiPM_idx] + 1
+   106                                                       else:
+   107                                                           continue
+   108                                                           print(f"ERROR: key: {key} | curr_key: {curr_key}")
+   109                                                   # First key
+   110      1017    1053289.0   1035.7      0.0          elif curr_key == (-1,-1,-1,-1):
+   111         1      11337.0  11337.0      0.0              current_samples = [np.empty(pixel_dict[key][0]),np.empty(pixel_dict[key][1])]
+   112         1      34683.0  34683.0      0.0              current_samples[SiPM_idx][pixel_counter[SiPM_idx]] = sample
+   113         1       4538.0   4538.0      0.0              pixel_counter[SiPM_idx] = pixel_counter[SiPM_idx] + 1
+   114         1       2532.0   2532.0      0.0              seen_keys.add(key)
+   115         1        492.0    492.0      0.0              curr_key = key
+   116                                                   # End of curr_key: perform calc
+   117                                                   else:
+   118                                                       #calculate photon stuff on current_samples
+   119                                           
+   120                                                       '''IMPLEMENTING PREDICTION INPUT PULSE SEGMENT BY SEGMENT'''
+   121      1016     560109.0    551.3      0.0              curr_event_idx = curr_key[0]
+   122      1016     473060.0    465.6      0.0              curr_stave_idx = curr_key[1]
+   123      1016     437181.0    430.3      0.0              curr_layer_idx = curr_key[2]
+   124      1016     445081.0    438.1      0.0              curr_segment_idx = curr_key[3]
+   125      3048    4629349.0   1518.8      0.0              for curr_SiPM_idx in range(2):
+   126      2032     794960.0    391.2      0.0                  trigger = False
+   127      2032    2330601.0   1146.9      0.0                  photon_times_not_np = current_samples[curr_SiPM_idx]
+   128      2032   12582354.0   6192.1      0.0                  photon_times = np.array(photon_times_not_np)
+   129      2032    2170501.0   1068.2      0.0                  if(len(photon_times) > 0):
+   130      1958        2e+10    1e+07     48.2                      time_arr,waveform = processor.generate_waveform(photon_times)
+   131      1958  421409439.0 215224.4      0.9                      timing = processer.get_pulse_timing(waveform,threshold = pixel_threshold)
+   132      1958    1431763.0    731.2      0.0                      if(timing is not None):
+   133                                                                   #scale inputs to avoid exploding gradients
+   134      1486   65482862.0  44066.5      0.1                          curr_charge = processor.integrate_charge(waveform) / 100
+   135      1486    1645835.0   1107.6      0.0                          curr_timing = timing /10
+   136      1486    1005024.0    676.3      0.0                          trigger = True
+   137                                                               #skip segments that don't pass the threshold
+   138                                                               else:
+   139                                                                   continue
+   140                                                           #skip segments with no photon hits
+   141                                                           else:
+   142                                                               continue
+   143      1486     762690.0    513.3      0.0                  if(trueID_list_len > 1):
+   144                                                               translated_trueID = -1
+   145                                                           else:
+   146      1486    2116999.0   1424.6      0.0                      if((event_idx,trueID) not in trueID_dict):
+   147        10      12270.0   1227.0      0.0                          trueID_dict[(event_idx,trueID)] = trueID_dict_running_idx
+   148        10       5053.0    505.3      0.0                          trueID_dict_running_idx += 1
+   149      1486    1363469.0    917.5      0.0                      translated_trueID = trueID_dict[(event_idx,trueID)]
+   150      1486    5533217.0   3723.6      0.0                  new_row = {
+   151      1486     597424.0    402.0      0.0                      "event_idx"      : curr_event_idx,
+   152      1486     760781.0    512.0      0.0                      "stave_idx"      : curr_stave_idx,
+   153      1486     731518.0    492.3      0.0                      "layer_idx"      : curr_layer_idx,
+   154      1486     839566.0    565.0      0.0                      "segment_idx"    : curr_segment_idx,
+   155      1486     756348.0    509.0      0.0                      "SiPM_idx"    : curr_SiPM_idx,
+   156      1486     709697.0    477.6      0.0                      "trueID"         : translated_trueID,
+   157      1486     711786.0    479.0      0.0                      "truePID"        : trueID,
+   158      1486     738019.0    496.6      0.0                      "hitID"          : hitID,
+   159      1486     685331.0    461.2      0.0                      "P"              : momentum,
+   160      1486     704639.0    474.2      0.0                      "Theta"          : theta,
+   161      1486     659653.0    443.9      0.0                      "Phi"            : phi,
+   162      1486     717817.0    483.1      0.0                      "strip_x"        : strip_z,
+   163      1486     651637.0    438.5      0.0                      "strip_y"        : strip_x,
+   164      1486     627623.0    422.4      0.0                      "strip_z"        : strip_y,
+   165      1486     724565.0    487.6      0.0                      "hit_x"          : hit_x,
+   166      1486     691771.0    465.5      0.0                      "hit_y"          : hit_y,
+   167      1486     653193.0    439.6      0.0                      "hit_z"          : hit_z,
+   168      1486     758271.0    510.3      0.0                      "KMU_endpoint_x" : KMU_endpoint_x,
+   169      1486     641597.0    431.8      0.0                      "KMU_endpoint_y" : KMU_endpoint_y,
+   170      1486     650646.0    437.9      0.0                      "KMU_endpoint_z" : KMU_endpoint_z,
+   171      1486     618145.0    416.0      0.0                      "Charge"         : curr_charge,
+   172      1486     656217.0    441.6      0.0                      "Time"           : curr_timing
+   173                                                           }
+   174      1486    2026262.0   1363.6      0.0                  rows.append(new_row)
+   175                                                       ''' END IMPLEMENTATION '''
+   176                                                       #reset current samples for new key
+   177      1016    1734297.0   1707.0      0.0              seen_keys.add(key)
+   178      1016    3188409.0   3138.2      0.0              pixel_counter = pixel_counter = np.zeros(2,dtype=int)
+   179      1016    6728363.0   6622.4      0.0              current_samples = [np.empty(pixel_dict[key][0]),np.empty(pixel_dict[key][1])]
+   180      1016   12937427.0  12733.7      0.0              current_samples[SiPM_idx][pixel_counter[SiPM_idx]] = sample
+   181      1016    2345324.0   2308.4      0.0              pixel_counter[SiPM_idx] = pixel_counter[SiPM_idx] + 1
+   182      1016     397796.0    391.5      0.0              curr_key = key
+   183                                           
+   184                                           
+   185         1       4127.0   4127.0      0.0      end = time.time()
+   186         1   12468444.0    1e+07      0.0      ret_df = pd.DataFrame(rows)
+   187         1     201773.0 201773.0      0.0      print(f"Creating DF took {end - begin} seconds")
+   188         1        282.0    282.0      0.0      return ret_df
+
+Total time: 17.2995 s
+File: /tmp/ipykernel_3759123/3869831568.py
+Function: generate_waveform at line 28
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    28                                               def generate_waveform(self, photon_times):
+    29                                                   """Generate waveform from list of photon arrival times"""
+    30                                                   # Initialize waveform array
+    31      1958   37657036.0  19232.4      0.2          waveform = np.zeros_like(self.time)
+    32                                                   
+    33                                                   # Add pulse for each photon
+    34   2046960 1428639824.0    697.9      8.3          for t in photon_times:
+    35   2045002  756350928.0    369.9      4.4              if 0 <= t < self.window:
+    36   1804598 2292228906.0   1270.2     13.3                  idx = int(t * self.sampling_rate)
+    37   1804598 2068366579.0   1146.2     12.0                  remaining_samples = len(self.time) - idx
+    38   1804598        1e+10   5937.6     61.9                  waveform[idx:] += self.pulse_shape[:remaining_samples]
+    39                                                   
+    40      1958    1312228.0    670.2      0.0          return self.time, waveform
+

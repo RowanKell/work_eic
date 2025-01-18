@@ -284,6 +284,7 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, de
 
         # Work with all samples of one SiPM together
         key = (event_idx, stave_idx, layer_idx, segment_idx)
+        
         if key in seen_keys:
             if key == curr_key:
                 current_samples[SiPM_idx].append(sample)
@@ -359,6 +360,11 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, de
             current_samples = [[],[]]
             current_samples.append(sample)
             curr_key = key
+            if(event_idx != curr_event_idx):
+                event_first_hit = np.array([curr_timing,strip_z,strip_x])
+            elif curr_timing > event_first_hit[0]:
+                event_first_hit = np.array([curr_timing,strip_z,strip_x])
+                
 
 
     end = time.time()
