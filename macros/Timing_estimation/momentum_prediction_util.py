@@ -24,6 +24,9 @@ import json
 from datetime import datetime as dt
 import pandas as pd
 
+from itertools import groupby
+from operator import itemgetter
+
 import cProfile
 import pstats
 from functools import wraps
@@ -181,8 +184,13 @@ def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, devi
     print(f"reorganizing took {end - begin} seconds")
     return nn_input, nn_output
 
+# Create a key function that extracts the grouping fields
+def get_key(item):
+    metadata, _ = item
+    return metadata[:4]  # event_idx, stave_idx, layer_idx, segment_idx
+
 @profile_function
-def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda',pixel_threshold = 5):
+def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, device='cuda',pixel_threshold = 5):
     processer = SiPMSignalProcessor()
     
     all_context = []
@@ -253,123 +261,92 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, de
     end = time.time()
     print(f"sampling took {end - begin} seconds")
     print("Processing signal...")
-    
-    
-    # VARIABLES FOR SAVING DATA AS DF
-    processer = SiPMSignalProcessor()
-    rows = []
-
-    seen_keys = set()
-    curr_key = (-1,-1,-1,-1)
-
-    current_samples = [[],[]] 
     processor = SiPMSignalProcessor()
-
-    translated_trueID = 0
-    trueID_dict_running_idx = 0
+    rows = []
     trueID_dict = {}
+    trueID_dict_running_idx = 0
+    event_first_hits = {}
 
-    begin = time.time()
+    # Sort the data first (required for groupby)
+    sorted_data = sorted(zip(all_metadata, sampled_data), key=get_key)
 
-#     sample_idx = 0
-    for (event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z), sample in zip(all_metadata, sampled_data):
+    # Process each group
+    for key, group in groupby(sorted_data, key=get_key):
+        event_idx, stave_idx, layer_idx, segment_idx = key
 
-        #progress bar
-#         floor_percent = int(np.floor(len(sampled_data) / 100))
-#         if(sample_idx % floor_percent == 0):
-#             curr_time = time.time()
-#             print(f"Signal Processing is now {int(np.floor(sample_idx / len(sampled_data) * 100))}% complete (time elapsed: {curr_time - begin})")
-# #             clear_output(wait = True)
-#         sample_idx += 1
+        # Initialize arrays for both SiPMs
+        sipm_samples = [[], []]
 
-        # Work with all samples of one SiPM together
-        key = (event_idx, stave_idx, layer_idx, segment_idx)
-        
-        if key in seen_keys:
-            if key == curr_key:
-                current_samples[SiPM_idx].append(sample)
-            else:
+        # Get the first metadata tuple for this group (they should all be the same within a group)
+        first_item = next(group)
+        metadata = first_item[0]
+        _, _, _, _, _, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z = metadata
+        sipm_samples[first_item[0][4]].append(first_item[1])
+
+        # Process rest of group
+        for metadata, sample in group:
+            sipm_idx = metadata[4]
+            sipm_samples[sipm_idx].append(sample)
+
+        # Process each SiPM's samples
+        for curr_SiPM_idx in range(2):
+            if not sipm_samples[curr_SiPM_idx]:
                 continue
-                print(f"ERROR: key: {key} | curr_key: {curr_key}")
-        # First key
-        elif curr_key == (-1,-1,-1,-1):
-            current_samples[SiPM_idx].append(sample)
-            seen_keys.add(key)
-            curr_key = key
-        # End of curr_key: perform calc
-        else:
-            #calculate photon stuff on current_samples
 
-            '''IMPLEMENTING PREDICTION INPUT PULSE SEGMENT BY SEGMENT'''
-            curr_event_idx = curr_key[0]
-            curr_stave_idx = curr_key[1]
-            curr_layer_idx = curr_key[2]
-            curr_segment_idx = curr_key[3]
-            for curr_SiPM_idx in range(2):
-                trigger = False
-                photon_times = np.array(current_samples[curr_SiPM_idx]) * 10 **(-9)
-                if(len(photon_times) > 0):
-                    time_arr,waveform = processor.generate_waveform(photon_times)
-                    timing = processer.get_pulse_timing(waveform,threshold = pixel_threshold)
-                    if(timing is not None):
-                        #scale inputs to avoid exploding gradients
-                        curr_charge = processor.integrate_charge(waveform) * 1e6
-                        curr_timing = timing * 1e8
-                        trigger = True
-                    #skip segments that don't pass the threshold
-                    else:
-                        continue
-                #skip segments with no photon hits
-                else:
-                    continue
-                if(trueID_list_len > 1):
-                    translated_trueID = -1
-                else:
-                    if((event_idx,trueID) not in trueID_dict):
-                        trueID_dict[(event_idx,trueID)] = trueID_dict_running_idx
-                        trueID_dict_running_idx += 1
-                    translated_trueID = trueID_dict[(event_idx,trueID)]
-                new_row = {
-                    "event_idx"      : curr_event_idx,
-                    "stave_idx"      : curr_stave_idx,
-                    "layer_idx"      : curr_layer_idx,
-                    "segment_idx"    : curr_segment_idx,
-                    "SiPM_idx"    : curr_SiPM_idx,
-                    "trueID"         : translated_trueID,
-                    "truePID"        : trueID,
-                    "hitID"          : hitID,
-                    "P"              : momentum,
-                    "Theta"          : theta,
-                    "Phi"            : phi,
-                    "strip_x"        : strip_z,
-                    "strip_y"        : strip_x,
-                    "strip_z"        : strip_y,
-                    "hit_x"          : hit_x,
-                    "hit_y"          : hit_y,
-                    "hit_z"          : hit_z,
-                    "KMU_endpoint_x" : KMU_endpoint_x,
-                    "KMU_endpoint_y" : KMU_endpoint_y,
-                    "KMU_endpoint_z" : KMU_endpoint_z,
-                    "Charge"         : curr_charge,
-                    "Time"           : curr_timing
-                }
-                rows.append(new_row)
-            ''' END IMPLEMENTATION '''
-            #reset current samples for new key
-            seen_keys.add(key)
-            current_samples = [[],[]]
-            current_samples.append(sample)
-            curr_key = key
-            if(event_idx != curr_event_idx):
-                event_first_hit = np.array([curr_timing,strip_z,strip_x])
-            elif curr_timing > event_first_hit[0]:
-                event_first_hit = np.array([curr_timing,strip_z,strip_x])
-                
+            photon_times = np.array(sipm_samples[curr_SiPM_idx]) * 10**(-9)
+            time_arr, waveform = processor.generate_waveform(photon_times)
+            timing = processor.get_pulse_timing(waveform, threshold=pixel_threshold)
 
+            if timing is None:
+                continue
 
-    end = time.time()
+            curr_charge = processor.integrate_charge(waveform) * 1e6
+            curr_timing = timing * 1e8
+            
+            if event_idx not in event_first_hits or curr_timing < event_first_hits[event_idx][0]:
+                event_first_hits[event_idx] = (curr_timing, strip_z, strip_x)
+
+            # Handle trueID translation
+            if trueID_list_len > 1:
+                translated_trueID = -1
+            else:
+                event_true_key = (event_idx, trueID)
+                if event_true_key not in trueID_dict:
+                    trueID_dict[event_true_key] = trueID_dict_running_idx
+                    trueID_dict_running_idx += 1
+                translated_trueID = trueID_dict[event_true_key]
+
+            # Create row
+            rows.append({
+                "event_idx": event_idx,
+                "stave_idx": stave_idx,
+                "layer_idx": layer_idx,
+                "segment_idx": segment_idx,
+                "SiPM_idx": curr_SiPM_idx,
+                "trueID": translated_trueID,
+                "truePID": truePID,
+                "hitID": hitID,
+                "P"              : momentum,
+                "Theta"          : theta,
+                "Phi"            : phi,
+                "strip_x"        : strip_z,
+                "strip_y"        : strip_x,
+                "strip_z"        : strip_y,
+                "hit_x"          : hit_x,
+                "hit_y"          : hit_y,
+                "hit_z"          : hit_z,
+                "KMU_endpoint_x" : KMU_endpoint_x,
+                "KMU_endpoint_y" : KMU_endpoint_y,
+                "KMU_endpoint_z" : KMU_endpoint_z,
+                "Charge"         : curr_charge,
+                "Time"           : curr_timing
+            })
+
     ret_df = pd.DataFrame(rows)
-    print(f"Creating DF took {end - begin} seconds")
+    
+    ret_df['first_hit_time'] = ret_df['event_idx'].map(lambda x: event_first_hits[x][0])
+    ret_df['first_hit_strip_x'] = ret_df['event_idx'].map(lambda x: event_first_hits[x][1])
+    ret_df['first_hit_strip_y'] = ret_df['event_idx'].map(lambda x: event_first_hits[x][2])
     return ret_df
 
 
