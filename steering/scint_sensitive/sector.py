@@ -13,6 +13,7 @@ SIM.gun.phiMin = 0*deg
 SIM.gun.phiMax = 360*deg
 SIM.gun.momentumMin = 1.0*GeV
 SIM.gun.momentumMax = 3.0*GeV
+# SIM.gun.particle = "neutron"
 SIM.gun.particle = "kaon0L"
 SIM.physics.list = "FTFP_BERT"
 SIM.physics.decays = False

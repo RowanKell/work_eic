@@ -197,11 +197,12 @@ echo ENDING JOB
 
 
 def main():
-    num_simulations = 30
-    simulation_start_num = 11
+    num_simulations = 500
+    simulation_start_num = 1202
     num_events = 50
-    run_name = f"jan_17_{num_events}events"
+    run_name = f"jan_18_{num_events}events"
     particle = "kaon0L"
+#     particle = "neutron"
 
     # Submit simulation and processing jobs
     job_ids = submit_simulation_and_processing_jobs_test(num_simulations,simulation_start_num, num_events,particle,run_name)
