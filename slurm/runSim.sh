@@ -56,7 +56,7 @@ content+="#SBATCH -p vossenlab-gpu\n"
 content+="#SBATCH --account=vossenlab\n"
 content+="#SBATCH --cpus-per-task=1\n"
 content+="#SBATCH --gpus=1\n"
-content+="#SBATCH --mem=40G\n"
+content+="#SBATCH --mem=80G\n"
 content+="#SBATCH --mail-user=rck32@duke.edu\n"
 content+="echo began job\n"
 content+="cat << EOF | /cwork/rck32/eic/eic-shell\n"
@@ -67,7 +67,7 @@ content+="source /cwork/rck32/ML_venv/bin/activate\n"
 content+="python3 ${workdir}/macros/Timing_estimation/sample.py --useArgs --rootFile ${rootname} --outputFile ${recoOutput} --outputlayeridxs ${outputlayer_path}\n"
 contetn+="deactivate\n"
 contetn+="source /cwork/reg_venv/bin/activate\n"
-content+="python3 ${workdir}/macros/Timing_estimation/plot_truth_learned.py"
+content+="python3 ${workdir}/macros/Timing_estimation/plot_timing_res.py"
 echo -e "$content" > $file
 sbatch $file
 
