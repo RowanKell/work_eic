@@ -367,7 +367,7 @@ def process_times(uproot_path,threshold = 10, multipleFiles = False):
     #     if(len(curr_list) == 15):
     #         print(f"event #{event_num}")
     print(f"total: {total} | duplicates: {duplicates} | ratio: {duplicates / total} | num unique cells hit: {len(total_cells)} | skipped: {skipped}")
-    return accepted_times, second_lowest_list, avg_accepted_times
+    return accepted_times, second_lowest_list, avg_accepted_times, times
 
 def get_all_times(uproot_path,threshold = 10, multipleFiles = False):
     if(multipleFiles):

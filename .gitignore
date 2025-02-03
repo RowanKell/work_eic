@@ -18,3 +18,4 @@ macros/Timing_estimation/hyper_param_optim*/
 status_codes/
 macros/NF_timing_modeling/data/
 macros/NF_timing_modeling/models/
+*.pyc
