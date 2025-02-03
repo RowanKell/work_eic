@@ -29,9 +29,9 @@ SIM.gun.thetaMax = 90*deg
 SIM.gun.distribution = "uniform"
 SIM.gun.phiMin = 0*deg #use 22.5 to hit corner, -45 to hit bottom right in middle
 SIM.gun.phiMax = 0*deg
-SIM.gun.momentumMin = 0.9*GeV
-SIM.gun.momentumMax = 1.1*GeV
-#SIM.gun.particle = "pi-"
+SIM.gun.momentumMin = 10*GeV
+SIM.gun.momentumMax = 10*GeV
+SIM.gun.particle = "mu-"
 
 '''
 # Ensure that Cerenkov and optical physics are always loaded

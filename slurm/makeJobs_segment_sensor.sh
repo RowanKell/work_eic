@@ -35,15 +35,14 @@ do
     content+="#SBATCH --job-name=${rootname}${i}\n"
     content+="#SBATCH --output=${out_folder}/%x_mu.out\n"
     content+="#SBATCH --error=${error_folder}/%x_mu.err\n"
-    content+="#SBATCH -p common\n"
+    content+="#SBATCH -p scavenger\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
-    content+="#SBATCH --mem=10G\n"
-    content+="#SBATCH --mail-user=rck32@duke.edu\n"
+    content+="#SBATCH --mem=5G\n"
     content+="echo began job\n"
     content+="cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell\n"
     content+="source install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile /hpc/group/vossenlab/rck32/eic/work_eic/steering/sensor_sensitive/variation.py --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 250 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/time_res_one_segment_sensor/October_24/run_3_w_QE_5cm_thickness/mu_5GeV_theta90_origin_250events_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile /hpc/group/vossenlab/rck32/eic/work_eic/steering/sensor_sensitive/variation.py --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G -N 500 --gun.particle \"mu-\" --outputFile ../work_eic/root_files/time_res_one_segment_sensor/${current_date}/run_1_w_QE_2cm_thickness/mu_5GeV_theta90_origin_500events_file_${i}.edm4hep.root --part.userParticleHandler=\"\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells/${rootname}${i}.sh" >> $runJobs
