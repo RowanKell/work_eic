@@ -886,8 +886,8 @@ def calculate_metrics(y_true, y_pred):
 class SiPMSignalProcessor:
     def __init__(self, 
                  sampling_rate=40e9,  # 40 GHz sampling rate
-                 tau_rise=1e-9,       # 1 ns rise time
-                 tau_fall=10e-9,      # 50 ns fall time
+                 tau_rise=1.1e-9,       # 1 ns rise time
+                 tau_fall=15e-9,      # 50 ns fall time
                  window=200e-9,       # 200 ns time window
                  cfd_delay=5e-9,      # 5 ns delay for CFD
                  cfd_fraction=0.3):   # 30% fraction for CFD
@@ -907,7 +907,7 @@ class SiPMSignalProcessor:
     
     def _generate_pulse_shape(self):
         """Generate normalized pulse shape for a single photon"""
-        shape = (1 - np.exp(-self.time/self.tau_rise)) * np.exp(-self.time/self.tau_fall)
+        shape = np.exp(-self.time/self.tau_fall) - np.exp(-self.time/self.tau_rise)
         return shape / np.max(shape)  # Normalize
     
     def generate_waveform(self, photon_times):
