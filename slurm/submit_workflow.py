@@ -5,12 +5,8 @@ from datetime import datetime
 def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
-particle_name_dict = {
-    "pi-" : "pim",
-    "neutron" : "n",
-    "kaon0L" : "K_L"
-}
-def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,hepmc_bool = 1):
+
+def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,hepmc_bool = 1):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -58,13 +54,14 @@ echo "Running ddsim with steeringFile input"
 /usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G --numberOfEvents {num_events} --steeringFile {steeringFile} --outputFile {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --part.userParticleHandler=""
 echo "DDSIM completed successfully"
 echo began process root file
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file_old.py --filePathName {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json
+#########   PROCESS  ##########
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file.py --filePathName {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --geometryType {geometry_type}
 EOF
 
 echo "Beginning Analysis with analyze_data_old.py"    
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 
-#########   ANALYZE OLD    ##########
+#########   ANALYZE    ##########
 python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv
 
 deactivate
@@ -78,7 +75,7 @@ echo ENDING JOB
 
     return job_ids
 
-def submit_training_job(dependency_job_ids,run_name):
+def submit_training_job(dependency_job_ids,run_name,run_num):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -106,7 +103,7 @@ def submit_training_job(dependency_job_ids,run_name):
 echo began job
 echo began training NN for prediction
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py 
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --runNum {run_num} --dfPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}"
 """)
     sbatch_command = [
         "sbatch",
@@ -116,16 +113,18 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
 
 
 def main():
-    num_simulations = 1
-    simulation_start_num = 0
+    num_simulations = 500
+    simulation_start_num = 601
     num_events = 50
-    run_name = f"jan_26_{num_events}events"
+    run_num = 4
+    geometry_type = 1
+    run_name = f"Feb_5_{num_events}events_run_{run_num}"
 
     # Submit simulation and processing jobs
-    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name)
+    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type)
     print(f"Submitted {num_simulations} simulation and processing jobs")
-#     Submit training job
-    submit_training_job(job_ids,run_name)
+    #Submit training job
+#     submit_training_job(job_ids,run_name,run_num)
     print("Submitted training job with dependency on all simulation and processing jobs")
 
 

@@ -20,7 +20,7 @@ current_date = datetime.now().strftime("%B_%d")
 def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
-from dgl.nn import GraphConv,SumPooling,GINConv
+from dgl.nn import GraphConv,SumPooling,GINConv,AvgPooling
 
 def process_df_vectorized(df, cone_angle_deg=45):
     # Grab positions to use as center of cone
@@ -152,7 +152,7 @@ def create_fast_edge_lists(curr_event, max_distance):
     destinations = np.concatenate([dst_upper, src_upper])
     
     return sources, destinations
-def visualize_detector_graph(curr_event, sources, destinations, max_edges=1000, figsize=(10, 10)):
+def visualize_detector_graph(curr_event, sources, destinations, max_edges=1000, figsize=(6, 6),max_angle):
     """
     Visualizes the detector hits and their connections.
     
@@ -194,8 +194,8 @@ def visualize_detector_graph(curr_event, sources, destinations, max_edges=1000, 
 #     plot.plot([0, x_ref], [0, y_ref], color='black', linewidth=3, label='Reference angle')
     
     # Highlight the 11-degree region
-    theta_min = reference_angle - 22
-    theta_max = reference_angle + 22
+    theta_min = reference_angle - 40
+    theta_max = reference_angle + 40
     
     # Calculate the coordinates for the line
     x_min = radius * np.cos(np.radians(theta_min))
@@ -228,7 +228,7 @@ def visualize_detector_graph(curr_event, sources, destinations, max_edges=1000, 
 #     plot.ylim(25,130)
     plot.xlim(-250,250)
     plot.ylim(-250,250)
-    plot.savefig("plots/GNN/graph_only.pdf")
+#     plot.savefig("plots/GNN/graph_only.pdf")
     
     
 class GIN(nn.Module):
@@ -253,7 +253,7 @@ class GIN(nn.Module):
         self.conv2 = GINConv(self.mlp2)
         
         # Dropout for regularization
-        self.dropout = nn.Dropout(0.05)
+#         self.dropout = nn.Dropout(0.05)
         
         # Graph pooling layer
         self.pool = SumPooling()
@@ -271,7 +271,7 @@ class GIN(nn.Module):
         hg = self.pool(g, h)
         
         return hg
-def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs,early_stopping_limit):
+def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs,early_stopping_limit,run_num = "0"):
     create_directory(f"models/GNN_Energy_prediction/{current_date}/")
     val_mse = []
     val_mse_all = []
@@ -327,7 +327,7 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
         print(f"Epoch {epoch + 1}/{n_epochs} - Validation MSE:\t {epoch_val_mse:.4f}\n")
         if(epoch_val_mse.item() < early_stopping_dict["lowest_loss"] or early_stopping_dict["lowest_loss"] == -1):
             early_stopping_dict["lowest_loss"] = epoch_val_mse
-            early_stopping_dict["best_model_path"] = f"models/GNN_Energy_prediction/{current_date}/events50k_lr0_001_hiddendim6_epoch{epoch}.pth"
+            early_stopping_dict["best_model_path"] = f"models/GNN_Energy_prediction/{current_date}/run_{run_num}_events50k_lr0_001_hiddendim6_epoch{epoch}.pth"
             torch.save(model.state_dict(),early_stopping_dict["best_model_path"])
         elif(epoch_val_mse.item() > early_stopping_dict["lowest_loss"]):
             early_stopping_dict["num_upticks"] += 1
@@ -335,7 +335,7 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
         if(early_stopping_dict["num_upticks"] >= early_stopping_limit):
             # Stop training, load best model
             model.load_state_dict(torch.load(early_stopping_dict["best_model_path"]))
-            torch.save(model.state_dict(),f"models/GNN_Energy_prediction/{current_date}/events50k_lr0_001_hiddendim6_best.pth")
+            torch.save(model.state_dict(),f"models/GNN_Energy_prediction/{current_date}/run_{run_num}_events50k_lr0_001_hiddendim6_best.pth")
             print("Stopping early, loading best model...")
             break
     return model, train_losses, val_mse

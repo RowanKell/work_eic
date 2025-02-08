@@ -233,14 +233,6 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, d
                                 'KMU_endpoint_y', 'KMU_endpoint_z'
                             ]
 
-                            # Print types of each particle_data field
-#                             for field in fields:
-#                                 value = particle_data.get(field, None)
-#                                 print(f"{field}: {type(value)}")
-
-#                             # Print the type of len(trueID_list)
-#                             print(f"len(trueID_list): {type(len(trueID_list))}")
-
                             all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'],len(trueID_list),particle_data['hit_x'],particle_data['hit_y'],particle_data['hit_z'],particle_data['KMU_trueID'],particle_data['KMU_truePID'],particle_data['KMU_true_phi'],particle_data['KMU_true_momentum_mag'],particle_data['KMU_endpoint_x'],particle_data['KMU_endpoint_y'],particle_data['KMU_endpoint_z'])] * particle_data[num_pixel_tag])
 
     all_context = torch.cat(all_context)

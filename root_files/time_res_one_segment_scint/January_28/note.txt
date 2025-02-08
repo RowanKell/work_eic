@@ -1,0 +1,1 @@
+The file in this directory was created with a 2cm thick bar, not 1cm. This was for the model trained on Feb 02 2025 (and between jan 28-Feb 03)

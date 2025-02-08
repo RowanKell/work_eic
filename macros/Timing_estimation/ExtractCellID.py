@@ -60,7 +60,7 @@ def find_parent_w_exclusion(PDG_branch,parent_idx_branch,parent_begin_branch,par
 #         for parent in particle.getParents():
 #             return findparentparticle_w_exclusion(parent)
     
-def process_root_file_old(file_path,max_events = -1):
+def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
     print("began processing")
     #cellID decoding
     
@@ -169,7 +169,7 @@ def process_root_file_old(file_path,max_events = -1):
                 
                 #logic for recording strip position:
                 #bar_pos = [x,y,z]
-                bar_pos = find_volume(world_volume, bar_info)
+                bar_pos = find_volume(world_volume, bar_info,geometry_type)
                 try:
                     strip_x = bar_pos[0]
                     strip_y = bar_pos[1]
@@ -230,7 +230,7 @@ def process_root_file_old(file_path,max_events = -1):
     print("finished processing")
     return processed_data
 
-def process_root_file_to_csv(file_path,max_events = -1):
+def process_root_file_to_csv(file_path,max_events = -1,geometry_type = 1):
     print("began processing")
     #cellID decoding
     
@@ -339,7 +339,7 @@ def process_root_file_to_csv(file_path,max_events = -1):
                 
                 #logic for recording strip position:
                 #bar_pos = [x,y,z]
-                bar_pos = find_volume(world_volume, bar_info)
+                bar_pos = find_volume(world_volume, bar_info,geometry_type)
                 try:
                     strip_x = bar_pos[0]
                     strip_y = bar_pos[1]
@@ -411,7 +411,7 @@ def process_root_file_to_csv(file_path,max_events = -1):
 def load_geometry():
     lcdd = dd4hep.Detector.getInstance()
     eic_pref = "/hpc/group/vossenlab/rck32/eic/"
-    lcdd.fromXML(eic_pref + "epic_klm/epic_klmws_w_solenoid.xml")
+    lcdd.fromXML(eic_pref + "epic_klm/epic_klmws_only.xml")
     return lcdd
 
 def load_root_file(fileName = "/hpc/group/vossenlab/rck32/eic/work_eic/root_files/momentum_prediction/November_06/hepmc_1000events_test_file_0.edm4hep.root"):
@@ -448,16 +448,25 @@ def get_bar_info(lcdd, hit):
         "layer": layer,
         "slice": slice_id
     }
-
-def find_volume(world_volume, hit_info):
+#Geometry type:
+#    2 if 2 bars per superlayer
+#    1 if 1 bar per superlayer (updated design)
+def find_volume(world_volume, hit_info,geometry_type = 1):
     target_stave = hit_info['stave']
     target_layer = hit_info['layer'] - 1
     total_slice = hit_info['slice']
-    target_segment = total_slice // 7
-    target_slice = (total_slice % 7) + 1
+    match geometry_type:
+        case 1:
+            num_slices_per_layer = 4
+        case 2:
+            num_slice_per_layer = 7
+        case _:
+            rum_slice_per_layer = 4
+    target_segment = total_slice // num_slices_per_layer
+    target_slice = (total_slice % num_slices_per_layer) + 1
 
     # Get HcalBarrelVolume
-    HcalBarrelVolume = world_volume.GetNodes()[3].GetVolume()  # Assuming HcalBarrelVolume is the fourth child
+    HcalBarrelVolume = world_volume.GetNodes()[0].GetVolume()  # Assuming HcalBarrelVolume is the fourth child
 
     # Access stave directly
     stave_name = f"stave_{target_stave}"

@@ -1,16 +1,49 @@
-import datetime
-def print_w_time(message):
-    current_time = datetime.datetime.now().strftime('%H:%M:%S')
-    print(f"{current_time} {message}")
-
 import numpy as np
 import time
 import pickle
-from ExtractCellID import process_root_file_to_csv,process_root_file_old
+from ExtractCellID import process_root_file_old
 from collections import defaultdict
 import argparse
 import json
-import pandas as pd
+
+def convert_key_to_serializable(key):
+    """Convert numpy types to native Python types."""
+    if isinstance(key, np.integer):
+        return int(key)
+    if isinstance(key, np.floating):
+        return float(key)
+    if isinstance(key, np.ndarray):
+        return key.tolist()
+    return key
+
+def convert_defaultdict_to_dict(d):
+    """Convert a nested defaultdict to a regular dictionary with serializable keys."""
+    if isinstance(d, defaultdict):
+        # Convert each key-value pair, ensuring keys are serializable
+        return {convert_key_to_serializable(k): convert_defaultdict_to_dict(v) 
+                for k, v in d.items()}
+    elif isinstance(d, dict):
+        # Handle regular dictionaries the same way
+        return {convert_key_to_serializable(k): convert_defaultdict_to_dict(v) 
+                for k, v in d.items()}
+    elif isinstance(d, np.ndarray):
+        return d.tolist()
+    elif isinstance(d, (np.integer, np.floating)):
+        return convert_key_to_serializable(d)
+    return d
+
+
+
+def save_defaultdict(data, filename):
+    """Save nested defaultdict to a JSON file."""
+    # Convert defaultdict to regular dict for serialization
+    regular_dict = convert_defaultdict_to_dict(data)
+    
+    # Save to file
+    with open(filename, 'w') as f:
+        json.dump(regular_dict, f)
+        
+
 
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
 
@@ -18,20 +51,17 @@ parser.add_argument('--filePathName', type=str, default="NA",
                         help='directory of root file') 
 parser.add_argument('--processedDataPath', type=str, default="NA",
                         help='directory to output np dict')
+parser.add_argument('--geometryType', type=int, default=1,
+                        help='1 if 1 layer of scint per superlayer, 2 if 2')
 args = parser.parse_args()
 filePathName = args.filePathName
 processedDataPath = args.processedDataPath
-# print("Starting process_root_file")
-# begin = time.time()
-# processed_data = process_root_file(filePathName)
-# end = time.time()
-# print(f"process_root_file took {(end - begin) / 60} minutes")
+geometry_type = args.geometryType
 
-print_w_time("Starting process_root_file")
+print("Starting process_root_file")
 begin = time.time()
-processed_data_csv = process_root_file_to_csv(filePathName)
+processed_data = process_root_file_old(filePathName,geometry_type = geometry_type)
 end = time.time()
-print_w_time(f"process_root_file took {(end - begin) / 60} minutes")
+print(f"process_root_file took {(end - begin) / 60} minutes")
 
-processed_data_csv.to_csv(processedDataPath)
-print_w_time("saved processed root file data to csv")
+save_defaultdict(processed_data,processedDataPath)

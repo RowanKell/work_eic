@@ -19,12 +19,22 @@ from datetime import datetime as datetime
 current_date = datetime.now().strftime("%B_%d")
 from torch.utils.data.sampler import SubsetRandomSampler
 from GNN_util import process_df_vectorized,create_directory,HitDataset,create_fast_edge_lists,visualize_detector_graph,GIN,train_GNN,test_GNN,calculate_bin_rmse
-        
+import argparse
+
+parser = argparse.ArgumentParser(description = 'Training GNN')
+
+parser.add_argument('--runNum', type=int, default=0,
+                        help='Info to append to end of model and plot file names') 
+parser.add_argument('--dfPath', type=str, default="",
+                        help='Path of csv files that contain training data') 
+args = parser.parse_args()
+run_num = args.runNum
+df_path = args.dfPath
 num_dfs = 1000
 dfs = []
 for i in range(num_dfs):
     try:
-        new_df = pd.read_csv(f"/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/jan_18_50events_{i}.csv")
+        new_df = pd.read_csv(f"{df_path}_{i}.csv")
     except FileNotFoundError as e:
         # Skip files that failed for some reason...
         # I think these files fail due to DCC issues?
@@ -59,7 +69,6 @@ test_dataloader = GraphDataLoader(
     dataset, sampler=test_sampler, batch_size=20, drop_last=False
 )
 
-
 hidden_dim = 6
 model = GIN(dataset.dim_nfeats, hidden_dim)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
@@ -67,22 +76,13 @@ criterion = nn.MSELoss()
 
 n_epochs = 25
 early_stopping_limit = 3
-trained_model = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit)
-
-hidden_dim = 6
-model = GIN(dataset.dim_nfeats, hidden_dim)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-criterion = nn.MSELoss()
-
-n_epochs = 25
-early_stopping_limit = 3
-trained_model, train_losses, val_losses = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit)
+trained_model, train_losses, val_losses = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit,run_num = run_num)
 
 create_directory(f"plots/GNN/{current_date}/")
 
 plot.plot(train_losses,label = "train")
 plot.title("Train and Val loss throughout training (log scale)")
-plot.plot(test_mse, label = "test")
+plot.plot(val_losses, label = "test")
 plot.yscale("log")
 plot.legend()
 plot.tight_layout()
@@ -118,4 +118,4 @@ axs[2].scatter(truths,preds,alpha = 0.2)
 axs[2].plot([0.5,3.5],[0.5,3.5],color = "red")
 axs[2].set(xlabel = "truths",ylabel = "preds")
 fig.tight_layout()
-plot.savefig(f"plots/GNN/{current_date}/RMSE_50kevents_hdim6_lr0_001_GIN.pdf")
+plot.savefig(f"plots/GNN/{current_date}/run_{run_num}_RMSE_50kevents_hdim6_lr0_001_GIN.pdf")
