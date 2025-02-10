@@ -20,7 +20,7 @@ import pathlib
 import pandas as pd
 import json
 
-from momentum_prediction_util import Predictor,train,prepare_prediction_input_pulse,new_prepare_nn_input,create_nested_defaultdict,convert_dict_to_defaultdict,load_defaultdict,newer_prepare_nn_input
+from momentum_prediction_util import Predictor,train,prepare_prediction_input_pulse,create_nested_defaultdict,convert_dict_to_defaultdict,load_defaultdict,newer_prepare_nn_input
 import argparse
 
 parser = argparse.ArgumentParser(description = 'Preparing data for momentum prediction training')
@@ -31,10 +31,13 @@ parser.add_argument('--outputDataframePathName', type=str, default="NA",
                         help='directory of output df') 
 parser.add_argument('--scintThickness', type=str, default="2cm",
                         help='Thickness of scintillator in geometry') 
+parser.add_argument('--useCFD', action=argparse.BooleanOptionalAction,
+                        help='If true, uses constant fraction discrimination. Otherwise, uses leading edge.') 
 args = parser.parse_args()
 outputDataframePathName = args.outputDataframePathName
 inputProcessedData = args.inputProcessedData
 scintThickness = args.scintThickness
+useCFD = args.useCFD
 
 model_compile = get_compiled_NF_model(thickness = scintThickness)
 

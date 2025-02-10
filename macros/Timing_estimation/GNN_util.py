@@ -12,6 +12,7 @@ import itertools
 import dgl.data
 import torch.nn.functional as F
 from dgl.dataloading import GraphDataLoader
+from dgl.nn import GraphConv,SumPooling,GINConv,AvgPooling
 from tqdm import tqdm
 import matplotlib.pyplot as plot
 import numpy as np
@@ -54,14 +55,80 @@ def process_df_vectorized(df, cone_angle_deg=45):
 
 
 class HitDataset(DGLDataset):
-    def __init__(self, data, filter_events,max_distance = 200):
+    def __init__(self, data, filter_events,connection_mode = "kNN",max_distance = 0.5,k = 6):
         self.data = data
         self.filter_events = filter_events
         self.max_distance = max_distance
+        self.event_data = torch.tensor([])
+        self.connection_mode = connection_mode
+        self.k = k
+        self.dfs = []
+        self.mass_dict = {130 : 0.497611}
         super().__init__(name = "KLM_reco")
+    def get_max_distance_edges(self,curr_event):
+        x = curr_event['strip_x'].values
+        y = curr_event['strip_y'].values
+
+        # Create coordinate matrices
+        x_diff = x[:, np.newaxis] - x[np.newaxis, :]  # Creates a matrix of all x differences
+        y_diff = y[:, np.newaxis] - y[np.newaxis, :]  # Creates a matrix of all y differences
+
+        # Compute distances in one go
+        distances = np.sqrt(x_diff**2 + y_diff**2)
+
+        # Create mask for valid edges (upper triangle only to avoid duplicates)
+        upper_mask = (distances < self.max_distance) & (np.triu(np.ones_like(distances), k=1) > 0)
+
+        # Get edge indices for upper triangle
+        src_upper, dst_upper = np.where(upper_mask)
+
+        # Create the bidirectional edges
+        sources = np.concatenate([src_upper, dst_upper])
+        destinations = np.concatenate([dst_upper, src_upper])
+        return sources,destinations
+    def get_knn_edges(self,curr_event):
+        """ 
+        Given x and y coordinates of nodes, compute edges for a k-NN graph.
+
+        Args:
+            x (numpy array): x-coordinates of nodes.
+            y (numpy array): y-coordinates of nodes.
+            k (int): Number of nearest neighbors.
+
+        Returns:
+            sources (numpy array): List of source nodes.
+            destinations (numpy array): List of destination nodes.
+        """
+        x = curr_event['strip_x'].values
+        y = curr_event['strip_y'].values
+        n = len(x)
+
+        # The first notation with "np.newaxis" is the same as tensor.unsqueeze(-1)
+        # It puts each value in its own dimension, like
+        # x = np.arrayy([[a],[b],[c]]), so size is (N,1) rather than (N)
+        # The second notation (x[np.newaxis,:]) just puts the array in another array so that the size is (1,N
+        # rather than (N)
+        x_diff = x[:, np.newaxis] - x[np.newaxis, :]
+        y_diff = y[:, np.newaxis] - y[np.newaxis, :]
+        
+        # distances has shape (N,N) - matrix where the diagonal is 0, each entry is the distance between
+        # the ith (column idx) node and the jth (row idx) node
+        distances = np.sqrt(x_diff**2 + y_diff**2)
+
+        # Get the indices of the k nearest neighbors for each node (excluding self-connections)
+        # argsort sorts each row by the distance and returns the sorted indices
+        # We use the [:,1:k+1] to take the first k indices besides the lowest (which is the diagonal self connection)
+        knn_indices = np.argsort(distances, axis=1)[:, 1:self.k+1]
+
+        # Create source and destination lists
+        sources = np.concatenate([np.repeat(np.arange(n), self.k),knn_indices.flatten()])
+        destinations = np.concatenate([knn_indices.flatten(),np.repeat(np.arange(n), self.k)])
+
+        return sources, destinations
+        
     def process(self):
         events_group = self.data.groupby(["event_idx","file_idx"])
-        self.labels = []
+        self.labels = torch.tensor([])
         self.graphs = []
         it_idx = 0
         for event_idx in events_group.groups:
@@ -78,49 +145,81 @@ class HitDataset(DGLDataset):
                 #skip events with no valid ModififiedTrueIDs
                 if(len(valid_ModifiedTrueID_unique) == 0):
                     continue
+                # Remove rows that are hits outside of the cone
+                curr_event = curr_event[curr_event.ModifiedTrueID != -1]
+                nhits = len(curr_event)
             # Skip graphs with only 1 hit (or 0)
             if(nhits <2):
                 continue;
+            elif(nhits <self.k):
+                sources = np.concatenate([np.repeat(np.arange(nhits),nhits),np.tile(np.arange(nhits),nhits)])
+                destinations = np.concatenate([np.tile(np.arange(nhits),nhits),np.repeat(np.arange(nhits),nhits)])
             else:
-                x = curr_event['strip_x'].values
-                y = curr_event['strip_y'].values
-
-                # Create coordinate matrices
-                x_diff = x[:, np.newaxis] - x[np.newaxis, :]  # Creates a matrix of all x differences
-                y_diff = y[:, np.newaxis] - y[np.newaxis, :]  # Creates a matrix of all y differences
-
-                # Compute distances in one go
-                distances = np.sqrt(x_diff**2 + y_diff**2)
-
-                # Create mask for valid edges (upper triangle only to avoid duplicates)
-                upper_mask = (distances < self.max_distance) & (np.triu(np.ones_like(distances), k=1) > 0)
-
-                # Get edge indices for upper triangle
-                src_upper, dst_upper = np.where(upper_mask)
-
-                # Create the bidirectional edges
-                sources = np.concatenate([src_upper, dst_upper])
-                destinations = np.concatenate([dst_upper, src_upper])
+                if(self.connection_mode == "max distance"):
+                    sources, destinations = self.get_max_distance_edges(curr_event)
+                elif(self.connection_mode == "kNN"):
+                    sources, destinations = self.get_knn_edges(curr_event)
             g = dgl.graph((sources, destinations), num_nodes=nhits)
-            #Want to predict momentum/energy
-            label = torch.tensor(curr_event["P"].to_numpy()[0])
-            self.labels.append(label)
-            '''FLATTENED VERSION'''
-            #THIS VERSION KEEPS FEATURES IN ONE DIMENSION
+            #Want to predict energy
+            try:
+                mass = self.mass_dict[curr_event["truePID"].to_numpy()[0]]
+            except Exception as e:
+                truePID = curr_event["truePID"].to_numpy()[0]
+                print(f"Exception: {e}")
+                print(f"Particle with truePID of {truePID} not in dictionary. Skipping...")
+                continue
+            momentum = curr_event["P"].to_numpy()[0]
+            energy = np.sqrt(mass**2 + momentum**2)
+            label = torch.tensor(energy)
+            '''VERSION LABEL INCLUDING EVENT FEATURES'''
+            # Since this is the version with both SiPM in one hit/node, we have 2 times and charges
+            # I hope that doing this will avoid making the NN learn that two hits at the same position are 
+            # closely related
             feats = np.stack((
-                curr_event["strip_x"].to_numpy(),curr_event["strip_y"].to_numpy(),
-                curr_event["Time"].to_numpy(),
-                curr_event["Charge"].to_numpy()
+                curr_event["strip_x"].to_numpy() / 300,curr_event["strip_y"].to_numpy() / 300,
+                curr_event["Time0"].to_numpy() / 5,
+                curr_event["Charge0"].to_numpy(),
+                curr_event["Time1"].to_numpy() / 5,
+                curr_event["Charge1"].to_numpy(),
+                curr_event["stave_idx"].to_numpy(),
+                curr_event["layer_idx"].to_numpy(),
+                curr_event["segment_idx"].to_numpy()
             ),axis = -1)
-#             feats = curr_event["Charge"].to_numpy()
             g.ndata["feat"] = torch.tensor(feats)#.unsqueeze(-1)
-    
+            self.dfs.append(curr_event)
+            # Sort hits by time
 
+            # Basic features
+            total_charge = curr_event['Charge1'].sum() + curr_event['Charge0'].sum()
+            max_charge = max([curr_event['Charge1'].max(),curr_event['Charge0'].max()])
+            n_hits = len(curr_event)
+
+            # Spatial features
+            hit_coords = curr_event[['strip_x', 'strip_y']].values
+
+            # Center of gravity
+            cog_x = np.average(hit_coords[:, 0], weights=curr_event['Charge0'] + curr_event['Charge1'])
+            cog_y = np.average(hit_coords[:, 1], weights=curr_event['Charge0'] + curr_event['Charge1'])
+
+            # Feature vector for this event
+            event_features = torch.from_numpy(np.stack((label,
+                total_charge,
+                max_charge,
+                n_hits,
+#                 cog_x,
+#                 cog_y,
+
+                ),axis = -1))
+            if(self.labels.shape[0] == 0):
+                self.labels = event_features
+            else:
+                self.labels = torch.vstack((self.labels,event_features))
             #add graph to dataset
             self.graphs.append(g)
             it_idx += 1
         self.dim_nfeats = self.graphs[0].ndata["feat"].shape[1]
-        self.labels = torch.tensor(self.labels, dtype = torch.float32)
+        self.dim_event_feats = self.labels.shape[1] - 1
+        self.labels = self.labels.clone().detach().float()
 
     def __getitem__(self, i):
         return self.graphs[i], self.labels[i]
@@ -152,7 +251,7 @@ def create_fast_edge_lists(curr_event, max_distance):
     destinations = np.concatenate([dst_upper, src_upper])
     
     return sources, destinations
-def visualize_detector_graph(curr_event, sources, destinations, max_edges=1000, figsize=(6, 6),max_angle):
+def visualize_detector_graph(dataset,graph_idx = 0, max_edges=1000, figsize=(6, 6)):
     """
     Visualizes the detector hits and their connections.
     
@@ -163,27 +262,27 @@ def visualize_detector_graph(curr_event, sources, destinations, max_edges=1000, 
     max_edges (int): Maximum number of edges to plot to avoid overcrowding
     figsize (tuple): Figure size in inches
     """
+    
+    fig, axs = plot.subplots(1,2,figsize = (12,6))
+    graph = dataset[graph_idx][0]
+    curr_event = dataset.dfs[graph_idx]
     colors = curr_event['ModifiedTrueID'].apply(lambda x: 'red' if x == -1 else 'blue')
-    sizes = curr_event['Charge'].apply(lambda x: x)
+    sizes = curr_event['Charge0'] + curr_event['Charge1']
     # Create figure
-    plot.figure(figsize=figsize)
     
     # Plot nodes (hits)
-    plot.scatter(curr_event['strip_x'], curr_event['strip_y'], 
+    axs[0].scatter(curr_event['strip_x'], curr_event['strip_y'], 
                c=colors, s=sizes * 1, alpha=0.4, label='Detector hits')
-    
-    # If there are too many edges, randomly sample them
-    n_edges = len(sources)
-    if n_edges > max_edges:
-        idx = np.random.choice(n_edges, max_edges, replace=False)
-        sources = sources[idx]
-        destinations = destinations[idx]
+    axs[1].scatter(curr_event['strip_x'], curr_event['strip_y'], 
+               c=colors, s=sizes * 1, alpha=0.4, label='Detector hits')
+    sources,destinations = graph.edges()
     
     # Plot edges
     for src, dst in zip(sources, destinations):
-        x1, y1 = curr_event.iloc[src][['strip_x', 'strip_y']]
-        x2, y2 = curr_event.iloc[dst][['strip_x', 'strip_y']]
-        plot.plot([x1, x2], [y1, y2], 'gray', alpha=0.1, linewidth=0.5)
+        x1, y1 = curr_event.iloc[int(src)][['strip_x', 'strip_y']]
+        x2, y2 = curr_event.iloc[int(dst)][['strip_x', 'strip_y']]
+        axs[0].plot([x1, x2], [y1, y2], 'gray', alpha=0.1, linewidth=0.5)
+        axs[1].plot([x1, x2], [y1, y2], 'gray', alpha=0.1, linewidth=0.5)
     # Add reference angle and highlight region
     reference_angle = curr_event['reference_angle'].iloc[0]  # Assuming one reference angle per event
     radius = 250  # Radius of the detector
@@ -200,39 +299,37 @@ def visualize_detector_graph(curr_event, sources, destinations, max_edges=1000, 
     # Calculate the coordinates for the line
     x_min = radius * np.cos(np.radians(theta_min))
     y_min = radius * np.sin(np.radians(theta_min))
-    plot.plot([0, x_min], [0, y_min], color='orange', linewidth=1.5, label='Lower bound')
+    axs[0].plot([0, x_min], [0, y_min], color='orange', linewidth=1.5, label='Lower bound')
     
     # Calculate the coordinates for the line
     x_max = radius * np.cos(np.radians(theta_max))
     y_max = radius * np.sin(np.radians(theta_max))
-    plot.plot([0, x_max], [0, y_max], color='orange', linewidth=1.5, label='Upper bound')
+    axs[0].plot([0, x_max], [0, y_max], color='orange', linewidth=1.5, label='Upper bound')
     
     # Add labels and title
-    plot.xlabel('X Position')
-    plot.ylabel('Y Position')
-    plot.title(f'Detector Graph Visualization\n{len(curr_event)} nodes, {n_edges//2} edges')
+    axs[0].set_xlabel('X Position')
+    axs[0].set_ylabel('Y Position')
+    n_edges = len(sources) / 2
+    fig.suptitle(f'Detector Graph Visualization\n{len(curr_event)} nodes, {n_edges//2} edges')
     
     # Add text with statistics
     stats_text = f'Total nodes: {len(curr_event)}\n'
     stats_text += f'Total edges: {n_edges//2}\n'  # Divide by 2 because edges are bidirectional
     stats_text += f'Average degree: {n_edges/len(curr_event):.1f}'
-    plot.text(0.02, 0.98, stats_text,
+    axs[1].text(0.02, 0.98, stats_text,
              transform=plot.gca().transAxes,
              verticalalignment='top',
              bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
-    plot.grid(True, alpha=0.3)
-    plot.axis('equal')
-    plot.tight_layout()
-#     plot.xlim(120,250)
-#     plot.ylim(25,130)
-    plot.xlim(-250,250)
-    plot.ylim(-250,250)
-#     plot.savefig("plots/GNN/graph_only.pdf")
+    axs[0].grid(True, alpha=0.3)
+    axs[0].axis('equal')
+    fig.tight_layout()
+    axs[0].set_xlim(-250,250)
+    axs[0].set_ylim(-250,250)
     
     
 class GIN(nn.Module):
-    def __init__(self, in_feats, h_feats, num_classes=1):
+    def __init__(self, in_feats, h_feats,num_event_feats, num_classes=1,pooling_type = "avg"):
         super(GIN, self).__init__()
         
         # Define the MLP for the GINConv layers
@@ -245,34 +342,65 @@ class GIN(nn.Module):
         self.mlp2 = nn.Sequential(
             nn.Linear(h_feats, h_feats),
             nn.ReLU(),
-            nn.Linear(h_feats, num_classes)
+            nn.Linear(h_feats, h_feats)
         )
         
         # Define the GINConv layers
         self.conv1 = GINConv(self.mlp1)
         self.conv2 = GINConv(self.mlp2)
-        
-        # Dropout for regularization
-#         self.dropout = nn.Dropout(0.05)
+        self.linear1 = nn.Linear(h_feats + num_event_feats, 256)
+        self.linear2 = nn.Linear(256, 128)
+        self.linear3 = nn.Linear(128, 128)
+        self.linear4 = nn.Linear(128, 64)
+        self.linear5 = nn.Linear(64, 64)
+        self.linear6 = nn.Linear(64, 16)
+        self.linear7 = nn.Linear(16, 1)
         
         # Graph pooling layer
-        self.pool = SumPooling()
+        if(pooling_type == "avg"):
+            self.pool = AvgPooling()
+        elif(pooling_type == "sum"):
+            self.pool = SumPooling()
+        else:
+            print(f"Selected pooling type \"{pooling_type}\" not found. Resorting to default: AvgPooling")
+            self.pool = AvgPooling()
 
-    def forward(self, g, in_feat):
+    def forward(self, g, in_feat,event_feats):
         # Apply the first GINConv layer
+        
+        hidden_reps = []
+        
         h = self.conv1(g, in_feat)
         h = F.relu(h)
-#         h = self.dropout(h)
+        hidden_reps.append(self.pool(g,h))
         
-        # Apply the second GINConv layer
+#         Apply the second GINConv layer
         h = self.conv2(g, h)
+        h = F.relu(h)
+        hidden_reps.append(self.pool(g,h))
         
         # Pool the graph-level representation
         hg = self.pool(g, h)
-        
+        for i in range(len(hidden_reps)):
+            hg += hidden_reps[i]
+        total_feats = torch.cat((hg,event_feats),axis = 1).float()
+        hg = self.linear1(total_feats)
+        hg = F.relu(hg)
+        hg = self.linear2(hg)
+        hg = F.relu(hg)
+        hg = self.linear3(hg)
+        hg = F.relu(hg)
+        hg = self.linear4(hg)
+        hg = F.relu(hg)
+        hg = self.linear5(hg)
+        hg = F.relu(hg)
+        hg = self.linear6(hg)
+        hg = F.relu(hg)
+        hg = self.linear7(hg)
         return hg
-def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs,early_stopping_limit,run_num = "0"):
-    create_directory(f"models/GNN_Energy_prediction/{current_date}/")
+    
+def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs,early_stopping_limit,frame_plot_path,model_path):
+    create_directory(model_path)
     val_mse = []
     val_mse_all = []
     train_losses = []
@@ -285,49 +413,70 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
     # 0: loss; 1: path; 2: # hits
 
     for epoch in range(n_epochs):
-        # Training phase
         model.train()
         num_train_batches = 0
         epoch_train_losses = 0.0
-
-        for batched_graph, labels in train_dataloader:
-            pred = model(batched_graph, batched_graph.ndata["feat"].float())
-
-            # Compute loss and update the model
+        train_preds = torch.tensor([])
+        train_truths = torch.tensor([])
+        
+        for batched_graph, labels_w_event_feats in train_dataloader:
+            labels = labels_w_event_feats[:,0]
+            event_feats = labels_w_event_feats[:,1:]
+            pred = model(batched_graph, batched_graph.ndata["feat"].float(),event_feats)
             loss = criterion(pred, labels.unsqueeze(-1))
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
             epoch_train_losses+=loss.detach()
             train_losses_all.append(loss.detach())
             num_train_batches += 1
-
+            train_preds = torch.cat([train_preds,pred.detach()])
+            train_truths = torch.cat([train_truths,labels])
         # Average RMSE for the epoch
         this_epoch_loss = epoch_train_losses / num_train_batches
         train_losses.append(this_epoch_loss)
-        print(f"Epoch {epoch + 1}/{n_epochs} - Train loss:\t {this_epoch_loss:.4f}")
-
         # Testing phase
         model.eval()
         epoch_val_mse = 0.0
         num_val_batches = 0
-
+        val_preds = torch.tensor([])
+        val_truths = torch.tensor([])
         with torch.no_grad():  # Disable gradients for evaluation
-            for batched_graph, labels in val_dataloader:
-                pred = model(batched_graph, batched_graph.ndata["feat"].float())
+            for batched_graph, labels_w_event_feats in val_dataloader:
+                labels = labels_w_event_feats[:,0]
+                event_feats = labels_w_event_feats[:,1:]
+                pred = model(batched_graph, batched_graph.ndata["feat"].float(),event_feats)
                 # Calculate RMSE for this batch
                 batch_mse = criterion(pred, labels.unsqueeze(-1))
                 epoch_val_mse += batch_mse
                 num_val_batches += 1
                 val_mse_all.append(batch_mse)
+                val_preds = torch.cat([val_preds,pred])
+                val_truths = torch.cat([val_truths,labels])
 
         # Average RMSE for the test set
         epoch_val_mse /= num_val_batches
         val_mse.append(epoch_val_mse)
-        print(f"Epoch {epoch + 1}/{n_epochs} - Validation MSE:\t {epoch_val_mse:.4f}\n")
+        if(epoch %1 == 0):
+            print(f"Epoch {epoch + 1}/{n_epochs} - Train loss:\t {this_epoch_loss:.4f}")
+            print(f"Epoch {epoch + 1}/{n_epochs} - Validation MSE:\t {epoch_val_mse:.4f}\n")
+            if(frame_plot_path != ""):
+                frame_fig, frame_axs = plot.subplots(1,1)
+                frame_axs.plot([0,5],[0,5])
+                frame_fig.suptitle("Test dataset results")
+                frame_axs.scatter(val_truths,val_preds,alpha = 0.05,color = "red",label = "val")
+    #             plot.scatter(train_truths,train_preds,alpha = 0.01,color = "blue",label = "train")
+                frame_axs.set_xlabel("truths")
+                frame_axs.set_ylabel("preds")
+                frame_axs.text(3.1,1.3, f"Epoch #{epoch + 1}\nTrain, val loss: ({this_epoch_loss:.4f},{epoch_val_mse:.4f})")
+                frame_fig.tight_layout()
+                frame_fig.savefig(f"{frame_plot_path}epoch{epoch}.jpeg")
+        
         if(epoch_val_mse.item() < early_stopping_dict["lowest_loss"] or early_stopping_dict["lowest_loss"] == -1):
             early_stopping_dict["lowest_loss"] = epoch_val_mse
-            early_stopping_dict["best_model_path"] = f"models/GNN_Energy_prediction/{current_date}/run_{run_num}_events50k_lr0_001_hiddendim6_epoch{epoch}.pth"
+            early_stopping_dict["best_model_path"] = f"{model_path}epoch_{epoch}.pth"
+            early_stopping_dict["num_upticks"] = 0
+            
             torch.save(model.state_dict(),early_stopping_dict["best_model_path"])
         elif(epoch_val_mse.item() > early_stopping_dict["lowest_loss"]):
             early_stopping_dict["num_upticks"] += 1
@@ -335,10 +484,10 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
         if(early_stopping_dict["num_upticks"] >= early_stopping_limit):
             # Stop training, load best model
             model.load_state_dict(torch.load(early_stopping_dict["best_model_path"]))
-            torch.save(model.state_dict(),f"models/GNN_Energy_prediction/{current_date}/run_{run_num}_events50k_lr0_001_hiddendim6_best.pth")
-            print("Stopping early, loading best model...")
+            torch.save(model.state_dict(),f"{model_path}best_model.pth")
+            print("Stopping early, loading current model...")
             break
-    return model, train_losses, val_mse
+    return model, train_losses, val_mse, optimizer
 
 def test_GNN(model, test_dataloader):
     truths = []
@@ -350,8 +499,10 @@ def test_GNN(model, test_dataloader):
             graphs = dgl.unbatch(batched_graph)
             for i in range(len(graphs)):
                 graph = graphs[i]
-                label = labels[i].item()
-                pred = model(graph, graph.ndata["feat"].float()).detach().numpy()
+                labels_w_event_feats = labels[i]
+                label = labels_w_event_feats[0].item()
+                event_feats = labels_w_event_feats[1:].unsqueeze(0)
+                pred = model(graph, graph.ndata["feat"].float(),event_feats).detach().numpy()
                 summed_sqe += pow(pred - label,2)
                 num_predictions += 1
 
@@ -359,7 +510,7 @@ def test_GNN(model, test_dataloader):
                 truths.append(label)
     mse = summed_sqe / num_predictions
     print(f"MSE: {mse[0][0]}")
-    return truths, preds
+    return truths, preds, np.sqrt(mse)
 
 def calculate_bin_rmse(test_dataloader, model, bin_width=0.5, bin_min=1.0, bin_max=3.0):
     # Calculate the bin centers
@@ -379,8 +530,10 @@ def calculate_bin_rmse(test_dataloader, model, bin_width=0.5, bin_min=1.0, bin_m
             graphs = dgl.unbatch(batched_graph)
             for i in range(len(graphs)):
                 graph = graphs[i]
-                label = labels[i].item()
-                pred = model(graph, graph.ndata["feat"].float()).detach().numpy()
+                labels_w_event_feats = labels[i]
+                label = labels_w_event_feats[0].item()
+                event_feats = labels_w_event_feats[1:].unsqueeze(0)
+                pred = model(graph, graph.ndata["feat"].float(),event_feats).detach().numpy()
 
                 # Store predictions and truths
                 preds.append(pred)

@@ -62,7 +62,7 @@ echo "Beginning Analysis with analyze_data_old.py"
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 
 #########   ANALYZE    ##########
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv --no-useCFD
 
 deactivate
 echo ENDING JOB
@@ -75,7 +75,7 @@ echo ENDING JOB
 
     return job_ids
 
-def submit_training_job(dependency_job_ids,run_name,run_num):
+def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_dependency):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -85,25 +85,29 @@ def submit_training_job(dependency_job_ids,run_name,run_num):
     
     dependency_string = f"afterok:{':'.join(dependency_job_ids)}"
     train_script = f"{workdir}/slurm/shells/train_predictor_{current_date}_{run_name}.sh"
-
+    Timing_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/"
+    if(use_dependency):
+        dependency_directive = f"\n#SBATCH --dependency={dependency_string}"
+    else:
+        dependency_directive = ""
     with open(train_script, 'w') as f:
         f.write(f"""#!/bin/bash
 #SBATCH --chdir=/hpc/group/vossenlab/rck32/eic/epic_klm
 #SBATCH --job-name=train_predictor_{current_date}_{run_name}
 #SBATCH --output={out_folder}/%x_mu.out
-#SBATCH --error={error_folder}/%x_mu.err
-#SBATCH --dependency={dependency_string}
+#SBATCH --error={error_folder}/%x_mu.err{dependency_directive}
 #SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=80G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
+#SBATCH --mail-type=ALL
 
 echo began job
 echo began training NN for prediction
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --runNum {run_num} --dfPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}"
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs 200 --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/" --numDfs {num_simulations} --resultsFilePath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/results/" --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"
 """)
     sbatch_command = [
         "sbatch",
@@ -113,18 +117,20 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
 
 
 def main():
-    num_simulations = 500
-    simulation_start_num = 601
+    num_simulations = 10
+    simulation_start_num = 0
     num_events = 50
-    run_num = 4
+    run_num = 0
     geometry_type = 1
-    run_name = f"Feb_5_{num_events}events_run_{run_num}"
+    run_name = f"no_CFD_Feb_10_{num_events}events_run_{run_num}"
 
     # Submit simulation and processing jobs
-    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type)
+#     job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     #Submit training job
-#     submit_training_job(job_ids,run_name,run_num)
+    use_dependency = False
+    job_ids = [""]
+    submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency)
     print("Submitted training job with dependency on all simulation and processing jobs")
 
 

@@ -102,87 +102,6 @@ def filter_tensors_by_values(tensor1, tensor2, threshold1=200, threshold2=10000,
     return filtered_tensor1, filtered_tensor2
 
 
-@profile_function
-def new_prepare_nn_input(processed_data, normalizing_flow, batch_size=1024, device='cuda'):
-    nn_input = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
-    nn_output = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))))
-    
-    all_context = []
-    all_time_pixels = []
-    all_metadata = []
-    num_pixel_list = ["num_pixels_high_z","num_pixels_low_z"]
-    print("Processing data in new_prepare_nn_input...")
-    for event_idx, event_data in tqdm(processed_data.items()):
-        for stave_idx, stave_data in event_data.items():
-            for layer_idx, layer_data in stave_data.items():
-                for segment_idx, segment_data in layer_data.items():
-                    trueID_list = []
-                    for particle_id, particle_data in segment_data.items():
-#                         print(f"keys of particle data: {particle_data.keys()}")
-#                         print(f"types: {type(particle_data['z_pos'])},{type(particle_data['hittheta'])},{type(particle_data['hitmomentum'])}")
-                        base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
-                                                    dtype=torch.float32)
-                        base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
-                                                        dtype=torch.float32)
-                        base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
-                                                        dtype=torch.float32)
-                        if particle_data['trueID'] not in  trueID_list:
-                            trueID_list.append(particle_data['trueID'])
-                        for SiPM_idx in range(2):
-                            z_pos = particle_data['z_pos']
-                            context = base_context.clone()
-                            context[0] = z_pos
-                            num_pixel_tag = num_pixel_list[SiPM_idx]
-                            all_context.append(context.repeat(particle_data[num_pixel_tag], 1))
-                            if(SiPM_idx == 0):
-                                all_time_pixels.append(base_time_pixels_high.repeat(particle_data[num_pixel_tag], 1))
-                            else:
-                                all_time_pixels.append(base_time_pixels_low.repeat(particle_data[num_pixel_tag], 1))
-                            # Assuming particle_data is a dictionary-like object and trueID_list is defined
-                            fields = [
-                                'truemomentum', 'trueID', 'truePID', 'hitID', 'hitPID', 
-                                'truetheta', 'truephi', 'strip_x', 'strip_y', 'strip_z', 
-                                'hit_x', 'hit_y', 'hit_z', 'KMU_trueID', 'KMU_truePID', 
-                                'KMU_true_phi', 'KMU_true_momentum_mag', 'KMU_endpoint_x', 
-                                'KMU_endpoint_y', 'KMU_endpoint_z'
-                            ]
-
-                            # Print types of each particle_data field
-#                             for field in fields:
-#                                 value = particle_data.get(field, None)
-#                                 print(f"{field}: {type(value)}")
-
-#                             # Print the type of len(trueID_list)
-#                             print(f"len(trueID_list): {type(len(trueID_list))}")
-
-                            all_metadata.extend([(event_idx,stave_idx, layer_idx,segment_idx, SiPM_idx, particle_data['truemomentum'],particle_data['trueID'],particle_data['truePID'],particle_data['hitID'],particle_data['hitPID'],particle_data['truetheta'],particle_data['truephi'],particle_data['strip_x'],particle_data['strip_y'],particle_data['strip_z'],len(trueID_list),particle_data['hit_x'],particle_data['hit_y'],particle_data['hit_z'],particle_data['KMU_trueID'],particle_data['KMU_truePID'],particle_data['KMU_true_phi'],particle_data['KMU_true_momentum_mag'],particle_data['KMU_endpoint_x'],particle_data['KMU_endpoint_y'],particle_data['KMU_endpoint_z'])] * particle_data[num_pixel_tag])
-
-    all_context = torch.cat(all_context)
-    all_time_pixels = torch.cat(all_time_pixels)
-    
-    print("Sampling data...")
-    sampled_data = []
-    begin = time.time()
-    for i in tqdm(range(0, len(all_context), batch_size)):
-        batch_end = min(i + batch_size, len(all_context))
-        batch_context = all_context[i:batch_end].to(device)
-        batch_time_pixels = all_time_pixels[i:batch_end]
-        
-        with torch.no_grad():
-            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
-        
-        sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
-    end = time.time()
-    print(f"sampling took {end - begin} seconds")
-    print("Reorganizing data...")
-    begin = time.time()
-    for (event,stave, layer,segment, SiPM, momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z), sample in zip(all_metadata, sampled_data):
-        nn_input[event][stave][layer][segment][SiPM].append(sample)
-
-        nn_output[event][stave][layer][segment][SiPM].append(torch.tensor([momentum,trueID,truePID,hitID,hitPID,theta,phi,strip_x,strip_y,strip_z,trueID_list_len,hit_x,hit_y,hit_z,KMU_trueID,KMU_truePID,KMU_true_phi,KMU_true_momentum_mag,KMU_endpoint_x,KMU_endpoint_y,KMU_endpoint_z]))
-    end = time.time()
-    print(f"reorganizing took {end - begin} seconds")
-    return nn_input, nn_output
 
 # Create a key function that extracts the grouping fields
 def get_key(item):
@@ -190,9 +109,8 @@ def get_key(item):
     return metadata[:4]  # event_idx, stave_idx, layer_idx, segment_idx
 
 @profile_function
-def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, device='cuda',pixel_threshold = 5):
+def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, device='cuda',pixel_threshold = 5,useCFD = True):
     processer = SiPMSignalProcessor()
-    
     all_context = []
     all_time_pixels = []
     all_metadata = []
@@ -204,10 +122,10 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, d
                 for segment_idx, segment_data in layer_data.items():
                     trueID_list = []
                     for particle_id, particle_data in segment_data.items():
-#                         print(f"keys of particle data: {particle_data.keys()}")
-#                         print(f"types: {type(particle_data['z_pos'])},{type(particle_data['hittheta'])},{type(particle_data['hitmomentum'])}")
+                        # Need z, theta, p for sampling from NF
                         base_context = torch.tensor([particle_data['z_pos'], particle_data['hittheta'], particle_data['hitmomentum']], 
                                                     dtype=torch.float32)
+                        # Need time of track hit to get absolute time of photon hit
                         base_time_pixels_low = torch.tensor([particle_data['time'], particle_data['num_pixels_low_z']], 
                                                         dtype=torch.float32)
                         base_time_pixels_high = torch.tensor([particle_data['time'], particle_data['num_pixels_high_z']], 
@@ -281,20 +199,31 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, d
             sipm_samples[sipm_idx].append(sample)
 
         # Process each SiPM's samples
+        SiPM_info = {}
+        translated_trueID = -1
         for curr_SiPM_idx in range(2):
             if not sipm_samples[curr_SiPM_idx]:
+                SiPM_info[f"Time{curr_SiPM_idx}"] = 0
+                SiPM_info[f"Charge{curr_SiPM_idx}"] = 0
                 continue
 
             photon_times = np.array(sipm_samples[curr_SiPM_idx]) * 10**(-9)
             time_arr, waveform = processor.generate_waveform(photon_times)
-            timing = processor.get_pulse_timing(waveform, threshold=pixel_threshold)
+            if(useCFD):
+                timing = processor.get_pulse_timing(waveform, threshold=pixel_threshold)
+            else:
+                timing = processor.constant_threshold_timing(waveform,threshold = pixel_threshold)
 
+            # set charge and time to 0 if hit isn't registered
             if timing is None:
+                SiPM_info[f"Time{curr_SiPM_idx}"] = 0
+                SiPM_info[f"Charge{curr_SiPM_idx}"] = 0
                 continue
 
             curr_charge = processor.integrate_charge(waveform) * 1e6
             curr_timing = timing * 1e8
-            
+            SiPM_info[f"Time{curr_SiPM_idx}"] = curr_timing
+            SiPM_info[f"Charge{curr_SiPM_idx}"] = curr_charge
             if event_idx not in event_first_hits or curr_timing < event_first_hits[event_idx][0]:
                 event_first_hits[event_idx] = (curr_timing, strip_z, strip_x)
 
@@ -307,14 +236,13 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, d
                     trueID_dict[event_true_key] = trueID_dict_running_idx
                     trueID_dict_running_idx += 1
                 translated_trueID = trueID_dict[event_true_key]
-
+        if(translated_trueID != -1):
             # Create row
             rows.append({
                 "event_idx": event_idx,
                 "stave_idx": stave_idx,
                 "layer_idx": layer_idx,
                 "segment_idx": segment_idx,
-                "SiPM_idx": curr_SiPM_idx,
                 "trueID": translated_trueID,
                 "truePID": truePID,
                 "hitID": hitID,
@@ -330,8 +258,10 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, d
                 "KMU_endpoint_x" : KMU_endpoint_x,
                 "KMU_endpoint_y" : KMU_endpoint_y,
                 "KMU_endpoint_z" : KMU_endpoint_z,
-                "Charge"         : curr_charge,
-                "Time"           : curr_timing
+                "Charge0"         : SiPM_info["Charge0"],
+                "Time0"           : SiPM_info["Time0"],
+                "Charge1"         : SiPM_info["Charge1"],
+                "Time1"           : SiPM_info["Time1"]
             })
 
     ret_df = pd.DataFrame(rows)
@@ -881,15 +811,16 @@ class SiPMSignalProcessor:
                  tau_rise=1.1e-9,       # 1 ns rise time
                  tau_fall=15e-9,      # 50 ns fall time
                  window=200e-9,       # 200 ns time window
-                 cfd_delay=5e-9,      # 5 ns delay for CFD
+#                  cfd_delay=5e-9,      # 5 ns delay for CFD
                  cfd_fraction=0.3):   # 30% fraction for CFD
         
         self.sampling_rate = sampling_rate
         self.tau_rise = tau_rise
         self.tau_fall = tau_fall
         self.window = window
-        self.cfd_delay = cfd_delay
+#         self.cfd_delay = cfd_delay
         self.cfd_fraction = cfd_fraction
+        self.cfd_delay = self.tau_rise * (1 - self.cfd_fraction)
         
         # Time array for single pulse shape
         self.time = np.arange(0, self.window, 1/self.sampling_rate)
@@ -928,7 +859,7 @@ class SiPMSignalProcessor:
         for i in range(len(self.time)):
             if(waveform[i] > threshold):
                 return self.time[i]
-        return -1
+        return None
         
     def apply_cfd(self, waveform, use_interpolation=True):
         """Apply Constant Fraction Discrimination to the waveform.
@@ -966,7 +897,7 @@ class SiPMSignalProcessor:
             return cfd_waveform, None
 
         # Find the rising edge of the original pulse
-        pulse_start = np.where(waveform > np.max(waveform) * 0.1)[0]  # 10% threshold
+        pulse_start = np.where(waveform > np.max(waveform) * self.cfd_fraction)[0]  # cfd fraction threshold
         if len(pulse_start) == 0:
             return cfd_waveform, None
         pulse_start = pulse_start[0]
