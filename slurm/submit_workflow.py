@@ -62,7 +62,7 @@ echo "Beginning Analysis with analyze_data_old.py"
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 
 #########   ANALYZE    ##########
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv --no-useCFD
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv --useCFD
 
 deactivate
 echo ENDING JOB
@@ -102,7 +102,7 @@ def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_
 #SBATCH --mem=80G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
-#SBATCH --mail-type=ALL
+#SBATCH --mail-type=END
 
 echo began job
 echo began training NN for prediction
@@ -117,19 +117,19 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
 
 
 def main():
-    num_simulations = 10
+    num_simulations = 200
     simulation_start_num = 0
     num_events = 50
-    run_num = 0
+    run_num = 2
     geometry_type = 1
-    run_name = f"no_CFD_Feb_10_{num_events}events_run_{run_num}"
+    run_name = f"CFD_Feb_10_{num_events}events_run_{run_num}"
 
     # Submit simulation and processing jobs
-#     job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type)
+    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     #Submit training job
-    use_dependency = False
-    job_ids = [""]
+    use_dependency = True
+#     job_ids = [""]
     submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency)
     print("Submitted training job with dependency on all simulation and processing jobs")
 

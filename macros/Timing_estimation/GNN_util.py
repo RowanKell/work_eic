@@ -17,12 +17,17 @@ from tqdm import tqdm
 import matplotlib.pyplot as plot
 import numpy as np
 from datetime import datetime as datetime
+from pathlib import Path
 current_date = datetime.now().strftime("%B_%d")
 def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 from dgl.nn import GraphConv,SumPooling,GINConv,AvgPooling
 
+def delete_files_in_dir(directory):
+    for file_path in Path(directory).iterdir():
+        if file_path.is_file():
+            file_path.unlink()
 def process_df_vectorized(df, cone_angle_deg=45):
     # Grab positions to use as center of cone
     event_references = (
@@ -195,11 +200,11 @@ class HitDataset(DGLDataset):
             n_hits = len(curr_event)
 
             # Spatial features
-            hit_coords = curr_event[['strip_x', 'strip_y']].values
+#             hit_coords = curr_event[['strip_x', 'strip_y']].values
 
             # Center of gravity
-            cog_x = np.average(hit_coords[:, 0], weights=curr_event['Charge0'] + curr_event['Charge1'])
-            cog_y = np.average(hit_coords[:, 1], weights=curr_event['Charge0'] + curr_event['Charge1'])
+#             cog_x = np.average(hit_coords[:, 0], weights=curr_event['Charge0'] + curr_event['Charge1'])
+#             cog_y = np.average(hit_coords[:, 1], weights=curr_event['Charge0'] + curr_event['Charge1'])
 
             # Feature vector for this event
             event_features = torch.from_numpy(np.stack((label,

@@ -20,7 +20,7 @@ from datetime import datetime as datetime
 current_date = datetime.now().strftime("%B_%d")
 from torch.utils.data.sampler import SubsetRandomSampler
 from scipy.spatial import ConvexHull
-from GNN_util import process_df_vectorized,create_directory,HitDataset,create_fast_edge_lists,visualize_detector_graph,GIN,train_GNN,test_GNN,calculate_bin_rmse
+from GNN_util import process_df_vectorized,create_directory,HitDataset,create_fast_edge_lists,visualize_detector_graph,GIN,train_GNN,test_GNN,calculate_bin_rmse,delete_files_in_dir
 import argparse
 from scipy.optimize import curve_fit
 from PIL import Image
@@ -99,6 +99,9 @@ for path in path_list:
     if(path != ''):
         create_directory(path)
 
+# Delete gif frames from file path if any exist
+delete_files_in_dir(frame_plot_path)
+        
 # Example inputDataPref: /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/Feb_8_50events_run_0_
 dfs = []
 for i in range(num_dfs):
@@ -169,7 +172,7 @@ test_truths, test_preds, test_rmse = test_GNN(trained_model, test_dataloader)
 if(test_plot_path != ""):
     test_fig, test_axs = plot.subplots(1,1)
     test_axs.plot([0,5],[0,5])
-    test_fig.title("Test dataset results")
+    test_fig.suptitle("Test dataset results")
     test_axs.scatter(test_truths,test_preds,alpha = 0.1)
     test_axs.set_xlabel("truths")
     test_axs.set_ylabel("preds")
@@ -194,7 +197,7 @@ if(results_file_path != ""):
 x_fit = np.linspace(1, 3, 100)
 y_fit = func(x_fit, params)
 if(results_plot_path != ""):
-    fig,axs = plot.subplots(1,3,figsize = (15,5))
+    fig,axs = plot.subplots(1,3,figsize = (15,8))
     fig.suptitle("30k events, hdim = 6, lr = 0.005")
     axs[0].scatter(rmse_per_bin.keys(),rmse_per_bin.values())
     axs[0].set(xlabel="Energy",ylabel = "RMSE")
