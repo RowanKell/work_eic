@@ -157,12 +157,12 @@ optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 criterion = nn.MSELoss()
 
 # Implementation for gif frame path: f"plots/training_gif_frames/run_{run_num}/frame{epoch}.jpeg"
-trained_model, train_losses, val_losses, optimizer = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit,frame_plot_path,model_path)
+trained_model, train_losses, val_losses, optimizer,best_epoch = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit,frame_plot_path,model_path)
 
 if(loss_plot_path != ""):
     loss_fig, loss_axs = plot.subplots(1,1)
     loss_axs.plot(train_losses,label = "train")
-    loss_fig.suptitle(f"Train and Val loss throughout training, run {run_num}")
+    loss_fig.suptitle(f"Train and Validation loss throughout training, run {run_num}")
     loss_axs.plot(val_losses, label = "test")
     loss_axs.legend()
     loss_fig.tight_layout()
@@ -174,8 +174,8 @@ if(test_plot_path != ""):
     test_axs.plot([0,5],[0,5])
     test_fig.suptitle("Test dataset results")
     test_axs.scatter(test_truths,test_preds,alpha = 0.1)
-    test_axs.set_xlabel("truths")
-    test_axs.set_ylabel("preds")
+    test_axs.set_xlabel("True E (GeV)")
+    test_axs.set_ylabel("Predicted E (GeV)")
     test_fig.tight_layout()
     test_fig.savefig(f"{test_plot_path}{run_name}.jpeg")
 rmse_per_bin = calculate_bin_rmse(test_dataloader, model)
@@ -197,20 +197,20 @@ if(results_file_path != ""):
 x_fit = np.linspace(1, 3, 100)
 y_fit = func(x_fit, params)
 if(results_plot_path != ""):
-    fig,axs = plot.subplots(1,3,figsize = (15,8))
-    fig.suptitle("30k events, hdim = 6, lr = 0.005")
+    fig,axs = plot.subplots(1,3,figsize = (12,4))
+    fig.suptitle("RMSE, relative RMSE, and scatter plot for Test set")
     axs[0].scatter(rmse_per_bin.keys(),rmse_per_bin.values())
     axs[0].set(xlabel="Energy",ylabel = "RMSE")
     axs[1].scatter(rmse_per_bin.keys(),np.array(list(rmse_per_bin.values())) / np.array(list(rmse_per_bin.keys())))
     axs[1].plot(x_fit,y_fit)
     axs[1].set(xlabel="Energy",ylabel = "Relative RMSE")
     axs[1].text(2,0.2,f"A: {params[0]:.2f}")
-    axs[1].text(2,0.22,f"f(x) = A/sqrt(P)")
+    axs[1].text(2,0.22,f"f(x) = A/sqrt(E)")
     axs[2].scatter(test_truths,test_preds,alpha = 0.2)
     axs[2].plot([0.5,3.5],[0.5,3.5],color = "red")
     axs[2].set(xlabel = "truths",ylabel = "preds")
     fig.tight_layout()
-    plot.savefig(f"{results_plot_path}{run_name}.jpeg")
+    plot.savefig(f"{results_plot_path}{run_name}.pdf")
     
 
 if(gif_plot_path != ""):
@@ -220,6 +220,7 @@ if(gif_plot_path != ""):
     jpeg_files = []
     for i in range(num_files):
         jpeg_files.append(f"{frame_plot_path}epoch{i}.jpeg")
+    jpeg_files.append(f"{frame_plot_path}epoch{best_epoch}.jpeg")
 
     # Load images
     images = [Image.open(f) for f in jpeg_files]

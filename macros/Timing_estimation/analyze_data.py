@@ -31,6 +31,8 @@ parser.add_argument('--outputDataframePathName', type=str, default="NA",
                         help='directory of output df') 
 parser.add_argument('--scintThickness', type=str, default="2cm",
                         help='Thickness of scintillator in geometry') 
+parser.add_argument('--batchSize', type=int, default=50000,
+                        help='Size of batches for inference') 
 parser.add_argument('--useCFD', action=argparse.BooleanOptionalAction,
                         help='If true, uses constant fraction discrimination. Otherwise, uses leading edge.') 
 args = parser.parse_args()
@@ -38,6 +40,7 @@ outputDataframePathName = args.outputDataframePathName
 inputProcessedData = args.inputProcessedData
 scintThickness = args.scintThickness
 useCFD = args.useCFD
+batch_size = args.batchSize
 
 model_compile = get_compiled_NF_model(thickness = scintThickness)
 
@@ -45,7 +48,7 @@ processed_data = load_defaultdict(inputProcessedData)
 
 print("Starting prepare_nn_input")
 begin = time.time()
-ret_df = newer_prepare_nn_input(processed_data, model_compile,batch_size = 50000)
+ret_df = newer_prepare_nn_input(processed_data, model_compile,batch_size = batch_size)
 end = time.time()
 print(f"new_prepare_nn_input took {(end - begin) / 60} minutes")
 

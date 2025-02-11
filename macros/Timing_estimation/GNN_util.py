@@ -413,7 +413,8 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
     early_stopping_dict = {
             "lowest_loss" : -1,
             "best_model_path" : "",
-            "num_upticks" : 0
+            "num_upticks" : 0,
+            "best_epoch": 0
     }
     # 0: loss; 1: path; 2: # hits
 
@@ -481,6 +482,7 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
             early_stopping_dict["lowest_loss"] = epoch_val_mse
             early_stopping_dict["best_model_path"] = f"{model_path}epoch_{epoch}.pth"
             early_stopping_dict["num_upticks"] = 0
+            early_stopping_dict["best_epoch"] = epoch
             
             torch.save(model.state_dict(),early_stopping_dict["best_model_path"])
         elif(epoch_val_mse.item() > early_stopping_dict["lowest_loss"]):
@@ -492,7 +494,7 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
             torch.save(model.state_dict(),f"{model_path}best_model.pth")
             print("Stopping early, loading current model...")
             break
-    return model, train_losses, val_mse, optimizer
+    return model, train_losses, val_mse, optimizer,early_stopping_dict["best_epoch"]
 
 def test_GNN(model, test_dataloader):
     truths = []
