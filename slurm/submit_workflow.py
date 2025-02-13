@@ -37,9 +37,10 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=10G
+#SBATCH --mem=6G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
+#SBATCH --mail-type=FAIL
 
 echo began job
 
@@ -99,7 +100,7 @@ def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_
 #SBATCH -p vossenlab-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=80G
+#SBATCH --mem=10G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 #SBATCH --mail-type=END
@@ -118,18 +119,18 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
 
 def main():
     num_simulations = 200
-    simulation_start_num = 0
+    simulation_start_num = 400
     num_events = 50
     run_num = 1
     geometry_type = 1
     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
 
     # Submit simulation and processing jobs
-#     job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type)
+    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     #Submit training job
-    use_dependency = False
-    job_ids = [""]
+    use_dependency = True
+#     job_ids = [""]
     submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency)
     print("Submitted training job with dependency on all simulation and processing jobs")
 

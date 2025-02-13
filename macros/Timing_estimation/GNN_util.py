@@ -58,7 +58,6 @@ def process_df_vectorized(df, cone_angle_deg=45):
     # Drop intermediate columns if necessary
     return df
 
-
 class HitDataset(DGLDataset):
     def __init__(self, data, filter_events,connection_mode = "kNN",max_distance = 0.5,k = 6):
         self.data = data
@@ -68,7 +67,10 @@ class HitDataset(DGLDataset):
         self.connection_mode = connection_mode
         self.k = k
         self.dfs = []
-        self.mass_dict = {130 : 0.497611}
+        self.mass_dict = {
+            130 : 0.497611,
+            2112  : 0.939565
+                         }
         super().__init__(name = "KLM_reco")
     def get_max_distance_edges(self,curr_event):
         x = curr_event['strip_x'].values
@@ -176,12 +178,15 @@ class HitDataset(DGLDataset):
             momentum = curr_event["P"].to_numpy()[0]
             energy = np.sqrt(mass**2 + momentum**2)
             label = torch.tensor(energy)
+            strip_x = (curr_event["strip_x"].to_numpy() / 300)
+            strip_y = (curr_event["strip_y"].to_numpy() / 300)
+            radial_distance = torch.tensor(np.sqrt( strip_x** 2 + strip_y ** 2))
             '''VERSION LABEL INCLUDING EVENT FEATURES'''
             # Since this is the version with both SiPM in one hit/node, we have 2 times and charges
             # I hope that doing this will avoid making the NN learn that two hits at the same position are 
             # closely related
             feats = np.stack((
-                curr_event["strip_x"].to_numpy() / 300,curr_event["strip_y"].to_numpy() / 300,
+                strip_x,strip_y, radial_distance,
                 curr_event["Time0"].to_numpy() / 5,
                 curr_event["Charge0"].to_numpy(),
                 curr_event["Time1"].to_numpy() / 5,
@@ -203,8 +208,8 @@ class HitDataset(DGLDataset):
 #             hit_coords = curr_event[['strip_x', 'strip_y']].values
 
             # Center of gravity
-#             cog_x = np.average(hit_coords[:, 0], weights=curr_event['Charge0'] + curr_event['Charge1'])
-#             cog_y = np.average(hit_coords[:, 1], weights=curr_event['Charge0'] + curr_event['Charge1'])
+            cog_x = np.average(strip_x, weights=curr_event['Charge0'].to_numpy() + curr_event['Charge1'].to_numpy())
+            cog_y = np.average(strip_y, weights=curr_event['Charge0'].to_numpy() + curr_event['Charge1'].to_numpy())
 
             # Feature vector for this event
             event_features = torch.from_numpy(np.stack((label,
@@ -212,7 +217,7 @@ class HitDataset(DGLDataset):
                 max_charge,
                 n_hits,
 #                 cog_x,
-#                 cog_y,
+#                 cog_y
 
                 ),axis = -1))
             if(self.labels.shape[0] == 0):
@@ -334,38 +339,43 @@ def visualize_detector_graph(dataset,graph_idx = 0, max_edges=1000, figsize=(6, 
     
     
 class GIN(nn.Module):
-    def __init__(self, in_feats, h_feats,num_event_feats, num_classes=1,pooling_type = "avg"):
+    def __init__(self, in_feats, h_feats,num_event_feats,n_conv_layers = 2, n_linear_layers = 7,linear_capacity = 5, num_classes=1,pooling_type = "avg"):
         super(GIN, self).__init__()
-        
         # Define the MLP for the GINConv layers
-        self.mlp1 = nn.Sequential(
-            nn.Linear(in_feats, h_feats),
-            nn.ReLU(),
-            nn.Linear(h_feats, h_feats)
-        )
-        
-        self.mlp2 = nn.Sequential(
-            nn.Linear(h_feats, h_feats),
-            nn.ReLU(),
-            nn.Linear(h_feats, h_feats)
-        )
+        conv_list = []
+        for i in range(n_conv_layers):
+            first_in = (in_feats if i == 0 else h_feats)
+            mlp = nn.Sequential(
+                nn.Linear(first_in, h_feats),
+                nn.ReLU(),
+                nn.Linear(h_feats, h_feats)
+            )
+            conv_list.append(GINConv(mlp))
+        self.conv_list = nn.ModuleList(conv_list)
         
         # Define the GINConv layers
-        self.conv1 = GINConv(self.mlp1)
-        self.conv2 = GINConv(self.mlp2)
-        self.linear1 = nn.Linear(h_feats + num_event_feats, 256)
-        self.linear2 = nn.Linear(256, 128)
-        self.linear3 = nn.Linear(128, 128)
-        self.linear4 = nn.Linear(128, 64)
-        self.linear5 = nn.Linear(64, 64)
-        self.linear6 = nn.Linear(64, 16)
-        self.linear7 = nn.Linear(16, 1)
+        
+        linear_list = []
+        for i in range(n_linear_layers):
+            if(i == 0):
+                in_feats = h_feats + num_event_feats
+                out_feats = pow(2,linear_capacity + (n_linear_layers // 2))
+            elif(i == n_linear_layers - 1):
+                in_feats = out_feats
+                out_feats = num_classes
+            else:
+                in_feats = out_feats
+                out_feats = out_feats // (2 if (i %2) else 1)
+            linear_list.append(nn.Linear(in_feats,out_feats))
+        self.linear_list = nn.ModuleList(linear_list)
         
         # Graph pooling layer
         if(pooling_type == "avg"):
             self.pool = AvgPooling()
         elif(pooling_type == "sum"):
             self.pool = SumPooling()
+        elif(pooling_type == "max"):
+            self.pool = MaxPooling()
         else:
             print(f"Selected pooling type \"{pooling_type}\" not found. Resorting to default: AvgPooling")
             self.pool = AvgPooling()
@@ -373,38 +383,27 @@ class GIN(nn.Module):
     def forward(self, g, in_feat,event_feats):
         # Apply the first GINConv layer
         
+        h = in_feat
         hidden_reps = []
+        for i in range(len(self.conv_list)):
+            h = self.conv_list[i](g,h)
+            h = F.relu(h)
+            hidden_reps.append(self.pool(g,h))
         
-        h = self.conv1(g, in_feat)
-        h = F.relu(h)
-        hidden_reps.append(self.pool(g,h))
-        
-#         Apply the second GINConv layer
-        h = self.conv2(g, h)
-        h = F.relu(h)
-        hidden_reps.append(self.pool(g,h))
-        
-        # Pool the graph-level representation
+        # Pool the graph-level representation - gives one array of length n_feats
         hg = self.pool(g, h)
         for i in range(len(hidden_reps)):
             hg += hidden_reps[i]
         total_feats = torch.cat((hg,event_feats),axis = 1).float()
-        hg = self.linear1(total_feats)
-        hg = F.relu(hg)
-        hg = self.linear2(hg)
-        hg = F.relu(hg)
-        hg = self.linear3(hg)
-        hg = F.relu(hg)
-        hg = self.linear4(hg)
-        hg = F.relu(hg)
-        hg = self.linear5(hg)
-        hg = F.relu(hg)
-        hg = self.linear6(hg)
-        hg = F.relu(hg)
-        hg = self.linear7(hg)
-        return hg
+        for i in range(len(self.linear_list) - 1):
+            total_feats = self.linear_list[i](total_feats)
+            total_feats = F.relu(total_feats)
+            
+        #No activation on last linear layer:
+        total_feats = self.linear_list[-1](total_feats)
+        return total_feats
     
-def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs,early_stopping_limit,frame_plot_path,model_path):
+def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs,early_stopping_limit,frame_plot_path = "",model_path = "",log_status = True):
     create_directory(model_path)
     val_mse = []
     val_mse_all = []
@@ -464,8 +463,9 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
         epoch_val_mse /= num_val_batches
         val_mse.append(epoch_val_mse)
         if(epoch %1 == 0):
-            print(f"Epoch {epoch + 1}/{n_epochs} - Train loss:\t {this_epoch_loss:.4f}")
-            print(f"Epoch {epoch + 1}/{n_epochs} - Validation MSE:\t {epoch_val_mse:.4f}\n")
+            if(log_status):
+                print(f"Epoch {epoch + 1}/{n_epochs} - Train loss:\t {this_epoch_loss:.4f}")
+                print(f"Epoch {epoch + 1}/{n_epochs} - Validation MSE:\t {epoch_val_mse:.4f}\n")
             if(frame_plot_path != ""):
                 frame_fig, frame_axs = plot.subplots(1,1)
                 frame_axs.plot([0,5],[0,5])
@@ -487,12 +487,14 @@ def train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epo
             torch.save(model.state_dict(),early_stopping_dict["best_model_path"])
         elif(epoch_val_mse.item() > early_stopping_dict["lowest_loss"]):
             early_stopping_dict["num_upticks"] += 1
-            print("Test loss increased, adding uptick")
+            if(log_status):
+                print("Test loss increased, adding uptick")
         if(early_stopping_dict["num_upticks"] >= early_stopping_limit):
             # Stop training, load best model
             model.load_state_dict(torch.load(early_stopping_dict["best_model_path"]))
             torch.save(model.state_dict(),f"{model_path}best_model.pth")
-            print("Stopping early, loading current model...")
+            if(log_status):
+                print("Stopping early, loading current model...")
             break
     return model, train_losses, val_mse, optimizer,early_stopping_dict["best_epoch"]
 
@@ -517,7 +519,7 @@ def test_GNN(model, test_dataloader):
                 truths.append(label)
     mse = summed_sqe / num_predictions
     print(f"MSE: {mse[0][0]}")
-    return truths, preds, np.sqrt(mse)
+    return truths, preds, mse
 
 def calculate_bin_rmse(test_dataloader, model, bin_width=0.5, bin_min=1.0, bin_max=3.0):
     # Calculate the bin centers

@@ -1,4 +1,4 @@
-# import matplotlib.pyplot as plot
+import matplotlib.pyplot as plot
 import pandas as pd
 import os
 os.environ["DGLBACKEND"] = "pytorch"

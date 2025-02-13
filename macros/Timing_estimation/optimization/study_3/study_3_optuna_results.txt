@@ -1,0 +1,113 @@
+Study Name: Study_3
+Number of Trials: 100
+
+Best Trial ID: 94
+Best Value: 0.09823530912399292
+Best Parameters:
+  MLP_hidden_dim: 53
+  linear_capacity: 3
+  n_linear_layers: 9
+  n_conv_layers: 1
+  lr: 0.0003523468201778687
+
+All Trials:
+Trial 0: Value=5.277840614318848, Params={'MLP_hidden_dim': 93, 'linear_capacity': 6, 'n_linear_layers': 7, 'n_conv_layers': 4, 'lr': 0.04683844944778554}
+Trial 1: Value=0.1581883728504181, Params={'MLP_hidden_dim': 69, 'linear_capacity': 8, 'n_linear_layers': 5, 'n_conv_layers': 2, 'lr': 0.00017129539374646086}
+Trial 2: Value=0.3088347315788269, Params={'MLP_hidden_dim': 18, 'linear_capacity': 8, 'n_linear_layers': 7, 'n_conv_layers': 4, 'lr': 0.029733602598304626}
+Trial 3: Value=0.3091426491737366, Params={'MLP_hidden_dim': 57, 'linear_capacity': 8, 'n_linear_layers': 8, 'n_conv_layers': 4, 'lr': 0.020476720488543123}
+Trial 4: Value=0.24668574333190918, Params={'MLP_hidden_dim': 63, 'linear_capacity': 7, 'n_linear_layers': 4, 'n_conv_layers': 6, 'lr': 0.0031484294439931087}
+Trial 5: Value=0.3088868260383606, Params={'MLP_hidden_dim': 39, 'linear_capacity': 5, 'n_linear_layers': 9, 'n_conv_layers': 2, 'lr': 0.00950694534476344}
+Trial 6: Value=0.5772913098335266, Params={'MLP_hidden_dim': 56, 'linear_capacity': 8, 'n_linear_layers': 5, 'n_conv_layers': 1, 'lr': 0.029526237380128738}
+Trial 7: Value=0.09892290830612183, Params={'MLP_hidden_dim': 43, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 1, 'lr': 0.0004265157255271877}
+Trial 8: Value=0.30924689769744873, Params={'MLP_hidden_dim': 70, 'linear_capacity': 8, 'n_linear_layers': 8, 'n_conv_layers': 6, 'lr': 0.002516515391163242}
+Trial 9: Value=0.1552472859621048, Params={'MLP_hidden_dim': 51, 'linear_capacity': 6, 'n_linear_layers': 6, 'n_conv_layers': 2, 'lr': 0.005965801183661579}
+Trial 10: Value=0.10195298492908478, Params={'MLP_hidden_dim': 25, 'linear_capacity': 3, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0003366366695412884}
+Trial 11: Value=0.10839810222387314, Params={'MLP_hidden_dim': 23, 'linear_capacity': 3, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0003944318573073546}
+Trial 12: Value=0.10049000382423401, Params={'MLP_hidden_dim': 35, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.0007484329556540351}
+Trial 13: Value=0.1140412986278534, Params={'MLP_hidden_dim': 38, 'linear_capacity': 4, 'n_linear_layers': 10, 'n_conv_layers': 3, 'lr': 0.0008812536133445518}
+Trial 14: Value=0.10866722464561462, Params={'MLP_hidden_dim': 38, 'linear_capacity': 4, 'n_linear_layers': 10, 'n_conv_layers': 3, 'lr': 0.0009230325361739441}
+Trial 15: Value=0.1459081768989563, Params={'MLP_hidden_dim': 46, 'linear_capacity': 4, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.00010697335457577054}
+Trial 16: Value=0.11258307844400406, Params={'MLP_hidden_dim': 29, 'linear_capacity': 3, 'n_linear_layers': 9, 'n_conv_layers': 2, 'lr': 0.0009630444535203902}
+Trial 17: Value=0.19272491335868835, Params={'MLP_hidden_dim': 96, 'linear_capacity': 5, 'n_linear_layers': 7, 'n_conv_layers': 5, 'lr': 0.00044697783542354354}
+Trial 18: Value=0.10036034137010574, Params={'MLP_hidden_dim': 80, 'linear_capacity': 4, 'n_linear_layers': 10, 'n_conv_layers': 3, 'lr': 0.0012653241057758314}
+Trial 19: Value=0.1135527640581131, Params={'MLP_hidden_dim': 83, 'linear_capacity': 4, 'n_linear_layers': 9, 'n_conv_layers': 3, 'lr': 0.0021124422719316148}
+Trial 20: Value=0.13926582038402557, Params={'MLP_hidden_dim': 85, 'linear_capacity': 5, 'n_linear_layers': 8, 'n_conv_layers': 5, 'lr': 0.001629476713034704}
+Trial 21: Value=0.10781914740800858, Params={'MLP_hidden_dim': 44, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 2, 'lr': 0.0002439894547730855}
+Trial 22: Value=0.1037231832742691, Params={'MLP_hidden_dim': 32, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.0005930041612880391}
+Trial 23: Value=0.10653398931026459, Params={'MLP_hidden_dim': 77, 'linear_capacity': 4, 'n_linear_layers': 10, 'n_conv_layers': 3, 'lr': 0.0014641294042292156}
+Trial 24: Value=0.10592340677976608, Params={'MLP_hidden_dim': 49, 'linear_capacity': 3, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0042354357859025965}
+Trial 25: Value=0.1112949475646019, Params={'MLP_hidden_dim': 64, 'linear_capacity': 4, 'n_linear_layers': 10, 'n_conv_layers': 2, 'lr': 0.0007688801525975882}
+Trial 26: Value=0.23263248801231384, Params={'MLP_hidden_dim': 32, 'linear_capacity': 3, 'n_linear_layers': 6, 'n_conv_layers': 5, 'lr': 0.0001876603584539248}
+Trial 27: Value=0.10376982390880585, Params={'MLP_hidden_dim': 16, 'linear_capacity': 5, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.001445314477970966}
+Trial 28: Value=0.1256103813648224, Params={'MLP_hidden_dim': 76, 'linear_capacity': 4, 'n_linear_layers': 9, 'n_conv_layers': 2, 'lr': 0.0005914936610817295}
+Trial 29: Value=0.15502223372459412, Params={'MLP_hidden_dim': 91, 'linear_capacity': 6, 'n_linear_layers': 6, 'n_conv_layers': 4, 'lr': 0.00010080788285603372}
+Trial 30: Value=0.11021775752305984, Params={'MLP_hidden_dim': 100, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 3, 'lr': 0.00026882410112869046}
+Trial 31: Value=0.10408314317464828, Params={'MLP_hidden_dim': 24, 'linear_capacity': 3, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0003816781587389822}
+Trial 32: Value=0.11675592511892319, Params={'MLP_hidden_dim': 25, 'linear_capacity': 3, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0002419764275236642}
+Trial 33: Value=0.12188216298818588, Params={'MLP_hidden_dim': 40, 'linear_capacity': 4, 'n_linear_layers': 11, 'n_conv_layers': 2, 'lr': 0.0005202916319806009}
+Trial 34: Value=0.10537740588188171, Params={'MLP_hidden_dim': 30, 'linear_capacity': 3, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0003208015383447556}
+Trial 35: Value=0.10738926380872726, Params={'MLP_hidden_dim': 20, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 2, 'lr': 0.0011188314177923112}
+Trial 36: Value=0.11005999892950058, Params={'MLP_hidden_dim': 54, 'linear_capacity': 7, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.00017410231141581347}
+Trial 37: Value=0.12475772202014923, Params={'MLP_hidden_dim': 44, 'linear_capacity': 4, 'n_linear_layers': 7, 'n_conv_layers': 4, 'lr': 0.0006829613300575438}
+Trial 38: Value=0.11516410112380981, Params={'MLP_hidden_dim': 63, 'linear_capacity': 3, 'n_linear_layers': 5, 'n_conv_layers': 2, 'lr': 0.003880850748550119}
+Trial 39: Value=0.13467445969581604, Params={'MLP_hidden_dim': 35, 'linear_capacity': 5, 'n_linear_layers': 8, 'n_conv_layers': 1, 'lr': 0.013246962662877483}
+Trial 40: Value=0.1360292136669159, Params={'MLP_hidden_dim': 70, 'linear_capacity': 4, 'n_linear_layers': 4, 'n_conv_layers': 2, 'lr': 0.00013132200898081152}
+Trial 41: Value=0.11168331652879715, Params={'MLP_hidden_dim': 30, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.0005375528780977646}
+Trial 42: Value=0.12490875273942947, Params={'MLP_hidden_dim': 35, 'linear_capacity': 3, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0011800347642846498}
+Trial 43: Value=0.09923341870307922, Params={'MLP_hidden_dim': 25, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.0003445425659287851}
+Trial 44: Value=0.10266660898923874, Params={'MLP_hidden_dim': 27, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.00039048684196978025}
+Trial 45: Value=0.1319894939661026, Params={'MLP_hidden_dim': 23, 'linear_capacity': 7, 'n_linear_layers': 9, 'n_conv_layers': 2, 'lr': 0.0022660476684494254}
+Trial 46: Value=0.11053968966007233, Params={'MLP_hidden_dim': 20, 'linear_capacity': 4, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0003072819036624258}
+Trial 47: Value=0.1157161220908165, Params={'MLP_hidden_dim': 59, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 6, 'lr': 0.0008570147020433422}
+Trial 48: Value=0.11627320200204849, Params={'MLP_hidden_dim': 41, 'linear_capacity': 4, 'n_linear_layers': 10, 'n_conv_layers': 2, 'lr': 0.00015198042396558184}
+Trial 49: Value=0.1149602085351944, Params={'MLP_hidden_dim': 35, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 3, 'lr': 0.00019759271105430998}
+Trial 50: Value=0.11104236543178558, Params={'MLP_hidden_dim': 49, 'linear_capacity': 4, 'n_linear_layers': 8, 'n_conv_layers': 1, 'lr': 0.0018291335583944482}
+Trial 51: Value=0.11311309784650803, Params={'MLP_hidden_dim': 27, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0004697080959460237}
+Trial 52: Value=0.10800415277481079, Params={'MLP_hidden_dim': 20, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.00037695153882121805}
+Trial 53: Value=0.1027352511882782, Params={'MLP_hidden_dim': 27, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 1, 'lr': 0.00034999653314103424}
+Trial 54: Value=0.11633249372243881, Params={'MLP_hidden_dim': 36, 'linear_capacity': 3, 'n_linear_layers': 9, 'n_conv_layers': 1, 'lr': 0.0006823447667940679}
+Trial 55: Value=0.12123630195856094, Params={'MLP_hidden_dim': 42, 'linear_capacity': 4, 'n_linear_layers': 12, 'n_conv_layers': 2, 'lr': 0.0012457259564666115}
+Trial 56: Value=0.19604939222335815, Params={'MLP_hidden_dim': 31, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.0432682523050913}
+Trial 57: Value=0.10640257596969604, Params={'MLP_hidden_dim': 17, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 5, 'lr': 0.00023628712312009803}
+Trial 58: Value=0.10499198734760284, Params={'MLP_hidden_dim': 27, 'linear_capacity': 4, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.0007497698885624205}
+Trial 59: Value=0.12725050747394562, Params={'MLP_hidden_dim': 23, 'linear_capacity': 3, 'n_linear_layers': 9, 'n_conv_layers': 2, 'lr': 0.0009521703008348547}
+Trial 60: Value=0.10475093871355057, Params={'MLP_hidden_dim': 90, 'linear_capacity': 6, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.00045523010709350327}
+Trial 61: Value=0.11802840232849121, Params={'MLP_hidden_dim': 28, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 1, 'lr': 0.00033308379653999235}
+Trial 62: Value=0.10358241945505142, Params={'MLP_hidden_dim': 33, 'linear_capacity': 3, 'n_linear_layers': 6, 'n_conv_layers': 1, 'lr': 0.000401222695196331}
+Trial 63: Value=0.10436917841434479, Params={'MLP_hidden_dim': 38, 'linear_capacity': 3, 'n_linear_layers': 6, 'n_conv_layers': 1, 'lr': 0.0005988595234964188}
+Trial 64: Value=0.12297244369983673, Params={'MLP_hidden_dim': 26, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 4, 'lr': 0.00027019580362509945}
+Trial 65: Value=0.11579395085573196, Params={'MLP_hidden_dim': 19, 'linear_capacity': 3, 'n_linear_layers': 8, 'n_conv_layers': 1, 'lr': 0.00021885892526167657}
+Trial 66: Value=0.10376368463039398, Params={'MLP_hidden_dim': 22, 'linear_capacity': 3, 'n_linear_layers': 8, 'n_conv_layers': 2, 'lr': 0.0003514958689529184}
+Trial 67: Value=0.10678618401288986, Params={'MLP_hidden_dim': 29, 'linear_capacity': 4, 'n_linear_layers': 7, 'n_conv_layers': 1, 'lr': 0.00029377586984245194}
+Trial 68: Value=0.10341566056013107, Params={'MLP_hidden_dim': 75, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 3, 'lr': 0.0029010528218795613}
+Trial 69: Value=0.10733400285243988, Params={'MLP_hidden_dim': 48, 'linear_capacity': 4, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.00045351287638120024}
+Trial 70: Value=0.10344437509775162, Params={'MLP_hidden_dim': 82, 'linear_capacity': 5, 'n_linear_layers': 11, 'n_conv_layers': 2, 'lr': 0.00014252534507601462}
+Trial 71: Value=0.10429144650697708, Params={'MLP_hidden_dim': 80, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 3, 'lr': 0.0062521423575511905}
+Trial 72: Value=0.11093287169933319, Params={'MLP_hidden_dim': 75, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 3, 'lr': 0.0027542299403202114}
+Trial 73: Value=0.135516956448555, Params={'MLP_hidden_dim': 73, 'linear_capacity': 3, 'n_linear_layers': 6, 'n_conv_layers': 3, 'lr': 0.0018377675272460124}
+Trial 74: Value=0.14028653502464294, Params={'MLP_hidden_dim': 89, 'linear_capacity': 3, 'n_linear_layers': 7, 'n_conv_layers': 4, 'lr': 0.0035110909629297573}
+Trial 75: Value=0.10969261080026627, Params={'MLP_hidden_dim': 33, 'linear_capacity': 3, 'n_linear_layers': 8, 'n_conv_layers': 1, 'lr': 0.0006255561830836303}
+Trial 76: Value=0.3087308704853058, Params={'MLP_hidden_dim': 79, 'linear_capacity': 3, 'n_linear_layers': 5, 'n_conv_layers': 3, 'lr': 0.005418444041178997}
+Trial 77: Value=0.11260543018579483, Params={'MLP_hidden_dim': 55, 'linear_capacity': 4, 'n_linear_layers': 12, 'n_conv_layers': 1, 'lr': 0.0014310184009216015}
+Trial 78: Value=0.11046035587787628, Params={'MLP_hidden_dim': 68, 'linear_capacity': 3, 'n_linear_layers': 11, 'n_conv_layers': 1, 'lr': 0.0008178232939171574}
+Trial 79: Value=0.11097901314496994, Params={'MLP_hidden_dim': 87, 'linear_capacity': 5, 'n_linear_layers': 9, 'n_conv_layers': 4, 'lr': 0.0011357858869763795}
+Trial 80: Value=0.12338606268167496, Params={'MLP_hidden_dim': 22, 'linear_capacity': 3, 'n_linear_layers': 8, 'n_conv_layers': 1, 'lr': 0.0005211925735535212}
+Trial 81: Value=0.1189160943031311, Params={'MLP_hidden_dim': 84, 'linear_capacity': 5, 'n_linear_layers': 11, 'n_conv_layers': 2, 'lr': 0.00011164164071650574}
+Trial 82: Value=0.11059483140707016, Params={'MLP_hidden_dim': 81, 'linear_capacity': 6, 'n_linear_layers': 11, 'n_conv_layers': 3, 'lr': 0.00014470388302085006}
+Trial 83: Value=0.11791668832302094, Params={'MLP_hidden_dim': 60, 'linear_capacity': 5, 'n_linear_layers': 11, 'n_conv_layers': 2, 'lr': 0.00020427645833958846}
+Trial 84: Value=0.1237664446234703, Params={'MLP_hidden_dim': 82, 'linear_capacity': 4, 'n_linear_layers': 12, 'n_conv_layers': 2, 'lr': 0.00017132221661564974}
+Trial 85: Value=0.10189253836870193, Params={'MLP_hidden_dim': 52, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.00041752918005934605}
+Trial 86: Value=0.09833244234323502, Params={'MLP_hidden_dim': 52, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0003929601070150081}
+Trial 87: Value=0.10855607688426971, Params={'MLP_hidden_dim': 50, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0004021981161740854}
+Trial 88: Value=0.11392852663993835, Params={'MLP_hidden_dim': 53, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.00029738375061875034}
+Trial 89: Value=0.1032426506280899, Params={'MLP_hidden_dim': 37, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0005327657725201009}
+Trial 90: Value=0.11156783252954483, Params={'MLP_hidden_dim': 47, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0002641647928484467}
+Trial 91: Value=0.10558172315359116, Params={'MLP_hidden_dim': 44, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0005232113062042532}
+Trial 92: Value=0.10782188177108765, Params={'MLP_hidden_dim': 45, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0006943180831834649}
+Trial 93: Value=0.10530570149421692, Params={'MLP_hidden_dim': 37, 'linear_capacity': 8, 'n_linear_layers': 9, 'n_conv_layers': 1, 'lr': 0.00041700060852171273}
+Trial 94: Value=0.09823530912399292, Params={'MLP_hidden_dim': 53, 'linear_capacity': 3, 'n_linear_layers': 9, 'n_conv_layers': 1, 'lr': 0.0003523468201778687}
+Trial 95: Value=0.10478043556213379, Params={'MLP_hidden_dim': 52, 'linear_capacity': 3, 'n_linear_layers': 9, 'n_conv_layers': 1, 'lr': 0.00035512737878943087}
+Trial 96: Value=0.10684894770383835, Params={'MLP_hidden_dim': 57, 'linear_capacity': 3, 'n_linear_layers': 9, 'n_conv_layers': 1, 'lr': 0.0003195284592188978}
+Trial 97: Value=0.10233785957098007, Params={'MLP_hidden_dim': 51, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0004537230370617473}
+Trial 98: Value=0.11141195893287659, Params={'MLP_hidden_dim': 42, 'linear_capacity': 4, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0010037341425583129}
+Trial 99: Value=0.10309843719005585, Params={'MLP_hidden_dim': 60, 'linear_capacity': 3, 'n_linear_layers': 10, 'n_conv_layers': 1, 'lr': 0.0004433962184785472}
