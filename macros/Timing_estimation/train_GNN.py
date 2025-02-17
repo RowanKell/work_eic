@@ -25,6 +25,7 @@ import argparse
 from scipy.optimize import curve_fit
 from PIL import Image
 import imageio
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description = 'Training GNN to predict KLM momentum')
 
@@ -70,6 +71,8 @@ parser.add_argument('--resultsFilePath', type=str, default="",
                         help='File to write the RMSE and A/sqrt(E) value to')
 parser.add_argument('--runName', type=str, default="",
                         help='Name to use for saving files')
+parser.add_argument('--deleteDfs', action=argparse.BooleanOptionalAction,
+                        help='If true, train_GNN will first train a GNN and, if successful, it will delete the dfs created for the training run. Set this to be false if you are not generating the data at the same time.') 
 args = parser.parse_args()
 inputDataPref = args.inputDataPref
 num_dfs = args.numDfs
@@ -92,6 +95,8 @@ gif_plot_path = args.gifPlotPath
 model_path = args.modelPath
 results_file_path = args.resultsFilePath
 run_name = args.runName
+deleteDfs = args.deleteDfs
+
 
 #check directories
 path_list = [frame_plot_path,test_plot_path,loss_plot_path,results_plot_path,gif_plot_path,model_path,results_file_path]
@@ -228,4 +233,14 @@ if(gif_plot_path != ""):
     # Save as a GIF
     imageio.mimsave(f"{gif_plot_path}{run_name}.gif", images, format="GIF", duration=5)  # duration in seconds
 
+if(deleteDfs):
+    #Only delete dfs if we successfully trained a model and saved it to the best_model.pth in model_path
+    final_model_file = Path(f"{model_path}best_model.pth")    
+    if(final_model_file.is_file()):
+        print(f"successfully saved best model")
+        for i in range(num_dfs):
+            df_file = Path(f"{inputDataPref}{i}.csv")
+            if(df_file.is_file()):
+                df_file.unlink()
+                print(f"deleted df file {inputDataPref}{i}.csv")
 print("finished train_GNN")

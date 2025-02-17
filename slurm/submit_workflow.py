@@ -37,7 +37,7 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=6G
+#SBATCH --mem=10G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 #SBATCH --mail-type=FAIL
@@ -76,7 +76,7 @@ echo ENDING JOB
 
     return job_ids
 
-def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_dependency):
+def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -108,7 +108,7 @@ def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_
 echo began job
 echo began training NN for prediction
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs 200 --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/" --numDfs {num_simulations} --resultsFilePath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/results/" --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/" --numDfs {num_simulations} --resultsFilePath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/results/" --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/" 
 """)
     sbatch_command = [
         "sbatch",
@@ -118,8 +118,8 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
 
 
 def main():
-    num_simulations = 200
-    simulation_start_num = 400
+    num_simulations = 100
+    simulation_start_num = 900
     num_events = 50
     run_num = 1
     geometry_type = 1
@@ -131,7 +131,8 @@ def main():
     #Submit training job
     use_dependency = True
 #     job_ids = [""]
-    submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency)
+    num_dfs_total = num_simulations + simulation_start_num
+#     submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs_total)
     print("Submitted training job with dependency on all simulation and processing jobs")
 
 

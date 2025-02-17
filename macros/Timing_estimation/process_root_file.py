@@ -5,6 +5,7 @@ from ExtractCellID import process_root_file_old
 from collections import defaultdict
 import argparse
 import json
+from pathlib import Path
 
 def convert_key_to_serializable(key):
     """Convert numpy types to native Python types."""
@@ -65,3 +66,10 @@ end = time.time()
 print(f"process_root_file took {(end - begin) / 60} minutes")
 
 save_defaultdict(processed_data,processedDataPath)
+print(f"saved processed data at {processedDataPath}")
+processed_data_file = Path(processedDataPath)
+if(processed_data_file.is_file()):
+    root_file = Path(filePathName)
+    if(root_file.is_file()):
+        root_file.unlink()
+        print(f"deleted root file at {root_file}")

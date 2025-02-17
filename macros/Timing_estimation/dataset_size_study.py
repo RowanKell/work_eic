@@ -111,7 +111,7 @@ def objective(num_files) -> tuple:
 #     plot.tight_layout()
     return (num_train,test_rmse)
 
-options = np.linspace(1,600,5)
+options = np.linspace(1,200,30)
 # options = [1]
 create_directory("/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/plots/dataset_size_study/")
 num_examples_list = []
@@ -125,4 +125,5 @@ plot.plot(num_examples_list,rmse_list);
 plot.xlabel("Number of training examples (higher is more expensive)")
 plot.ylabel("Test MSE (lower is better)")
 plot.title("Test MSE as function of dataset size")
-plot.savefig("/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/plots/dataset_size_study/study_2_5_points.pdf")
+plot.savefig("/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/plots/dataset_size_study/study_4_12_points.pdf")
+print(f"mse list: {rmse_list}")

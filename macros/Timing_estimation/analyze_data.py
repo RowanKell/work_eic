@@ -19,6 +19,7 @@ import datetime
 import pathlib
 import pandas as pd
 import json
+from pathlib import Path
 
 from momentum_prediction_util import Predictor,train,prepare_prediction_input_pulse,create_nested_defaultdict,convert_dict_to_defaultdict,load_defaultdict,newer_prepare_nn_input
 import argparse
@@ -53,5 +54,14 @@ end = time.time()
 print(f"new_prepare_nn_input took {(end - begin) / 60} minutes")
 
 ret_df.to_csv(outputDataframePathName)
+df_file = Path(outputDataframePathName)
+print(f"saved df at {outputDataframePathName}")
+# Ensure data is stored in df before deleting root/process files
+if(df_file.is_file()):
+    process_file = Path(inputProcessedData)
+    if(process_file.is_file()):
+        process_file.unlink()
+        print(f"deleted process file at {inputProcessedData}")
+    
 
 print("finished job")
