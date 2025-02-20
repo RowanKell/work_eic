@@ -214,8 +214,8 @@ def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
             # Second pass: process first hit with total layer energy per particle
             for stave_idx, stave_data in first_hit_per_layer_particle.items():
                 for layer_idx, particle_data in stave_data.items():
-                    for segment_idx, segement_data in particle_data.items():
-                        for particle_id, hit_data in segement_data.items():
+                    for segment_idx, segment_data in particle_data.items():
+                        for particle_id, hit_data in segment_data.items():
                             segment_particle_energy = hit_data["edep"]
                             num_pixels_high_z = calculate_num_pixels_z_dependence(segment_particle_energy, hit_data["z_pos"])
                             num_pixels_low_z = calculate_num_pixels_z_dependence(segment_particle_energy, -1 * hit_data["z_pos"])
@@ -225,6 +225,175 @@ def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
                             
                             hit_data["segment_energy"] = segment_particle_energy  # Store total layer energy for this particle
                             processed_data[event_idx][stave_idx][layer_idx][segment_idx][particle_id] = hit_data
+            if(max_events > 0 and event_idx > max_events):
+                break
+    print("finished processing")
+    return processed_data
+
+def process_root_file_slab(file_path,max_events = -1,geometry_type = 1):
+    print("began processing")
+    #cellID decoding
+    
+    lcdd = load_geometry()
+    world_volume = lcdd.worldVolume()
+    root_file = load_root_file(file_path)
+    tree = root_file.Get("events")
+    z_hist = []
+   
+    with uproot.open(file_path) as file:
+        tree_HcalBarrelHits = file["events/HcalBarrelHits"]
+        tree_MCParticles = file["events/MCParticles"]
+        
+        
+        momentum_x_MC = tree_MCParticles["MCParticles.momentum.x"].array(library="np")
+        momentum_y_MC = tree_MCParticles["MCParticles.momentum.y"].array(library="np")
+        momentum_z_MC = tree_MCParticles["MCParticles.momentum.z"].array(library="np")
+        
+        endpoint_x_MC = tree_MCParticles["MCParticles.endpoint.x"].array(library="np")
+        endpoint_y_MC = tree_MCParticles["MCParticles.endpoint.y"].array(library="np")
+        endpoint_z_MC = tree_MCParticles["MCParticles.endpoint.z"].array(library="np")
+        
+        vertex_x_MC = tree_MCParticles["MCParticles.vertex.x"].array(library="np")
+        vertex_y_MC = tree_MCParticles["MCParticles.vertex.y"].array(library="np")
+        
+        pid_branch = tree_MCParticles["MCParticles.PDG"].array(library="np")
+        generatorStatus_branch = tree_MCParticles["MCParticles.generatorStatus"].array(library="np")
+        parent_begin_branch = tree_MCParticles["MCParticles.parents_begin"].array(library="np")
+        parent_end_branch = tree_MCParticles["MCParticles.parents_end"].array(library="np")
+        parent_idx_branch = file["events/_MCParticles_parents/_MCParticles_parents.index"].array(library="np")
+        
+        z_pos = tree_HcalBarrelHits["HcalBarrelHits.position.z"].array(library="np")
+        y_pos = tree_HcalBarrelHits["HcalBarrelHits.position.y"].array(library="np")
+        x_pos = tree_HcalBarrelHits["HcalBarrelHits.position.x"].array(library="np")
+        energy = tree_HcalBarrelHits["HcalBarrelHits.EDep"].array(library="np")
+        momentum_x = tree_HcalBarrelHits["HcalBarrelHits.momentum.x"].array(library="np")
+        momentum_y = tree_HcalBarrelHits["HcalBarrelHits.momentum.y"].array(library="np")
+        momentum_z = tree_HcalBarrelHits["HcalBarrelHits.momentum.z"].array(library="np")
+        hit_time = tree_HcalBarrelHits["HcalBarrelHits.time"].array(library="np")
+        mc_hit_idx = file["events/_HcalBarrelHits_MCParticle/_HcalBarrelHits_MCParticle.index"].array(library="np")  # Add PDG code for particle identification
+        print("finished loading branches")
+        
+        processed_data = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(dict))))
+        for event_idx, event in enumerate(tree):
+            if(len(z_pos[event_idx]) == 0):
+                continue
+            primary_momentum = (momentum_x_MC[event_idx][0],
+                            momentum_y_MC[event_idx][0],
+                            momentum_z_MC[event_idx][0])
+            primary_momentum_mag = np.linalg.norm(primary_momentum)
+            if(primary_momentum_mag <= 0):
+                continue
+            if(primary_momentum_mag > 100):
+                continue
+            first_hit_per_layer_particle = defaultdict(lambda: defaultdict(lambda: defaultdict(dict)))
+            # First pass: collect first hit data and calculate energy per layer per particle
+            for hit_idx,hit in enumerate(event.HcalBarrelHits):
+                
+                bar_info = get_bar_info(lcdd,hit)
+                stave_idx = bar_info['stave']
+                layer_idx = bar_info["layer"] - 1 #gives 0 indexed layer
+                slice_absolute_idx = bar_info["slice"]
+                segment_idx = slice_absolute_idx // 7
+                slice_idx = (slice_absolute_idx % 7) + 1 #no need for 0 indexing
+                
+                z = z_pos[event_idx][hit_idx]
+                y = y_pos[event_idx][hit_idx]
+                x = x_pos[event_idx][hit_idx]
+                e = energy[event_idx][hit_idx]
+                momentum = (momentum_x[event_idx][hit_idx],
+                            momentum_y[event_idx][hit_idx],
+                            momentum_z[event_idx][hit_idx])
+                momentum_mag = np.linalg.norm(momentum)
+                hittheta = theta_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
+                phi = phi_func(momentum_x[event_idx][hit_idx], momentum_y[event_idx][hit_idx], momentum_z[event_idx][hit_idx])
+                particle_id = mc_hit_idx[event_idx][hit_idx]
+                
+                hitPID = pid_branch[event_idx][particle_id]
+                
+                #find trueID
+                trueID = -1 #need trueID to be ID of final state SIDIS particle
+                if(generatorStatus_branch[event_idx][particle_id] == 1): 
+                    trueID = particle_id
+                else:
+                    trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+#                     trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
+                try:
+                    KMU_trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
+                except:
+                    print(f"event_idx: {event_idx}")
+                truePID = pid_branch[event_idx][trueID]
+                KMU_truePID = pid_branch[event_idx][KMU_trueID]
+                true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][trueID],
+                            momentum_y_MC[event_idx][trueID],
+                            momentum_z_MC[event_idx][trueID]))
+                KMU_true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][KMU_trueID],
+                            momentum_y_MC[event_idx][KMU_trueID],
+                            momentum_z_MC[event_idx][KMU_trueID]))
+                true_theta = theta_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
+                true_phi = phi_func(momentum_x_MC[event_idx][trueID], momentum_y_MC[event_idx][trueID], momentum_z_MC[event_idx][trueID])
+                KMU_true_phi = phi_func(momentum_x_MC[event_idx][KMU_trueID], momentum_y_MC[event_idx][KMU_trueID], momentum_z_MC[event_idx][KMU_trueID])
+                
+                KMU_true_endpointx = endpoint_x_MC[event_idx][KMU_trueID]
+                KMU_true_endpointy = endpoint_y_MC[event_idx][KMU_trueID]
+                KMU_true_endpointz = endpoint_z_MC[event_idx][KMU_trueID]
+                
+                #logic for recording strip position:
+                #bar_pos = [x,y,z]
+                bar_pos = find_volume(world_volume, bar_info,geometry_type)
+                try:
+                    strip_x = bar_pos[0]
+                    strip_y = bar_pos[1]
+                    strip_z = bar_pos[2]
+                except TypeError:
+                    print("skipping...")
+                    continue
+                z_hist.append(z)
+                if stave_idx not in first_hit_per_layer_particle or layer_idx not in first_hit_per_layer_particle[stave_idx] or particle_id not in first_hit_per_layer_particle[stave_idx][layer_idx]:
+                    first_hit_per_layer_particle[stave_idx][layer_idx][particle_id] = {
+                        "z_pos": z,
+                        "x_pos": x,
+                        "hitmomentum": momentum_mag,
+                        "truemomentum": true_momentum_mag,
+                        "truetheta": true_theta,
+                        "hittheta": hittheta,
+                        "time": hit_time[event_idx][hit_idx],
+                        "trueID": trueID,
+                        "truePID": truePID,
+                        "hitID": particle_id,
+                        "hitPID": hitPID,
+                        "truephi": true_phi,
+                        "edep" : e,
+                        "strip_x" : strip_x,
+                        "strip_y" : strip_y,
+                        "strip_z" : strip_z,
+                        "hit_x" : x,
+                        "hit_y" : y,
+                        "hit_z" : z,
+                        "KMU_trueID" : KMU_trueID,
+                        "KMU_truePID" : KMU_truePID,
+                        "KMU_true_phi" : KMU_true_phi,
+                        "KMU_true_momentum_mag" : KMU_true_momentum_mag,
+                        "KMU_endpoint_x" : KMU_true_endpointx,
+                        "KMU_endpoint_y" : KMU_true_endpointy,
+                        "KMU_endpoint_z" : KMU_true_endpointz
+                    }
+                else:
+                    first_hit_per_layer_particle[stave_idx][layer_idx][particle_id]["edep"] += e
+            
+            
+            # Second pass: process first hit with total layer energy per particle
+            for stave_idx, stave_data in first_hit_per_layer_particle.items():
+                for layer_idx, particle_data in stave_data.items():
+                    for particle_id, hit_data in particle_data.items():
+                        segment_particle_energy = hit_data["edep"]
+                        num_pixels_high_z = calculate_num_pixels_z_dependence(segment_particle_energy, hit_data["z_pos"])
+                        num_pixels_low_z = calculate_num_pixels_z_dependence(segment_particle_energy, -1 * hit_data["z_pos"])
+                        hit_data["num_pixels_high_z"] = int(np.floor(num_pixels_high_z))
+                        hit_data["num_pixels_low_z"] = int(np.floor(num_pixels_low_z))
+                        curr_z_pos = hit_data["z_pos"]
+
+                        hit_data["segment_energy"] = segment_particle_energy  # Store total layer energy for this particle
+                        processed_data[event_idx][stave_idx][layer_idx][particle_id] = hit_data
             if(max_events > 0 and event_idx > max_events):
                 break
     print("finished processing")
