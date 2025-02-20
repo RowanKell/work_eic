@@ -41,7 +41,7 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=100G
+#SBATCH --mem=17G
 #SBATCH --gpus=1
 #SBATCH --mail-user=rck32@duke.edu
 
@@ -105,11 +105,11 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/trainMo
     subprocess.run(sbatch_command)
 
 def main():
-    num_simulations = 1
+    num_simulations = 200
     simulation_start_num = 0
-    num_events = 200
-    particle = "pi-"
-#     particle = "kaon0L"
+    num_events = 50
+#     particle = "pi-"
+    particle = "kaon0L"
     runInfo = "run_1"
 
     # Submit simulation and processing jobs
