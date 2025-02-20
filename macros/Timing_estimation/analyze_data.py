@@ -61,7 +61,7 @@ ret_df.to_csv(outputDataframePathName)
 df_file = Path(outputDataframePathName)
 print(f"saved df at {outputDataframePathName}")
 # Ensure data is stored in df before deleting root/process files
-if(deletJSON):
+if(deleteJSON):
     if(df_file.is_file()):
         process_file = Path(inputProcessedData)
         if(process_file.is_file()):

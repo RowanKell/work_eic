@@ -214,8 +214,8 @@ def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
             # Second pass: process first hit with total layer energy per particle
             for stave_idx, stave_data in first_hit_per_layer_particle.items():
                 for layer_idx, particle_data in stave_data.items():
-                    for segment_idx, segement_data in particle_data.items():
-                        for particle_id, hit_data in segement_data.items():
+                    for segment_idx, segment_data in particle_data.items():
+                        for particle_id, hit_data in segment_data.items():
                             segment_particle_energy = hit_data["edep"]
                             num_pixels_high_z = calculate_num_pixels_z_dependence(segment_particle_energy, hit_data["z_pos"])
                             num_pixels_low_z = calculate_num_pixels_z_dependence(segment_particle_energy, -1 * hit_data["z_pos"])
