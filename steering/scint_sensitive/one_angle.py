@@ -6,16 +6,17 @@ SIM = DD4hepSimulation()
 
 # Specify particle gun:
 SIM.enableGun
-SIM.gun.thetaMin = 70*deg
-SIM.gun.thetaMax = 110*deg
-SIM.gun.distribution = "cos(theta)"
+SIM.gun.thetaMin = 90*deg
+SIM.gun.thetaMax = 90*deg
+SIM.gun.distribution = "uniform"
 SIM.gun.phiMin = 0*deg
-SIM.gun.phiMax = 360*deg
-SIM.gun.momentumMin = 1.0*GeV
-SIM.gun.momentumMax = 3.0*GeV
+SIM.gun.phiMax = 0*deg
+SIM.gun.momentumMin = 5.0*GeV
+SIM.gun.momentumMax = 5.0*GeV
 # SIM.gun.particle = "pi+"
 # SIM.gun.particle = "neutron"
-SIM.gun.particle = "kaon0L"
+SIM.gun.particle = "mu-"
+# SIM.gun.particle = "kaon0L"
 SIM.physics.list = "FTFP_BERT"
 SIM.physics.decays = False
 #SIM.part.saveProcesses = ['conv','Decay']

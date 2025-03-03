@@ -104,7 +104,7 @@ def submit_simulation_and_processing_jobs_slab(num_simulations,simulation_start_
 #SBATCH --job-name={run_name}_{current_date}_{i}
 #SBATCH --output={out_folder}/%x.out
 #SBATCH --error={error_folder}/%x.err
-#SBATCH -p vossenlab-gpu
+#SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=10G
@@ -190,11 +190,11 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
 
 def main():
     num_simulations = 1
-    simulation_start_num = 0
+    simulation_start_num = 1
     num_events = 50
     run_num = 1
     geometry_type = 1
-    run_name = f"slab_test_Feb_20_K_L{num_events}events_run_{run_num}"
+    run_name = f"slab_March_2_K_L{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
 
     # Submit simulation and processing jobs

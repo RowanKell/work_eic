@@ -339,7 +339,7 @@ def process_root_file_slab(file_path,max_events = -1,geometry_type = 1):
                 
                 #logic for recording strip position:
                 #bar_pos = [x,y,z]
-                bar_pos = find_volume(world_volume, bar_info,geometry_type)
+                bar_pos = find_volume_slab(world_volume, bar_info,geometry_type)
                 try:
                     strip_x = bar_pos[0]
                     strip_y = bar_pos[1]
@@ -662,7 +662,7 @@ def find_volume(world_volume, hit_info,geometry_type = 1):
     position_in_stave = get_position(slice_node) + get_position(layer)
     x = position_in_stave[0]
     y = position_in_stave[1]
-    z = position_in_stave[2] + 52.5
+    z = position_in_stave[2] + 52.5 # need to automate
     z_translated = z + (1420 + 350) / 10 #add in displacement from origin
     angle = np.arctan2(x,z_translated)
     r = np.sqrt(z_translated ** 2 + x ** 2)
@@ -672,6 +672,80 @@ def find_volume(world_volume, hit_info,geometry_type = 1):
     x_prime = r * np.sin(angle_prime)# rotating x and z
 #     print(f"x, x_prime: {x},{x_prime}")
     z_prime = r * np.cos(angle_prime)
+    return np.array([x_prime.item(),y,z_prime.item()])
+
+def find_volume_slab(world_volume, hit_info,geometry_type = 1):
+    target_stave = hit_info['stave']
+    target_layer = hit_info['layer'] - 1
+    total_slice = hit_info['slice']
+    match geometry_type:
+        case 1:
+            num_slices_per_layer = 4
+        case 2:
+            num_slice_per_layer = 7
+        case _:
+            rum_slice_per_layer = 4
+    target_segment = total_slice // num_slices_per_layer
+    target_slice = (total_slice % num_slices_per_layer) + 1
+
+    # Get HcalBarrelVolume
+    HcalBarrelVolume = world_volume.GetNodes()[0].GetVolume()  # Assuming HcalBarrelVolume is the fourth child
+
+    # Access stave directly
+    stave_name = f"stave_{target_stave}"
+    stave = HcalBarrelVolume.FindNode(stave_name)
+    if not stave:
+        print(f"Stave {stave_name} not found")
+        return None
+
+    # Access layer directly
+    layer_name = f"layer{target_layer + 1}_{target_layer}" #layer1_0
+    layer = stave.GetVolume().FindNode(layer_name)
+    if not layer:
+        print(f"Layer {layer_name} not found")
+        return None
+    # Access slice directly
+    slice_name = f"seg{target_segment}slice{target_slice}_{total_slice}"
+    slice_node = layer.GetVolume().FindNode(slice_name)
+    print(f"slice_name: {slice_name}")
+    print(f"IDs: (stave, layer, total_slice, target_segment, target_slice) ({target_stave},{target_layer},{total_slice},{target_segment},{target_slice})")
+#     print(f"Found slice in (stave_name,layer_name): ({stave_name},{layer_name})")
+#     print(f"Found slice name: {slice_name}")
+    if not slice_node:
+        print(f"Slice {slice_name} not found")
+        return None
+    position_in_stave = get_position(layer)
+#     print(f"\nstave idx: {target_stave}")
+    stave_position = get_position(stave)
+#     print(f"stave pos: {get_position(stave)}")
+#     print(f"layer pos: {get_position(layer)}")
+#     print(f"slice pos: {get_position(slice_node)}")
+    x = position_in_stave[0]
+    y = position_in_stave[1]
+    z = position_in_stave[2] + 52.5 # need to automate
+    z_translated = z + (1420 + 350) / 10 #add in displacement from origin
+    angle = np.arctan2(x,z_translated)
+    r = np.sqrt(z_translated ** 2 + x ** 2)
+    angle_prime = ((-target_stave - 1) * np.pi / 4) + angle
+    x_prime = r * np.sin(angle_prime)# rotating x and z
+    z_prime = r * np.cos(angle_prime)
+    
+    
+#     new_x = x
+#     new_y = y
+#     new_z = z
+#     stave_r = np.sqrt(stave_position[0] ** 2 + stave_position[1] ** 2) #get distance of stave from interaction point
+#     new_z = new_z + stave_r
+#     new_angle = np.arctan2(new_x,new_z)
+#     new_r = np.sqrt(new_z ** 2 + new_x ** 2)
+#     angle_prime = ((-target_stave - 1) * np.pi / 4) + angle
+#     x_prime = r * np.sin(angle_prime)# rotating x and z
+#     z_prime = r * np.cos(angle_prime)
+#     new_x = 
+#     print(f"new xyz: {}")
+    
+    
+#     print(f"x,y,z prime: {x_prime},{y_prime},{z_prime}")
     return np.array([x_prime.item(),y,z_prime.item()])
 
 # Helper function to get position (unchanged)
