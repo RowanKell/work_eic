@@ -45,7 +45,7 @@ def process_df_vectorized(df, cone_angle_deg=45):
                   on=['event_idx', 'file_idx'], how='left')
     
     # Calc angle of each hit and how far off from center
-    df['hit_angle'] = np.degrees(np.arctan2(df['strip_y'] * 10, df['strip_x'] * 10))
+    df['hit_angle'] = np.degrees(np.arctan2(df['strip_y'], df['strip_x']))
     df['angle_diff'] = np.abs(df['hit_angle'] - df['reference_angle'])
     
     # Handle the wraparound at ±180 degrees
@@ -178,8 +178,8 @@ class HitDataset(DGLDataset):
             momentum = curr_event["P"].to_numpy()[0]
             energy = np.sqrt(mass**2 + momentum**2)
             label = torch.tensor(energy)
-            strip_x = (curr_event["strip_x"].to_numpy() / 300)
-            strip_y = (curr_event["strip_y"].to_numpy() / 300)
+            strip_x = (curr_event["strip_x"].to_numpy() / 3000)
+            strip_y = (curr_event["strip_y"].to_numpy() / 3000)
             radial_distance = torch.tensor(np.sqrt( strip_x** 2 + strip_y ** 2))
             '''VERSION LABEL INCLUDING EVENT FEATURES'''
             # Since this is the version with both SiPM in one hit/node, we have 2 times and charges
@@ -207,18 +207,11 @@ class HitDataset(DGLDataset):
             # Spatial features
 #             hit_coords = curr_event[['strip_x', 'strip_y']].values
 
-            # Center of gravity
-            cog_x = np.average(strip_x, weights=curr_event['Charge0'].to_numpy() + curr_event['Charge1'].to_numpy())
-            cog_y = np.average(strip_y, weights=curr_event['Charge0'].to_numpy() + curr_event['Charge1'].to_numpy())
-
             # Feature vector for this event
             event_features = torch.from_numpy(np.stack((label,
                 total_charge,
                 max_charge,
-                n_hits,
-#                 cog_x,
-#                 cog_y
-
+                n_hits
                 ),axis = -1))
             if(self.labels.shape[0] == 0):
                 self.labels = event_features
@@ -295,7 +288,7 @@ def visualize_detector_graph(dataset,graph_idx = 0, max_edges=1000, figsize=(6, 
         axs[1].plot([x1, x2], [y1, y2], 'gray', alpha=0.1, linewidth=0.5)
     # Add reference angle and highlight region
     reference_angle = curr_event['reference_angle'].iloc[0]  # Assuming one reference angle per event
-    radius = 250  # Radius of the detector
+    radius = 2900  # Radius of the detector
     
     # Calculate the coordinates for the line
     x_ref = radius * np.cos(np.radians(reference_angle))
@@ -334,8 +327,8 @@ def visualize_detector_graph(dataset,graph_idx = 0, max_edges=1000, figsize=(6, 
     axs[0].grid(True, alpha=0.3)
     axs[0].axis('equal')
     fig.tight_layout()
-    axs[0].set_xlim(-290,290)
-    axs[0].set_ylim(-290,290)
+    axs[0].set_xlim(-2900,2900)
+    axs[0].set_ylim(-2900,2900)
     
     
 class GIN(nn.Module):

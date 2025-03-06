@@ -34,7 +34,7 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH --job-name={run_name}_{current_date}_{i}
 #SBATCH --output={out_folder}/%x.out
 #SBATCH --error={error_folder}/%x.err
-#SBATCH -p vossenlab-gpu
+#SBATCH -p scavenger-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=10G
@@ -52,10 +52,11 @@ source install/setup.sh
 
 #########   DDSIM    ##########
 echo "Running ddsim with steeringFile input"
+/usr/local/bin/ddsim  --compactFile /hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml -G --numberOfEvents {num_events} --steeringFile {steeringFile} --outputFile {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --part.userParticleHandler=""
 echo "DDSIM completed successfully"
 echo began process root file
 #########   PROCESS  ##########
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file.py --filePathName {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --geometryType {geometry_type}
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/process_root_file.py --filePathName {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --processedDataPath /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --geometryType {geometry_type} --deleteROOTFile
 EOF
 
 echo "Beginning Analysis with analyze_data_old.py"    
@@ -117,12 +118,12 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
 
 
 def main():
-    num_simulations = 1
-    simulation_start_num = 0
+    num_simulations = 600
+    simulation_start_num = 200
     num_events = 50
     run_num = 1
     geometry_type = 1
-    run_name = f"March_5_K_L_test{num_events}events_run_{run_num}"
+    run_name = f"March_5_K_L_strip_position_fixed_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
 
     # Submit simulation and processing jobs

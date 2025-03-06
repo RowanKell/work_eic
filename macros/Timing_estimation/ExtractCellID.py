@@ -170,7 +170,7 @@ def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
                 
                 #logic for recording strip position:
                 #bar_pos = [x,y,z]
-                bar_pos, stave_pos = find_volume(world_volume, bar_info,geometry_type)
+                bar_pos = find_volume(world_volume, bar_info,geometry_type)
                 try:
                     strip_x = bar_pos[0]
                     strip_y = bar_pos[1]
@@ -178,15 +178,6 @@ def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
                 except TypeError:
                     print("skipping...")
                     continue
-#                 print(f"event stave idx: {stave_idx}")
-#                 print(f"hit pos: {[x,y,z]}")
-#                 print(f"strip pos: {[strip_x,strip_y,strip_z]}")
-#                 print(f"stave pos: {stave_pos}")
-#                 print(f"hit pos: {[x,y,z]}")
-                print(f"strip phi: {np.arctan2(strip_y,strip_x) * 180 / np.pi}")
-                print(f"hit phi: {np.arctan2(y,x) * 180 / np.pi}")
-                print(f"event phi: {true_phi}")
-#                 print(f"stave phi: {np.arctan2(stave_pos[1],stave_pos[0]) * 180 / np.pi}")
                 z_hist.append(z)
                 if stave_idx not in first_hit_per_layer_particle or layer_idx not in first_hit_per_layer_particle[stave_idx] or segment_idx not in first_hit_per_layer_particle[stave_idx][layer_idx] or particle_id not in first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx]:
                     first_hit_per_layer_particle[stave_idx][layer_idx][segment_idx][particle_id] = {
@@ -283,13 +274,11 @@ def get_bar_info(lcdd, hit):
     }
 
 
-from array import array
 #Geometry type:
 #    2 if 2 bars per superlayer
 #    1 if 1 bar per superlayer (updated design)
 def find_volume(world_volume, hit_info,geometry_type = 1):
     target_stave = hit_info['stave']
-    print(f"target_stave: {target_stave}")
     target_layer = hit_info['layer']
     total_slice = hit_info['slice'] - 1 #zero index
     match geometry_type:
@@ -311,12 +300,6 @@ def find_volume(world_volume, hit_info,geometry_type = 1):
     if not stave:
         print(f"Stave {stave_name} not found")
         return None
-    for i in range(8):
-        stave_i = HcalBarrelVolume.FindNode(f"stave_{i}")
-        if not stave:
-            print(f"Stave {stave_name} not found")
-            continue
-        print(f"Stave #{i}: {get_position(stave_i)}")
     
 
     # Access layer directly
@@ -329,28 +312,10 @@ def find_volume(world_volume, hit_info,geometry_type = 1):
     slice_name = f"seg{target_segment}slice{target_slice}_{total_slice}"
     slice_node = layer.GetVolume().FindNode(slice_name)
     slice_material = slice_node.GetVolume().GetMaterial()
-#     print(f"slice material: {slice_material}")
-#     print(f"slice_name: {slice_name}")
-#     print(f"IDs: (stave, layer, total_slice, target_segment, target_slice) ({target_stave},{target_layer},{total_slice},{target_segment},{target_slice})")
-#     print(f"Found slice in (stave_name,layer_name): ({stave_name},{layer_name})")
-#     print(f"Found slice name: {slice_name}")
     if not slice_node:
         print(f"Slice {slice_name} not found")
         return None
     position_in_stave = get_position(slice_node) + get_position(layer)
-    x = position_in_stave[0]
-    y = position_in_stave[1]
-    z = position_in_stave[2] + 52.5
-    z_translated = z + (1420 + 350) / 10 #add in displacement from origin
-    angle = np.arctan2(x,z_translated)
-    r = np.sqrt(z_translated ** 2 + x ** 2)
-#     print(f"target_stave: {target_stave}")
-    angle_prime = ((-target_stave - 1) * np.pi / 4) + angle
-#     print(f"angle, angle_prime: {angle},{angle_prime}")
-    x_prime = r * np.sin(angle_prime)# rotating x and z
-#     print(f"x, x_prime: {x},{x_prime}")
-    z_prime = r * np.cos(angle_prime)
-    
     #New calculations
     stave_position = get_position(stave)
     stave_r = np.sqrt(stave_position[0]**2 +stave_position[1]**2)
@@ -358,20 +323,16 @@ def find_volume(world_volume, hit_info,geometry_type = 1):
     x_segment_coord = position_in_stave[0]
     y_segment_coord = position_in_stave[1]
     z_segment_coord = position_in_stave[2] + stave_r
-#     print(f"position in stave: {position_in_stave}")
-#     print(f"position in stave after adding stave_r: {[position_in_stave[0],position_in_stave[1],position_in_stave[2] + stave_r]}")
     x_stave_coord = z_segment_coord
     y_stave_coord = x_segment_coord
     z_stave_coord = y_segment_coord
     
-#     print(f"position in stave swapped: {[x_stave_coord,y_stave_coord,z_stave_coord]}")
     
     x_stave_coord_rotated = x_stave_coord * np.cos(stave_angle) - y_stave_coord * np.sin(stave_angle) #x prime
     y_stave_coord_rotated = y_stave_coord * np.cos(stave_angle) + x_stave_coord * np.sin(stave_angle)
     z_stave_coord_rotated = z_stave_coord
     
-    return np.array([x_stave_coord_rotated,y_stave_coord_rotated,z_stave_coord_rotated]), stave_position
-#     return np.array([x_prime.item(),y,z_prime.item()])
+    return np.array([x_stave_coord_rotated,y_stave_coord_rotated,z_stave_coord_rotated]) * 10
 
 # Helper function to get position (unchanged)
 def get_position(node):
