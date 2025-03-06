@@ -1,1 +1,1 @@
-ddsim --steeringFile steering/energy_dep.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 5000 --gun.particle "mu-" --outputFile root_files/June_13/full_layer_segmented_sensor/mu_5GeV_5k.edm4hep.root --macroFile ddsim_shells/myvis.mac --part.userParticleHandler=""
+ddsim --steeringFile steering/scint_sensitive/steer.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 10 --gun.particle "mu-" --outputFile root_files/test/one_segment_march_3.edm4hep.root --macroFile ddsim_shells/myvis.mac --part.userParticleHandler=""

@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/sensor_sensitive/variation_pos_keepALL.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 50 --gun.particle "kaon0L" --outputFile root_files/test/scint_sense_opticalph_march3.edm4hep.root --macroFile ddsim_shells/myvis.mac --part.userParticleHandler=""

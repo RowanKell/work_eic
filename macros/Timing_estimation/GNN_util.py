@@ -334,8 +334,8 @@ def visualize_detector_graph(dataset,graph_idx = 0, max_edges=1000, figsize=(6, 
     axs[0].grid(True, alpha=0.3)
     axs[0].axis('equal')
     fig.tight_layout()
-    axs[0].set_xlim(-250,250)
-    axs[0].set_ylim(-250,250)
+    axs[0].set_xlim(-290,290)
+    axs[0].set_ylim(-290,290)
     
     
 class GIN(nn.Module):

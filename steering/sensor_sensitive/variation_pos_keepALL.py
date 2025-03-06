@@ -21,16 +21,16 @@ SIM = DD4hepSimulation()
 
   # Specify particle gun:
 SIM.enableGun
-# SIM.gun.position = (0, 0, 0)
+SIM.gun.position = (0, 0, 0)
 
-#SIM.gun.thetaMin = 90*deg
-#SIM.gun.thetaMax = 90*deg #68 to 112
+SIM.gun.thetaMin = 90*deg
+SIM.gun.thetaMax = 90*deg #68 to 112
 SIM.gun.distribution = "uniform"
 # SIM.gun.phiMin = "cos(theta)"
 SIM.gun.phiMin = 0*deg #-22 to 22 for full layer
 SIM.gun.phiMax = 0*deg
-SIM.gun.momentumMin = 0.00001*GeV
-SIM.gun.momentumMax = 10.0*GeV
+SIM.gun.momentumMin = 5.0*GeV
+SIM.gun.momentumMax = 5.0*GeV
 #SIM.gun.particle = "pi-"
 
 
@@ -67,7 +67,7 @@ SIM.physics.setupUserPhysics(setupCerenkov)
 
 #If true, keeps MCParticles for all photons that don't hit sensor
 #Set to false to keep file size much smaller
-# SIM.part.keepAllParticles = True
+SIM.part.keepAllParticles = True
 
   # Allow energy depositions to 0 energy in trackers (which include optical detectors)
 SIM.filter.tracker = 'edep0'
