@@ -69,7 +69,8 @@ class HitDataset(DGLDataset):
         self.dfs = []
         self.mass_dict = {
             130 : 0.497611,
-            2112  : 0.939565
+            2112  : 0.939565,
+            211 : 0.139570
                          }
         super().__init__(name = "KLM_reco")
     def get_max_distance_edges(self,curr_event):
@@ -147,16 +148,19 @@ class HitDataset(DGLDataset):
                 valid_ModifiedTrueID_unique = ModifiedTrueID_unique[ModifiedTrueID_unique != -1]
                 #skip events with multiple valid trueIDs
                 if(len(valid_ModifiedTrueID_unique) > 1):
+                    print("Too many valid ModifiedTrueID, skipping...")
                     continue
             
                 #skip events with no valid ModififiedTrueIDs
-                if(len(valid_ModifiedTrueID_unique) == 0):
-                    continue
+#                 if(len(valid_ModifiedTrueID_unique) == 0):
+#                     print("No valid ModifiedTrueIDs, skipping...")
+#                     continue
                 # Remove rows that are hits outside of the cone
                 curr_event = curr_event[curr_event.ModifiedTrueID != -1]
                 nhits = len(curr_event)
             # Skip graphs with only 1 hit (or 0)
             if(nhits <2):
+#                 print("only 1 hit, skipping...")
                 continue;
             elif(nhits <self.k):
                 sources = np.concatenate([np.repeat(np.arange(nhits),nhits),np.tile(np.arange(nhits),nhits)])
@@ -206,12 +210,12 @@ class HitDataset(DGLDataset):
 
             # Spatial features
 #             hit_coords = curr_event[['strip_x', 'strip_y']].values
-
             # Feature vector for this event
             event_features = torch.from_numpy(np.stack((label,
                 total_charge,
                 max_charge,
                 n_hits
+
                 ),axis = -1))
             if(self.labels.shape[0] == 0):
                 self.labels = event_features
