@@ -87,7 +87,7 @@ Notes
 1. 10k events (split into train, test val)
 2. K_L between 1-3GeV
 
-![](/home/rowan/Downloads/March_17_predsvtruth.jpeg)
+![](groupdir/eic/work_eic/notes/Guide/March_17_predsvtruth.jpeg)
 
 **Binned RMSE and relative RMSE:**
 
