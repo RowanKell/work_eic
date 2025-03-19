@@ -517,6 +517,39 @@ def test_GNN(model, test_dataloader):
     mse = summed_sqe / num_predictions
     print(f"MSE: {mse[0][0]}")
     return truths, preds, mse
+def test_GNN_binned(model, test_dataloader):
+    truths = []
+    preds = []
+    summed_sqe = 0.0
+    num_predictions = 0
+    summed_sqe_binned = np.zeros(2)
+    num_predictions_binned = np.zeros(2)
+    with torch.no_grad():
+        for batched_graph, labels in test_dataloader:
+            graphs = dgl.unbatch(batched_graph)
+            for i in range(len(graphs)):
+                graph = graphs[i]
+                labels_w_event_feats = labels[i]
+                label = labels_w_event_feats[0].item()
+                event_feats = labels_w_event_feats[1:].unsqueeze(0)
+                pred = model(graph, graph.ndata["feat"].float(),event_feats).detach().numpy()
+                summed_sqe += pow(pred - label,2)
+                num_predictions += 1
+                if(label < 2):
+                    summed_sqe_binned[0] += pow(pred - label,2)[0][0]
+                    num_predictions_binned[0] += 1
+                else:
+                    summed_sqe_binned[1] += pow(pred - label,2)[0][0]
+                    num_predictions_binned[1] += 1
+
+                preds.append(pred)
+                truths.append(label)
+    mse = summed_sqe / num_predictions
+    binned_mse = summed_sqe_binned / num_predictions_binned
+    print(f"MSE: {mse[0][0]}")
+    print(f"E < 2GeV: {binned_mse[0]}; E > 2GeV: {binned_mse[1]}")
+    return truths, preds, mse, binned_mse
+test_GNN_binned(trained_model, test_dataloader);
 
 def calculate_bin_rmse(test_dataloader, model, bin_width=0.5, bin_min=1.0, bin_max=3.0):
     # Calculate the bin centers

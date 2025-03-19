@@ -61,11 +61,11 @@ def find_parent_w_exclusion(PDG_branch,parent_idx_branch,parent_begin_branch,par
 #         for parent in particle.getParents():
 #             return findparentparticle_w_exclusion(parent)
     
-def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
+def process_root_file_old(file_path,compactFile,max_events = -1,geometry_type = 1):
     print("began processing")
     #cellID decoding
     
-    lcdd = load_geometry()
+    lcdd = load_geometry(compactFile)
     world_volume = lcdd.worldVolume()
     root_file = load_root_file(file_path)
     tree = root_file.Get("events")
@@ -232,10 +232,10 @@ def process_root_file_old(file_path,max_events = -1,geometry_type = 1):
     return processed_data
 
 
-def load_geometry():
+def load_geometry(compactFile):
     lcdd = dd4hep.Detector.getInstance()
-    eic_pref = "/hpc/group/vossenlab/rck32/eic/"
-    lcdd.fromXML(eic_pref + "epic_klm/epic_klmws_only.xml")
+    lcdd.fromXML(compactFile)
+    print(f"loaded compact file: {compactFile}")
     return lcdd
 
 def load_root_file(fileName = "/hpc/group/vossenlab/rck32/eic/work_eic/root_files/momentum_prediction/November_06/hepmc_1000events_test_file_0.edm4hep.root"):
@@ -311,10 +311,10 @@ def find_volume(world_volume, hit_info,geometry_type = 1):
     # Access slice directly
     slice_name = f"seg{target_segment}slice{target_slice}_{total_slice}"
     slice_node = layer.GetVolume().FindNode(slice_name)
-    slice_material = slice_node.GetVolume().GetMaterial()
     if not slice_node:
-        print(f"Slice {slice_name} not found")
+        print(f"Slice {slice_name} not found (stave: {stave_name}, layer; {layer_name})")
         return None
+    slice_material = slice_node.GetVolume().GetMaterial()
     position_in_stave = get_position(slice_node) + get_position(layer)
     #New calculations
     stave_position = get_position(stave)

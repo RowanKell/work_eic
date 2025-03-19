@@ -97,11 +97,14 @@ results_file_path = args.resultsFilePath
 run_name = args.runName
 deleteDfs = args.deleteDfs
 
+    
 
 #check directories
 path_list = [frame_plot_path,test_plot_path,loss_plot_path,results_plot_path,gif_plot_path,model_path,results_file_path]
 for path in path_list:
     if(path != ''):
+        if(".txt" in path):
+            continue
         create_directory(path)
 
 # Delete gif frames from file path if any exist
@@ -196,8 +199,18 @@ fit_A_value = params[0]
 
 #write the important objective values to a file so that AID2E can use
 if(results_file_path != ""):
-    with open(f"{results_file_path}{run_name}.txt", "w") as f:
-        f.write(f"Fit A value: {fit_A_value}\nTest RMSE: {test_rmse.item()}")
+    if(os.path.isdir(results_file_path)):
+        with open(f"{results_file_path}{run_name}.txt", "w") as f:
+            f.write(f"{test_rmse.item()}")
+            print(f"writing RMSE: {test_rmse.item()}")
+#             f.write(f"{fit_A_value}\n{test_rmse.item()}")
+    else:
+        with open(f"{results_file_path}", "w") as f:
+            f.write(f"{test_rmse.item()}")
+            print(f"writing RMSE: {test_rmse.item()}")
+#             f.write(f"{fit_A_value}\n{test_rmse.item()}")
+        
+        
         
 x_fit = np.linspace(1, 3, 100)
 y_fit = func(x_fit, params)

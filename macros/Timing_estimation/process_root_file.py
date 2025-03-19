@@ -50,6 +50,8 @@ parser = argparse.ArgumentParser(description = 'Preparing data for momentum pred
 
 parser.add_argument('--filePathName', type=str, default="NA",
                         help='directory of root file') 
+parser.add_argument('--compactFile', type=str, default="/hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml",
+                        help='compact file for loading geometry and decoding cellID') 
 parser.add_argument('--processedDataPath', type=str, default="NA",
                         help='directory to output np dict')
 parser.add_argument('--geometryType', type=int, default=1,
@@ -63,7 +65,7 @@ geometry_type = args.geometryType
 deleteROOTFile = args.deleteROOTFile
 print("Starting process_root_file")
 begin = time.time()
-processed_data = process_root_file_old(filePathName,geometry_type = geometry_type)
+processed_data = process_root_file_old(filePathName,args.compactFile,geometry_type = geometry_type)
 end = time.time()
 print(f"process_root_file took {(end - begin) / 60} minutes")
 
