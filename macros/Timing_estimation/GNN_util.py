@@ -550,6 +550,28 @@ def test_GNN_binned(model, test_dataloader):
     print(f"RMSE for E < 2GeV: {binned_rmse[0]}; E > 2GeV: {binned_rmse[1]}")
     return truths, preds, rmse, binned_rmse
 
+def get_text_positions(bin_centers,rel_rmse,test_truths,test_preds):
+    rel_rmse_x = np.mean(bin_centers) 
+    rel_rmse_y = np.mean(rel_rmse) +  np.max(rel_rmse) / 10
+    
+    scatter_x = np.min(test_truths)
+    scatter_y = np.max(test_preds) - 0.5
+    return rel_rmse_x,rel_rmse_y,scatter_x,scatter_y
+
+def get_min_max_of_graph_dataset(dataset):
+    curr_max = -1
+    curr_min = -1
+    for graph, labels in dataset:
+        true_E = labels[0]
+        if(curr_max == -1):
+            curr_max = true_E
+            curr_min = true_E
+        elif(curr_max < true_E):
+            curr_max = true_E
+        elif(curr_min > true_E):
+            curr_min = true_E
+    return curr_min, curr_max
+
 def calculate_bin_rmse(test_dataloader, model, bin_width=0.5, bin_min=1.0, bin_max=3.0):
     # Calculate the bin centers
     bin_centers = np.arange(bin_min + bin_width / 2, bin_max, bin_width)

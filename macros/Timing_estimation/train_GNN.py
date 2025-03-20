@@ -20,7 +20,7 @@ from datetime import datetime as datetime
 current_date = datetime.now().strftime("%B_%d")
 from torch.utils.data.sampler import SubsetRandomSampler
 from scipy.spatial import ConvexHull
-from GNN_util import process_df_vectorized,create_directory,HitDataset,create_fast_edge_lists,visualize_detector_graph,GIN,train_GNN,test_GNN,calculate_bin_rmse,delete_files_in_dir,test_GNN_binned
+from GNN_util import process_df_vectorized,create_directory,HitDataset,create_fast_edge_lists,visualize_detector_graph,GIN,train_GNN,test_GNN,calculate_bin_rmse,delete_files_in_dir,test_GNN_binned,get_min_max_of_graph_dataset,get_text_positions
 import argparse
 from scipy.optimize import curve_fit
 from PIL import Image
@@ -186,7 +186,9 @@ if(test_plot_path != ""):
     test_axs.set_ylabel("Predicted E (GeV)")
     test_fig.tight_layout()
     test_fig.savefig(f"{test_plot_path}{run_name}.jpeg")
-rmse_per_bin = calculate_bin_rmse(test_dataloader, model)
+bin_min, bin_max = get_min_max_of_graph_dataset(dataset)
+rmse_per_bin = calculate_bin_rmse(test_dataloader, model,bin_width = 0.25, bin_min = bin_min, bin_max = bin_max)
+    
 bin_centers = np.array(list(rmse_per_bin.keys()))
 rmse = np.array(list(rmse_per_bin.values()))
 rel_rmse = rmse / bin_centers
@@ -208,22 +210,23 @@ if(results_file_path != ""):
         print(f"writing MSE: {binned_rmse[0]} and {binned_rmse[1]}")
         
         
-        
-x_fit = np.linspace(1, 3, 100)
+rel_rmse_x,rel_rmse_y,scatter_x,scatter_y = get_text_positions(bin_centers,rel_rmse,test_truths,test_preds)
+x_fit = np.linspace(bin_min, bin_max, 100)
 y_fit = func(x_fit, params)
 if(results_plot_path != ""):
-    fig,axs = plot.subplots(1,3,figsize = (12,4))
-    fig.suptitle("RMSE, relative RMSE, and scatter plot for Test set")
+    fig,axs = plot.subplots(1,3,figsize = (15,5))
+    fig.suptitle("Neutron Energy Prediction")
     axs[0].scatter(rmse_per_bin.keys(),rmse_per_bin.values())
     axs[0].set(xlabel="Energy",ylabel = "RMSE")
     axs[1].scatter(rmse_per_bin.keys(),np.array(list(rmse_per_bin.values())) / np.array(list(rmse_per_bin.keys())))
     axs[1].plot(x_fit,y_fit)
     axs[1].set(xlabel="Energy",ylabel = "Relative RMSE")
-    axs[1].text(2,0.2,f"A: {params[0]:.2f}")
-    axs[1].text(2,0.22,f"f(x) = A/sqrt(E)")
-    axs[2].scatter(test_truths,test_preds,alpha = 0.2)
-    axs[2].plot([0.5,4],[0.5,4],color = "red")
-    axs[2].set(xlabel = "truths",ylabel = "preds")
+    axs[1].text(rel_rmse_x,rel_rmse_y,f"A: {params[0]:.2f}")
+    axs[1].text(rel_rmse_x,rel_rmse_y + 0.01,f"f(x) = A/sqrt(E)")
+    axs[2].scatter(test_truths,test_preds,alpha = 0.1,color = "r")
+    axs[2].text(scatter_x,scatter_y,f"Test Mean Squared Error:\n{np.mean(list(rmse_per_bin.values()))**2:0.4f}")
+    axs[2].plot([min(test_truths),max(test_truths)],[min(test_preds),max(test_preds)])
+    axs[2].set(xlabel = "True Energy",ylabel = "Predicted Energy")
     fig.tight_layout()
     plot.savefig(f"{results_plot_path}{run_name}.pdf")
     

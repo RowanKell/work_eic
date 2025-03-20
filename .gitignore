@@ -21,3 +21,4 @@ macros/NF_timing_modeling/data/
 macros/NF_timing_modeling/models/
 macros/Timing_estimation/models/
 *.pyc
+macros/Timing_estimation/__pycache__/

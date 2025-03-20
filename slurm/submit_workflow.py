@@ -11,7 +11,7 @@ def create_directory(directory):
         except FileExistsError as e:
             print(f"Caught error while trying to create directory: {e}\n I think this is a concurrency issue where 2 jobs will pass the if statement at the same time")
 
-def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,hepmc_bool = 1):
+def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,hepmc_bool = 1):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -59,7 +59,7 @@ source {setupPath}
 
 #########   DDSIM    ##########
 echo "Running ddsim with steeringFile input"
-/usr/local/bin/ddsim  --compactFile {compactFile} -G --numberOfEvents {num_events} --steeringFile {steeringFile} --outputFile {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --part.userParticleHandler=""
+/usr/local/bin/ddsim  --compactFile {compactFile} -G --numberOfEvents {num_events} --steeringFile {steeringFile} --outputFile {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --part.userParticleHandler="" --gun.particle {particle}
 echo "DDSIM completed successfully"
 echo began process root file
 #########   PROCESS  ##########
@@ -83,7 +83,7 @@ echo ENDING JOB
 
     return job_ids
 
-def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs,outFile):
+def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs,outFile,deleteDfs):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -94,6 +94,10 @@ def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_
     dependency_string = f"afterok:{':'.join(dependency_job_ids)}"
     train_script = f"{workdir}/slurm/shells/train_predictor_{current_date}_{run_name}.sh"
     Timing_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/"
+    if(deleteDfs):
+        deleteDfsString = "--deleteDfs"
+    else:
+        deleteDfsString = ""
     if(use_dependency):
         dependency_directive = f"\n#SBATCH --dependency={dependency_string}"
     else:
@@ -117,7 +121,7 @@ def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_
 echo began job
 echo began training NN for prediction
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/" --numDfs {num_simulations} --resultsFilePath {outFile} --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  --deleteDfs
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/" --numDfs {num_simulations} --resultsFilePath {outFile} --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  {deleteDfsString}
 """)
     sbatch_command = [
         "sbatch",
@@ -161,36 +165,50 @@ def main():
     parser.add_argument('--compactFile', type=str, default="/hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml")
     parser.add_argument('--runNum', type=int, default=-1)
     parser.add_argument("--waitForFinish",action=argparse.BooleanOptionalAction)
+    parser.add_argument("--deleteDfs",type =str, default ="False")
+    parser.add_argument("--particle",type =str, default ="NA")
     parser.add_argument("--setupPath",type=str,default = "install/setup.sh")
     parser.add_argument("--loadEpicPath",type=str,default = "NA")
     parser.add_argument("--chPath",type=str,default = "/hpc/group/vossenlab/rck32/eic/epic_klm")
     args = parser.parse_args()
-    num_simulations = 200
+    num_simulations = 400
     simulation_start_num = 0
     num_events = 50
     if(args.runNum == -1):
-        run_num = 4
+        run_num = 1
     else:
         run_num = args.runNum
+    if(args.particle == "NA"):
+        particle = "neutron"
+#         particle = "kaon0L"
+    else:
+        particle = args.particle
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"neutrons_1GeV_to_3GeV{num_events}events_run_{run_num}"
+        run_name = f"{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
-
+    if(args.deleteDfs == "False"):
+        deleteDfs = False
+    elif(args.deleteDfs == "True"):
+        deleteDfs = True
+    else:
+        deleteDfs = False
+        
+        
     # Submit simulation and processing jobs
     if(args.loadEpicPath == "NA"):
         loadEpicCommand = ""
     else:
         loadEpicCommand = f"source {args.loadEpicPath}"
-    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath)
+    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     #Submit training job
     use_dependency = True
 #     job_ids = [""]
     num_dfs_total = num_simulations + simulation_start_num
-    train_job_id = submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs_total, args.outFile)
+    train_job_id = submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs_total, args.outFile,deleteDfs)
     print("Submitted training job with dependency on all simulation and processing jobs")
     
     if(args.waitForFinish):
