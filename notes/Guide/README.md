@@ -87,11 +87,11 @@ Notes
 1. 10k events (split into train, test val)
 2. K_L between 1-3GeV
 
-![](groupdir/eic/work_eic/notes/Guide/March_17_predsvtruth.jpeg)
+![](https://github.com/RowanKell/work_eic/blob/sipm_connecting/notes/Guide/March_17_predsvtruth.jpeg)
 
 **Binned RMSE and relative RMSE:**
 
-![](/home/rowan/Downloads/March_17_run_1_RMSE_k_6.jpeg)
+![](https://github.com/RowanKell/work_eic/blob/sipm_connecting/notes/Guide/March_17_run_1_RMSE_k_6.jpeg)
 
 **Example graph in dataset**
 
@@ -102,7 +102,7 @@ Notes
 5. the orange lines show the cone with which we cluster hits together
    1. hits outside of this cone are treated as background and not included in the graph
 
-![](/home/rowan/Downloads/March_17_graph_viz.jpeg)
+![](https://github.com/RowanKell/work_eic/blob/sipm_connecting/notes/Guide/March_17_graph_viz.jpeg)
 
 **MOBO plots**
 
@@ -118,13 +118,13 @@ Notes
 
 RMSE: K_L energy prediction root mean squared error
 
-![image-20250318121255329](/home/rowan/.config/Typora/typora-user-images/image-20250318121255329.png)
+![image-20250318121255329](https://github.com/RowanKell/work_eic/blob/sipm_connecting/notes/Guide/Screenshot%20from%202025-03-18%2012-12-42.png)
 
 mu/pi separation - roc curve area under the curve for correctly identifying a particle as either a muon or a pion
 
 1. Ian wrote this code - it calculates the number of photons we would see in each layer and classifies the particle based on how far it made it through the barrel.
 2. There is one objective for 5GeV particles and one for 1GeV, as the optimal design parameters change depending on energy
 
-![image-20250318121358900](/home/rowan/.config/Typora/typora-user-images/image-20250318121358900.png)
+![image-20250318121358900](https://github.com/RowanKell/work_eic/blob/sipm_connecting/notes/Guide/Screenshot%20from%202025-03-18%2012-12-37.png)
 
-![image-20250318121536265](/home/rowan/.config/Typora/typora-user-images/image-20250318121536265.png)
+![image-20250318121536265](https://github.com/RowanKell/work_eic/blob/sipm_connecting/notes/Guide/Screenshot%20from%202025-03-18%2012-12-30.png)
