@@ -83,7 +83,7 @@ echo ENDING JOB
 
     return job_ids
 
-def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs,outFile,deleteDfs):
+def submit_training_job(dependency_job_ids,run_name,run_num,use_dependency,num_dfs,outFile,deleteDfs,particle):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -121,7 +121,7 @@ def submit_training_job(dependency_job_ids,run_name,run_num,num_simulations,use_
 echo began job
 echo began training NN for prediction
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/" --numDfs {num_simulations} --resultsFilePath {outFile} --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  {deleteDfsString}
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/"  --resultsFilePath {outFile} --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  {deleteDfsString} --particle {particle}
 """)
     sbatch_command = [
         "sbatch",
@@ -175,7 +175,7 @@ def main():
     simulation_start_num = 0
     num_events = 50
     if(args.runNum == -1):
-        run_num = 1
+        run_num = 3
     else:
         run_num = args.runNum
     if(args.particle == "NA"):
@@ -185,7 +185,7 @@ def main():
         particle = args.particle
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+        run_name = f"{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
@@ -208,7 +208,7 @@ def main():
     use_dependency = True
 #     job_ids = [""]
     num_dfs_total = num_simulations + simulation_start_num
-    train_job_id = submit_training_job(job_ids,run_name,run_num,num_simulations,use_dependency,num_dfs_total, args.outFile,deleteDfs)
+    train_job_id = submit_training_job(job_ids,run_name,run_num,use_dependency,num_dfs_total, args.outFile,deleteDfs,particle)
     print("Submitted training job with dependency on all simulation and processing jobs")
     
     if(args.waitForFinish):
