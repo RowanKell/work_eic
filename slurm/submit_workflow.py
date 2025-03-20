@@ -51,6 +51,7 @@ echo began job
 
 
 cat << EOF | /hpc/group/vossenlab/rck32/eic/eic-shell
+echo "compactFile: {compactFile}"
 source {setupPath}
 {loadEpicCommand}
 
@@ -157,7 +158,7 @@ def main():
     parser.add_argument('--run_name_pref', type=str, default="NA",
                         help='') 
     parser.add_argument('--outFile', type=str, default="NA")
-    parser.add_argument('--compactFile', type=str, default="/hpc/group/rck32/eic/epic_klm/epic_klmws_only.xml")
+    parser.add_argument('--compactFile', type=str, default="/hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml")
     parser.add_argument('--runNum', type=int, default=-1)
     parser.add_argument("--waitForFinish",action=argparse.BooleanOptionalAction)
     parser.add_argument("--setupPath",type=str,default = "install/setup.sh")
@@ -168,12 +169,12 @@ def main():
     simulation_start_num = 0
     num_events = 50
     if(args.runNum == -1):
-        run_num = 1
+        run_num = 4
     else:
         run_num = args.runNum
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"March_16_dataset_size_study_reversed_ratios{num_events}events_run_{run_num}"
+        run_name = f"neutrons_1GeV_to_3GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"

@@ -20,7 +20,7 @@ from datetime import datetime as datetime
 current_date = datetime.now().strftime("%B_%d")
 from torch.utils.data.sampler import SubsetRandomSampler
 from scipy.spatial import ConvexHull
-from GNN_util import process_df_vectorized,create_directory,HitDataset,create_fast_edge_lists,visualize_detector_graph,GIN,train_GNN,test_GNN,calculate_bin_rmse,delete_files_in_dir
+from GNN_util import process_df_vectorized,create_directory,HitDataset,create_fast_edge_lists,visualize_detector_graph,GIN,train_GNN,test_GNN,calculate_bin_rmse,delete_files_in_dir,test_GNN_binned
 import argparse
 from scipy.optimize import curve_fit
 from PIL import Image
@@ -176,7 +176,7 @@ if(loss_plot_path != ""):
     loss_fig.tight_layout()
     loss_fig.savefig(f"{loss_plot_path}{run_name}.jpeg")
 
-test_truths, test_preds, test_rmse = test_GNN(trained_model, test_dataloader)
+test_truths, test_preds, test_rmse,binned_rmse = test_GNN_binned(trained_model, test_dataloader)
 if(test_plot_path != ""):
     test_fig, test_axs = plot.subplots(1,1)
     test_axs.plot([0,5],[0,5])
@@ -200,15 +200,12 @@ fit_A_value = params[0]
 #write the important objective values to a file so that AID2E can use
 if(results_file_path != ""):
     if(os.path.isdir(results_file_path)):
-        with open(f"{results_file_path}{run_name}.txt", "w") as f:
-            f.write(f"{test_rmse.item()}")
-            print(f"writing RMSE: {test_rmse.item()}")
-#             f.write(f"{fit_A_value}\n{test_rmse.item()}")
+        results_write_path = f"{results_file_path}{run_name}.txt"
     else:
-        with open(f"{results_file_path}", "w") as f:
-            f.write(f"{test_rmse.item()}")
-            print(f"writing RMSE: {test_rmse.item()}")
-#             f.write(f"{fit_A_value}\n{test_rmse.item()}")
+        results_write_path = f"{results_file_path}"
+    with open(results_write_path, "w") as f:
+        f.write(f"{binned_rmse[0]}\n{binned_rmse[1]}")
+        print(f"writing MSE: {binned_rmse[0]} and {binned_rmse[1]}")
         
         
         
@@ -225,7 +222,7 @@ if(results_plot_path != ""):
     axs[1].text(2,0.2,f"A: {params[0]:.2f}")
     axs[1].text(2,0.22,f"f(x) = A/sqrt(E)")
     axs[2].scatter(test_truths,test_preds,alpha = 0.2)
-    axs[2].plot([0.5,3.5],[0.5,3.5],color = "red")
+    axs[2].plot([0.5,4],[0.5,4],color = "red")
     axs[2].set(xlabel = "truths",ylabel = "preds")
     fig.tight_layout()
     plot.savefig(f"{results_plot_path}{run_name}.pdf")
