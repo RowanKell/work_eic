@@ -50,26 +50,31 @@ parser = argparse.ArgumentParser(description = 'Preparing data for momentum pred
 
 parser.add_argument('--filePathName', type=str, default="NA",
                         help='directory of root file') 
+parser.add_argument('--compactFile', type=str, default="/hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml",
+                        help='compact file for loading geometry and decoding cellID') 
 parser.add_argument('--processedDataPath', type=str, default="NA",
                         help='directory to output np dict')
 parser.add_argument('--geometryType', type=int, default=1,
                         help='1 if 1 layer of scint per superlayer, 2 if 2')
+parser.add_argument('--deleteROOTFile', action=argparse.BooleanOptionalAction,
+                        help='.') 
 args = parser.parse_args()
 filePathName = args.filePathName
 processedDataPath = args.processedDataPath
 geometry_type = args.geometryType
-
+deleteROOTFile = args.deleteROOTFile
 print("Starting process_root_file")
 begin = time.time()
-processed_data = process_root_file_old(filePathName,geometry_type = geometry_type)
+processed_data = process_root_file_old(filePathName,args.compactFile,geometry_type = geometry_type)
 end = time.time()
 print(f"process_root_file took {(end - begin) / 60} minutes")
 
 save_defaultdict(processed_data,processedDataPath)
 print(f"saved processed data at {processedDataPath}")
 processed_data_file = Path(processedDataPath)
-if(processed_data_file.is_file()):
-    root_file = Path(filePathName)
-    if(root_file.is_file()):
-        root_file.unlink()
-        print(f"deleted root file at {root_file}")
+if(deleteROOTFile):
+    if(processed_data_file.is_file()):
+        root_file = Path(filePathName)
+        if(root_file.is_file()):
+            root_file.unlink()
+            print(f"deleted root file at {root_file}")

@@ -36,12 +36,16 @@ parser.add_argument('--batchSize', type=int, default=50000,
                         help='Size of batches for inference') 
 parser.add_argument('--useCFD', action=argparse.BooleanOptionalAction,
                         help='If true, uses constant fraction discrimination. Otherwise, uses leading edge.') 
+parser.add_argument('--deleteJSON', action=argparse.BooleanOptionalAction,
+                        help='.') 
+
 args = parser.parse_args()
 outputDataframePathName = args.outputDataframePathName
 inputProcessedData = args.inputProcessedData
 scintThickness = args.scintThickness
 useCFD = args.useCFD
 batch_size = args.batchSize
+deleteJSON = args.deleteJSON
 
 model_compile = get_compiled_NF_model(thickness = scintThickness)
 
@@ -49,7 +53,7 @@ processed_data = load_defaultdict(inputProcessedData)
 
 print("Starting prepare_nn_input")
 begin = time.time()
-ret_df = newer_prepare_nn_input(processed_data, model_compile,batch_size = batch_size)
+ret_df = newer_prepare_nn_input(processed_data, model_compile,batch_size = batch_size,pixel_threshold = 3)
 end = time.time()
 print(f"new_prepare_nn_input took {(end - begin) / 60} minutes")
 
@@ -57,11 +61,12 @@ ret_df.to_csv(outputDataframePathName)
 df_file = Path(outputDataframePathName)
 print(f"saved df at {outputDataframePathName}")
 # Ensure data is stored in df before deleting root/process files
-if(df_file.is_file()):
-    process_file = Path(inputProcessedData)
-    if(process_file.is_file()):
-        process_file.unlink()
-        print(f"deleted process file at {inputProcessedData}")
-    
+if(deleteJSON):
+    if(df_file.is_file()):
+        process_file = Path(inputProcessedData)
+        if(process_file.is_file()):
+            process_file.unlink()
+            print(f"deleted process file at {inputProcessedData}")
+
 
 print("finished job")

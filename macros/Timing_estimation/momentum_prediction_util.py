@@ -109,8 +109,7 @@ def get_key(item):
     return metadata[:4]  # event_idx, stave_idx, layer_idx, segment_idx
 
 @profile_function
-def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, device='cuda',pixel_threshold = 3,useCFD = True):
-    processer = SiPMSignalProcessor()
+def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, device='cuda',pixel_threshold = 2,useCFD = True):
     all_context = []
     all_time_pixels = []
     all_metadata = []
@@ -225,7 +224,7 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, d
             SiPM_info[f"Time{curr_SiPM_idx}"] = curr_timing
             SiPM_info[f"Charge{curr_SiPM_idx}"] = curr_charge
             if event_idx not in event_first_hits or curr_timing < event_first_hits[event_idx][0]:
-                event_first_hits[event_idx] = (curr_timing, strip_z, strip_x)
+                event_first_hits[event_idx] = (curr_timing, strip_x, strip_y)
 
             # Handle trueID translation
             if trueID_list_len > 1:
@@ -249,9 +248,9 @@ def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, d
                 "P"              : momentum,
                 "Theta"          : theta,
                 "Phi"            : phi,
-                "strip_x"        : strip_z,
-                "strip_y"        : strip_x,
-                "strip_z"        : strip_y,
+                "strip_x"        : strip_x,
+                "strip_y"        : strip_y,
+                "strip_z"        : strip_z,
                 "hit_x"          : hit_x,
                 "hit_y"          : hit_y,
                 "hit_z"          : hit_z,

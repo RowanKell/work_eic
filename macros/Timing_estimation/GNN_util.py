@@ -45,7 +45,7 @@ def process_df_vectorized(df, cone_angle_deg=45):
                   on=['event_idx', 'file_idx'], how='left')
     
     # Calc angle of each hit and how far off from center
-    df['hit_angle'] = np.degrees(np.arctan2(df['strip_y'] * 10, df['strip_x'] * 10))
+    df['hit_angle'] = np.degrees(np.arctan2(df['strip_y'], df['strip_x']))
     df['angle_diff'] = np.abs(df['hit_angle'] - df['reference_angle'])
     
     # Handle the wraparound at ±180 degrees
@@ -69,7 +69,8 @@ class HitDataset(DGLDataset):
         self.dfs = []
         self.mass_dict = {
             130 : 0.497611,
-            2112  : 0.939565
+            2112  : 0.939565,
+            211 : 0.139570
                          }
         super().__init__(name = "KLM_reco")
     def get_max_distance_edges(self,curr_event):
@@ -147,16 +148,19 @@ class HitDataset(DGLDataset):
                 valid_ModifiedTrueID_unique = ModifiedTrueID_unique[ModifiedTrueID_unique != -1]
                 #skip events with multiple valid trueIDs
                 if(len(valid_ModifiedTrueID_unique) > 1):
+                    print("Too many valid ModifiedTrueID, skipping...")
                     continue
             
                 #skip events with no valid ModififiedTrueIDs
-                if(len(valid_ModifiedTrueID_unique) == 0):
-                    continue
+#                 if(len(valid_ModifiedTrueID_unique) == 0):
+#                     print("No valid ModifiedTrueIDs, skipping...")
+#                     continue
                 # Remove rows that are hits outside of the cone
                 curr_event = curr_event[curr_event.ModifiedTrueID != -1]
                 nhits = len(curr_event)
             # Skip graphs with only 1 hit (or 0)
             if(nhits <2):
+#                 print("only 1 hit, skipping...")
                 continue;
             elif(nhits <self.k):
                 sources = np.concatenate([np.repeat(np.arange(nhits),nhits),np.tile(np.arange(nhits),nhits)])
@@ -178,8 +182,8 @@ class HitDataset(DGLDataset):
             momentum = curr_event["P"].to_numpy()[0]
             energy = np.sqrt(mass**2 + momentum**2)
             label = torch.tensor(energy)
-            strip_x = (curr_event["strip_x"].to_numpy() / 300)
-            strip_y = (curr_event["strip_y"].to_numpy() / 300)
+            strip_x = (curr_event["strip_x"].to_numpy() / 3000)
+            strip_y = (curr_event["strip_y"].to_numpy() / 3000)
             radial_distance = torch.tensor(np.sqrt( strip_x** 2 + strip_y ** 2))
             '''VERSION LABEL INCLUDING EVENT FEATURES'''
             # Since this is the version with both SiPM in one hit/node, we have 2 times and charges
@@ -206,18 +210,11 @@ class HitDataset(DGLDataset):
 
             # Spatial features
 #             hit_coords = curr_event[['strip_x', 'strip_y']].values
-
-            # Center of gravity
-            cog_x = np.average(strip_x, weights=curr_event['Charge0'].to_numpy() + curr_event['Charge1'].to_numpy())
-            cog_y = np.average(strip_y, weights=curr_event['Charge0'].to_numpy() + curr_event['Charge1'].to_numpy())
-
             # Feature vector for this event
             event_features = torch.from_numpy(np.stack((label,
                 total_charge,
                 max_charge,
-                n_hits,
-#                 cog_x,
-#                 cog_y
+                n_hits
 
                 ),axis = -1))
             if(self.labels.shape[0] == 0):
@@ -295,7 +292,7 @@ def visualize_detector_graph(dataset,graph_idx = 0, max_edges=1000, figsize=(6, 
         axs[1].plot([x1, x2], [y1, y2], 'gray', alpha=0.1, linewidth=0.5)
     # Add reference angle and highlight region
     reference_angle = curr_event['reference_angle'].iloc[0]  # Assuming one reference angle per event
-    radius = 250  # Radius of the detector
+    radius = 2900  # Radius of the detector
     
     # Calculate the coordinates for the line
     x_ref = radius * np.cos(np.radians(reference_angle))
@@ -334,8 +331,8 @@ def visualize_detector_graph(dataset,graph_idx = 0, max_edges=1000, figsize=(6, 
     axs[0].grid(True, alpha=0.3)
     axs[0].axis('equal')
     fig.tight_layout()
-    axs[0].set_xlim(-250,250)
-    axs[0].set_ylim(-250,250)
+    axs[0].set_xlim(-2900,2900)
+    axs[0].set_ylim(-2900,2900)
     
     
 class GIN(nn.Module):
@@ -511,15 +508,47 @@ def test_GNN(model, test_dataloader):
                 labels_w_event_feats = labels[i]
                 label = labels_w_event_feats[0].item()
                 event_feats = labels_w_event_feats[1:].unsqueeze(0)
-                pred = model(graph, graph.ndata["feat"].float(),event_feats).detach().numpy()
+                pred = model(graph, graph.ndata["feat"].float(),event_feats).detach().numpy()[0][0]
                 summed_sqe += pow(pred - label,2)
                 num_predictions += 1
 
                 preds.append(pred)
                 truths.append(label)
-    mse = summed_sqe / num_predictions
-    print(f"MSE: {mse[0][0]}")
-    return truths, preds, mse
+    rmse = np.sqrt(summed_sqe / num_predictions)
+    print(f"RMSE: {rmse}")
+    return truths, preds, rmse
+def test_GNN_binned(model, test_dataloader):
+    truths = []
+    preds = []
+    summed_sqe = 0.0
+    num_predictions = 0
+    summed_sqe_binned = np.zeros(2)
+    num_predictions_binned = np.zeros(2)
+    with torch.no_grad():
+        for batched_graph, labels in test_dataloader:
+            graphs = dgl.unbatch(batched_graph)
+            for i in range(len(graphs)):
+                graph = graphs[i]
+                labels_w_event_feats = labels[i]
+                label = labels_w_event_feats[0].item()
+                event_feats = labels_w_event_feats[1:].unsqueeze(0)
+                pred = model(graph, graph.ndata["feat"].float(),event_feats).detach().numpy()[0][0]
+                summed_sqe += pow(pred - label,2)
+                num_predictions += 1
+                if(label < 2.25):
+                    summed_sqe_binned[0] += pow(pred - label,2)
+                    num_predictions_binned[0] += 1
+                else:
+                    summed_sqe_binned[1] += pow(pred - label,2)
+                    num_predictions_binned[1] += 1
+
+                preds.append(pred)
+                truths.append(label)
+    rmse = np.sqrt(summed_sqe / num_predictions)
+    binned_rmse = np.sqrt(summed_sqe_binned / num_predictions_binned)
+    print(f"RMSE: {rmse}")
+    print(f"RMSE for E < 2GeV: {binned_rmse[0]}; E > 2GeV: {binned_rmse[1]}")
+    return truths, preds, rmse, binned_rmse
 
 def calculate_bin_rmse(test_dataloader, model, bin_width=0.5, bin_min=1.0, bin_max=3.0):
     # Calculate the bin centers
