@@ -110,7 +110,8 @@ for path in path_list:
         create_directory(path)
 
 # Delete gif frames from file path if any exist
-delete_files_in_dir(frame_plot_path)
+if(frame_plot_path != ""):
+    delete_files_in_dir(frame_plot_path)
         
 # Example inputDataPref: /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/Feb_8_50events_run_0_
 dfs = []
@@ -179,6 +180,18 @@ if(loss_plot_path != ""):
     loss_fig.savefig(f"{loss_plot_path}{run_name}.jpeg")
 
 test_truths, test_preds, test_rmse,binned_rmse = test_GNN_binned(trained_model, test_dataloader)
+
+#write the important objective values to a file so that AID2E can use
+if(results_file_path != ""):
+    if(os.path.isdir(results_file_path)):
+        results_write_path = f"{results_file_path}{run_name}.txt"
+    else:
+        results_write_path = f"{results_file_path}"
+    with open(results_write_path, "w") as f:
+        f.write(f"{binned_rmse[0]}\n{binned_rmse[1]}")
+        print(f"writing RMSE: {binned_rmse[0]} and {binned_rmse[1]}")
+        
+        
 if(test_plot_path != ""):
     test_fig, test_axs = plot.subplots(1,1)
     test_axs.plot([0,5],[0,5])
@@ -191,47 +204,40 @@ if(test_plot_path != ""):
 bin_min, bin_max = get_min_max_of_graph_dataset(dataset)
 rmse_per_bin = calculate_bin_rmse(test_dataloader, model,bin_width = 0.25, bin_min = bin_min, bin_max = bin_max)
     
-bin_centers = np.array(list(rmse_per_bin.keys()))
-rmse = np.array(list(rmse_per_bin.values()))
-rel_rmse = rmse / bin_centers
-
-def func(x, A):
-    return A / np.sqrt(x)
-
-params, cov = curve_fit(func, bin_centers, rel_rmse)
-fit_A_value = params[0]
-
-#write the important objective values to a file so that AID2E can use
-if(results_file_path != ""):
-    if(os.path.isdir(results_file_path)):
-        results_write_path = f"{results_file_path}{run_name}.txt"
-    else:
-        results_write_path = f"{results_file_path}"
-    with open(results_write_path, "w") as f:
-        f.write(f"{binned_rmse[0]}\n{binned_rmse[1]}")
-        print(f"writing MSE: {binned_rmse[0]} and {binned_rmse[1]}")
         
-        
-rel_rmse_x,rel_rmse_y,scatter_x,scatter_y = get_text_positions(bin_centers,rel_rmse,test_truths,test_preds)
-x_fit = np.linspace(bin_min, bin_max, 100)
-y_fit = func(x_fit, params)
-if(results_plot_path != ""):
-    fig,axs = plot.subplots(1,3,figsize = (15,5))
-    fig.suptitle(f"{args.particle} Energy Prediction")
-    axs[0].scatter(rmse_per_bin.keys(),rmse_per_bin.values())
-    axs[0].set(xlabel="Energy",ylabel = "RMSE")
-    axs[1].scatter(rmse_per_bin.keys(),np.array(list(rmse_per_bin.values())) / np.array(list(rmse_per_bin.keys())))
-    axs[1].plot(x_fit,y_fit)
-    axs[1].set(xlabel="Energy",ylabel = "Relative RMSE")
-    axs[1].text(rel_rmse_x,rel_rmse_y,f"A: {params[0]:.2f}")
-    text_spacing = (max(rmse_per_bin.values()) - min(rmse_per_bin.values())) / 20
-    axs[1].text(rel_rmse_x,rel_rmse_y + text_spacing,f"f(x) = A/sqrt(E)")
-    axs[2].scatter(test_truths,test_preds,alpha = 0.1,color = "r")
-    axs[2].text(scatter_x,scatter_y,f"Test Mean Squared Error:\n{np.mean(list(rmse_per_bin.values()))**2:0.4f}")
-    axs[2].plot([min(test_truths),max(test_truths)],[min(test_truths),max(test_truths)])
-    axs[2].set(xlabel = "True Energy",ylabel = "Predicted Energy")
-    fig.tight_layout()
-    plot.savefig(f"{results_plot_path}{run_name}.pdf")
+try:
+    bin_centers = np.array(list(rmse_per_bin.keys()))
+    rmse = np.array(list(rmse_per_bin.values()))
+    rel_rmse = rmse / bin_centers
+
+    def func(x, A):
+        return A / np.sqrt(x)
+    params, cov = curve_fit(func, bin_centers, rel_rmse)
+    fit_A_value = params[0]
+
+
+    rel_rmse_x,rel_rmse_y,scatter_x,scatter_y = get_text_positions(bin_centers,rel_rmse,test_truths,test_preds)
+    x_fit = np.linspace(bin_min, bin_max, 100)
+    y_fit = func(x_fit, params)
+    if(results_plot_path != ""):
+        fig,axs = plot.subplots(1,3,figsize = (15,5))
+        fig.suptitle(f"{args.particle} Energy Prediction")
+        axs[0].scatter(rmse_per_bin.keys(),rmse_per_bin.values())
+        axs[0].set(xlabel="Energy",ylabel = "RMSE")
+        axs[1].scatter(rmse_per_bin.keys(),np.array(list(rmse_per_bin.values())) / np.array(list(rmse_per_bin.keys())))
+        axs[1].plot(x_fit,y_fit)
+        axs[1].set(xlabel="Energy",ylabel = "Relative RMSE")
+        axs[1].text(rel_rmse_x,rel_rmse_y,f"A: {params[0]:.2f}")
+        text_spacing = (max(rmse_per_bin.values()) - min(rmse_per_bin.values())) / 20
+        axs[1].text(rel_rmse_x,rel_rmse_y + text_spacing,f"f(x) = A/sqrt(E)")
+        axs[2].scatter(test_truths,test_preds,alpha = 0.1,color = "r")
+        axs[2].text(scatter_x,scatter_y,f"Test Mean Squared Error:\n{np.mean(list(rmse_per_bin.values()))**2:0.4f}")
+        axs[2].plot([min(test_truths),max(test_truths)],[min(test_truths),max(test_truths)])
+        axs[2].set(xlabel = "True Energy",ylabel = "Predicted Energy")
+        fig.tight_layout()
+        plot.savefig(f"{results_plot_path}{run_name}.pdf")
+except Exception as e:
+    print(f"Exception {e} caught while trying to fit relative rmse curve")
     
 
 if(gif_plot_path != ""):
@@ -248,6 +254,7 @@ if(gif_plot_path != ""):
 
     # Save as a GIF
     imageio.mimsave(f"{gif_plot_path}{run_name}.gif", images, format="GIF", duration=5)  # duration in seconds
+
 
 if(deleteDfs):
     #Only delete dfs if we successfully trained a model and saved it to the best_model.pth in model_path

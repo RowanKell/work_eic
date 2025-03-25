@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 import argparse
 import time
+from pathlib import Path
 
 def create_directory(directory):
     if not os.path.exists(directory):
@@ -29,6 +30,9 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
     create_directory(root_file_dir)
 
     job_ids = []
+    shell_scripts = []
+    errors = []
+    outputs = []
 
     for i in range(simulation_start_num, simulation_start_num + num_simulations):
         shell_script = f"{workdir}/slurm/shells/prediction_sims_{current_date}_{run_name}_{i}.sh"
@@ -80,10 +84,13 @@ echo ENDING JOB
         result = subprocess.run(['sbatch', shell_script], capture_output=True, text=True)
         job_id = result.stdout.strip().split()[-1]
         job_ids.append(job_id)
+        shell_scripts.append(shell_script)
+        errors.append(f"{error_folder}/{run_name}_{current_date}_{i}.err")
+        outputs.append(f"{out_folder}/{run_name}_{current_date}_{i}.out")
 
-    return job_ids
+    return job_ids,shell_scripts, errors, outputs
 
-def submit_training_job(dependency_job_ids,run_name,run_num,use_dependency,num_dfs,outFile,deleteDfs,particle):
+def submit_training_job(dependency_job_ids,run_name,run_num,use_dependency,num_dfs,outFile,deleteDfs,particle,save_gif):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -94,6 +101,10 @@ def submit_training_job(dependency_job_ids,run_name,run_num,use_dependency,num_d
     dependency_string = f"afterok:{':'.join(dependency_job_ids)}"
     train_script = f"{workdir}/slurm/shells/train_predictor_{current_date}_{run_name}.sh"
     Timing_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/"
+    if(save_gif):
+        frame_gif_command = "--framePlotPath \"{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/\" --gifPlotPath \"{Timing_path}plots/gifs/\""
+    else:
+        frame_gif_command = ""
     if(deleteDfs):
         deleteDfsString = "--deleteDfs"
     else:
@@ -121,7 +132,7 @@ def submit_training_job(dependency_job_ids,run_name,run_num,use_dependency,num_d
 echo began job
 echo began training NN for prediction
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/"  --resultsFilePath {outFile} --framePlotPath "{Timing_path}plots/training_gif_frames/{current_date}_{run_num}/" --gifPlotPath "{Timing_path}plots/gifs/" --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  {deleteDfsString} --particle {particle}
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_" --modelPath "/hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/models/{current_date}/run_{run_num}/"  --resultsFilePath {outFile} {frame_gif_command} --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  {deleteDfsString} --particle {particle}
 """)
     sbatch_command = [
         "sbatch",
@@ -129,7 +140,7 @@ python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/train_G
     ]
     result = subprocess.run(sbatch_command, capture_output=True, text=True)
     job_id = result.stdout.strip().split()[-1]
-    return job_id
+    return job_id,train_script
 
 def get_job_status(jobid):
 
@@ -157,6 +168,7 @@ def get_job_status(jobid):
     return 0
     
 def main():
+    current_date = datetime.now().strftime("%B_%d")
     parser = argparse.ArgumentParser(description = 'Training GNN to predict KLM momentum')
 
     parser.add_argument('--run_name_pref', type=str, default="NA",
@@ -165,17 +177,18 @@ def main():
     parser.add_argument('--compactFile', type=str, default="/hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml")
     parser.add_argument('--runNum', type=int, default=-1)
     parser.add_argument("--waitForFinish",action=argparse.BooleanOptionalAction)
+    parser.add_argument("--saveGif",action=argparse.BooleanOptionalAction)
     parser.add_argument("--deleteDfs",type =str, default ="False")
     parser.add_argument("--particle",type =str, default ="NA")
     parser.add_argument("--setupPath",type=str,default = "install/setup.sh")
     parser.add_argument("--loadEpicPath",type=str,default = "NA")
     parser.add_argument("--chPath",type=str,default = "/hpc/group/vossenlab/rck32/eic/epic_klm")
     args = parser.parse_args()
-    num_simulations = 400
+    num_simulations = 1
     simulation_start_num = 0
     num_events = 50
     if(args.runNum == -1):
-        run_num = 3
+        run_num = 1
     else:
         run_num = args.runNum
     if(args.particle == "NA"):
@@ -185,7 +198,7 @@ def main():
         particle = args.particle
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+        run_name = f"Consistency_test_status_quo_geometry_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
@@ -202,15 +215,14 @@ def main():
         loadEpicCommand = ""
     else:
         loadEpicCommand = f"source {args.loadEpicPath}"
-    job_ids = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle)
+    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     #Submit training job
     use_dependency = True
 #     job_ids = [""]
     num_dfs_total = num_simulations + simulation_start_num
-    train_job_id = submit_training_job(job_ids,run_name,run_num,use_dependency,num_dfs_total, args.outFile,deleteDfs,particle)
+    train_job_id,train_script = submit_training_job(job_ids,run_name,run_num,use_dependency,num_dfs_total, args.outFile,deleteDfs,particle,args.saveGif)
     print("Submitted training job with dependency on all simulation and processing jobs")
-    
     if(args.waitForFinish):
         train_status = 0
         while(train_status == 0):
@@ -224,6 +236,27 @@ def main():
                 print("Job running... sleeping for 30")
                 time.sleep(30)
                 continue
+        for shell_script in shell_scripts:
+            script_file = Path(shell_script)
+            if(script_file.is_file()):
+                script_file.unlink()
+                print(f"deleted shell script file {shell_script}")
+
+        for error_script in shell_errors:
+            error_file = Path(error_script)
+            if(error_file.is_file()):
+                error_file.unlink()
+                print(f"deleted error file {error_script}")
+
+        for output_script in shell_outputs:
+            output_file = Path(output_script)
+            if(output_file.is_file()):
+                output_file.unlink()
+                print(f"deleted output file {output_script}")
+        train_script_file = Path(train_script)
+        if(train_script_file.is_file()):
+            train_script_file.unlink()
+            print(f"deleted shell script file {train_script}")
 
 
 

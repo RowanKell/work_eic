@@ -535,7 +535,7 @@ def test_GNN_binned(model, test_dataloader):
                 pred = model(graph, graph.ndata["feat"].float(),event_feats).detach().numpy()[0][0]
                 summed_sqe += pow(pred - label,2)
                 num_predictions += 1
-                if(label < 2.25):
+                if(label < 2.75):
                     summed_sqe_binned[0] += pow(pred - label,2)
                     num_predictions_binned[0] += 1
                 else:
@@ -547,7 +547,7 @@ def test_GNN_binned(model, test_dataloader):
     rmse = np.sqrt(summed_sqe / num_predictions)
     binned_rmse = np.sqrt(summed_sqe_binned / num_predictions_binned)
     print(f"RMSE: {rmse}")
-    print(f"RMSE for E < 2GeV: {binned_rmse[0]}; E > 2GeV: {binned_rmse[1]}")
+    print(f"RMSE for E < 2.75GeV: {binned_rmse[0]}; E > 2.75GeV: {binned_rmse[1]}")
     return truths, preds, rmse, binned_rmse
 
 def get_text_positions(bin_centers,rel_rmse,test_truths,test_preds):
