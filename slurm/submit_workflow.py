@@ -12,7 +12,7 @@ def create_directory(directory):
         except FileExistsError as e:
             print(f"Caught error while trying to create directory: {e}\n I think this is a concurrency issue where 2 jobs will pass the if statement at the same time")
 
-def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,hepmc_bool = 1):
+def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,useGPU,hepmc_bool = 1):
     current_date = datetime.now().strftime("%B_%d")
     workdir = "/hpc/group/vossenlab/rck32/eic/work_eic"
     slurm_output = f"{workdir}/root_files/Slurm"
@@ -33,6 +33,14 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
     shell_scripts = []
     errors = []
     outputs = []
+    if(useGPU):
+        useGPUString = "--useGPU"
+        partition = "scavenger-gpu"
+        request_gpu_string = "#SBATCH --gpus=1"
+    else:
+        useGPUString = "--no-useGPU"
+        partition = "common"
+        request_gpu_string = ""
 
     for i in range(simulation_start_num, simulation_start_num + num_simulations):
         shell_script = f"{workdir}/slurm/shells/prediction_sims_{current_date}_{run_name}_{i}.sh"
@@ -43,11 +51,11 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH --job-name={run_name}_{current_date}_{i}
 #SBATCH --output={out_folder}/%x.out
 #SBATCH --error={error_folder}/%x.err
-#SBATCH -p scavenger-gpu
+#SBATCH -p {partition}
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=5G
-#SBATCH --gpus=1
+{request_gpu_string}
+#SBATCH --mem=12G
 #SBATCH --mail-user=rck32@duke.edu
 #SBATCH --mail-type=FAIL
 
@@ -74,7 +82,7 @@ echo "Beginning Analysis with analyze_data_old.py"
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
 
 #########   ANALYZE    ##########
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv --useCFD --batchSize 10000 --deleteJSON
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/analyze_data.py --inputProcessedData /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName /hpc/group/vossenlab/rck32/eic/work_eic/macros/Timing_estimation/data/df/{run_name}_{i}.csv --useCFD --batchSize 10000 --deleteJSON {useGPUString}
 
 deactivate
 echo ENDING JOB
@@ -185,10 +193,11 @@ def main():
     parser.add_argument("--chPath",type=str,default = "/hpc/group/vossenlab/rck32/eic/epic_klm")
     args = parser.parse_args()
     num_simulations = 1
-    simulation_start_num = 0
-    num_events = 50
+    simulation_start_num = 21
+    num_events = 1000
+    useGPU = False
     if(args.runNum == -1):
-        run_num = 1
+        run_num = 3
     else:
         run_num = args.runNum
     if(args.particle == "NA"):
@@ -198,7 +207,7 @@ def main():
         particle = args.particle
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"Consistency_test_status_quo_geometry_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+        run_name = f"Consistency_test_status_quo_geometry_1kevents_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
@@ -215,15 +224,15 @@ def main():
         loadEpicCommand = ""
     else:
         loadEpicCommand = f"source {args.loadEpicPath}"
-    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle)
+    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle,useGPU)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     #Submit training job
     use_dependency = True
 #     job_ids = [""]
     num_dfs_total = num_simulations + simulation_start_num
-    train_job_id,train_script = submit_training_job(job_ids,run_name,run_num,use_dependency,num_dfs_total, args.outFile,deleteDfs,particle,args.saveGif)
+#     train_job_id,train_script = submit_training_job(job_ids,run_name,run_num,use_dependency,num_dfs_total, args.outFile,deleteDfs,particle,args.saveGif)
     print("Submitted training job with dependency on all simulation and processing jobs")
-    if(args.waitForFinish):
+    if((args.waitForFinish == True) or (args.waitForFinish == None)):
         train_status = 0
         while(train_status == 0):
             train_status = get_job_status(train_job_id)

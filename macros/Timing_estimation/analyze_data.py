@@ -38,6 +38,8 @@ parser.add_argument('--useCFD', action=argparse.BooleanOptionalAction,
                         help='If true, uses constant fraction discrimination. Otherwise, uses leading edge.') 
 parser.add_argument('--deleteJSON', action=argparse.BooleanOptionalAction,
                         help='.') 
+parser.add_argument('--useGPU', action=argparse.BooleanOptionalAction,
+                        help='.') 
 
 args = parser.parse_args()
 outputDataframePathName = args.outputDataframePathName
@@ -46,14 +48,15 @@ scintThickness = args.scintThickness
 useCFD = args.useCFD
 batch_size = args.batchSize
 deleteJSON = args.deleteJSON
+useGPU = args.useGPU
 
-model_compile = get_compiled_NF_model(thickness = scintThickness)
+model_compile = get_compiled_NF_model(thickness = scintThickness,useGPU = useGPU)
 
 processed_data = load_defaultdict(inputProcessedData)
 
 print("Starting prepare_nn_input")
 begin = time.time()
-ret_df = newer_prepare_nn_input(processed_data, model_compile,batch_size = batch_size,pixel_threshold = 3)
+ret_df = newer_prepare_nn_input(processed_data, model_compile,batch_size = batch_size,device = device,pixel_threshold = 3)
 end = time.time()
 print(f"new_prepare_nn_input took {(end - begin) / 60} minutes")
 

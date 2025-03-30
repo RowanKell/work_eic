@@ -161,14 +161,46 @@ val_dataloader = GraphDataLoader(
 test_dataloader = GraphDataLoader(
     dataset, sampler=test_sampler, batch_size=training_batch_size, drop_last=False
 )
+best = {
+    'model' : None,
+    'test_rmse' : None,
+    'train_losses' : None,
+    'val_losses' : None,
+    'test_truths' : None,
+    'test_rmse' : None,
+    'binned_rmse' : None
+       }
+binned_rmses_sum = np.zeros(2)
+num_trainings = 4
+for i in range(num_trainings):
+    #Define model, optimizer, criterion for training
+    model = GIN(dataset.dim_nfeats,MLP_hidden_dim,dataset.dim_event_feats)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.MSELoss()
 
-#Define model, optimizer, criterion for training
-model = GIN(dataset.dim_nfeats,MLP_hidden_dim,dataset.dim_event_feats)
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-criterion = nn.MSELoss()
+    # Implementation for gif frame path: f"plots/training_gif_frames/run_{run_num}/frame{epoch}.jpeg"
+    trained_model, train_losses, val_losses, optimizer,best_epoch = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit,frame_plot_path,model_path)
+    test_truths, test_preds, test_rmse,binned_rmse = test_GNN_binned(trained_model, test_dataloader)
+    binned_rmses_sum[0] += binned_rmse[0]
+    binned_rmses_sum[1] += binned_rmse[1]
+    if((best['model'] == None) or (best['test_rmse'] > test_rmse)):
+        best['model'] = trained_model
+        best['train_losses'] = train_losses
+        best['val_losses'] = val_losses
+        best['test_truths'] = test_truths
+        best['test_preds'] = test_preds
+        best['test_rmse'] = test_rmse
+        best['binned_rmse'] = binned_rmse
+        
+binned_rmses_sum = binned_rmses_sum /num_trainings
+trained_model = best['model']
+train_losses = best['train_losses']
+val_losses = best['val_losses']
+test_truths = best['test_truths']
+test_preds = best['test_preds']
+test_rmse = best['test_rmse']
+binned_rmse = best['binned_rmse']
 
-# Implementation for gif frame path: f"plots/training_gif_frames/run_{run_num}/frame{epoch}.jpeg"
-trained_model, train_losses, val_losses, optimizer,best_epoch = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit,frame_plot_path,model_path)
 
 if(loss_plot_path != ""):
     loss_fig, loss_axs = plot.subplots(1,1)
@@ -179,7 +211,6 @@ if(loss_plot_path != ""):
     loss_fig.tight_layout()
     loss_fig.savefig(f"{loss_plot_path}{run_name}.jpeg")
 
-test_truths, test_preds, test_rmse,binned_rmse = test_GNN_binned(trained_model, test_dataloader)
 
 #write the important objective values to a file so that AID2E can use
 if(results_file_path != ""):

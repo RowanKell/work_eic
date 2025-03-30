@@ -108,8 +108,8 @@ def get_key(item):
     metadata, _ = item
     return metadata[:4]  # event_idx, stave_idx, layer_idx, segment_idx
 
-@profile_function
-def newer_prepare_nn_input(processed_data, normalizing_flow, batch_size=50000, device='cuda',pixel_threshold = 2,useCFD = True):
+# @profile_function
+def newer_prepare_nn_input(processed_data, normalizing_flow,device, batch_size=50000,pixel_threshold = 2,useCFD = True):
     all_context = []
     all_time_pixels = []
     all_metadata = []

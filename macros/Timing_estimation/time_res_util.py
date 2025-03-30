@@ -132,7 +132,7 @@ def get_all_times(uproot_path,threshold = 10, multipleFiles = False):
     flattened_times = np.concatenate(times)
 #         for i in range(len(times[event_num])):
     return flattened_times
-def get_compiled_NF_model(thickness = "2cm"):
+def get_compiled_NF_model(thickness = "2cm", useGPU = True):
     if(thickness == "1cm"):
         run_num = 7
         run_num_str = str(run_num)
@@ -165,8 +165,12 @@ def get_compiled_NF_model(thickness = "2cm"):
         model = nf.ConditionalNormalizingFlow(q0, flows)
 
         model_path = "/hpc/group/vossenlab/rck32/NF_time_res_models/"
-
-        model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth")
+        if(useGPU):
+            model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth")
+        else:
+            state_dict = torch.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth",  map_location=torch.device('cpu'))
+            model.load_state_dict(state_dict)
+            model.to(torch.device('cpu'))
         model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     elif(thickness == "2cm"):
         run_num = 1
@@ -199,8 +203,12 @@ def get_compiled_NF_model(thickness = "2cm"):
         model = nf.ConditionalNormalizingFlow(q0, flows)
 
         model_path = "/hpc/group/vossenlab/rck32/NF_time_res_models/thicker_2cm/"
-
-        model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs_checkpoint_e13.pth")
+        if(useGPU):
+            model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs_checkpoint_e13.pth")
+        else:
+            state_dict = torch.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs_checkpoint_e13.pth", map_location=torch.device('cpu'))
+            model.load_state_dict(state_dict)
+            model.to(torch.device('cpu'))
         model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     else:
         print("model not found")
