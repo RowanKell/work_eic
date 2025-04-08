@@ -171,7 +171,7 @@ best = {
     'binned_rmse' : None
        }
 binned_rmses_sum = np.zeros(2)
-num_trainings = 4
+num_trainings = 3
 for i in range(num_trainings):
     #Define model, optimizer, criterion for training
     model = GIN(dataset.dim_nfeats,MLP_hidden_dim,dataset.dim_event_feats)
@@ -181,6 +181,7 @@ for i in range(num_trainings):
     # Implementation for gif frame path: f"plots/training_gif_frames/run_{run_num}/frame{epoch}.jpeg"
     trained_model, train_losses, val_losses, optimizer,best_epoch = train_GNN(model,optimizer,criterion, train_dataloader, val_dataloader, n_epochs, early_stopping_limit,frame_plot_path,model_path)
     test_truths, test_preds, test_rmse,binned_rmse = test_GNN_binned(trained_model, test_dataloader)
+    print(f"training #{i}: {binned_rmse}")
     binned_rmses_sum[0] += binned_rmse[0]
     binned_rmses_sum[1] += binned_rmse[1]
     if((best['model'] == None) or (best['test_rmse'] > test_rmse)):
@@ -219,8 +220,8 @@ if(results_file_path != ""):
     else:
         results_write_path = f"{results_file_path}"
     with open(results_write_path, "w") as f:
-        f.write(f"{binned_rmse[0]}\n{binned_rmse[1]}")
-        print(f"writing RMSE: {binned_rmse[0]} and {binned_rmse[1]}")
+        f.write(f"{binned_rmses_sum[0]}\n{binned_rmses_sum[1]}")
+        print(f"writing RMSE: {binned_rmses_sum[0]} and {binned_rmses_sum[1]}")
         
         
 if(test_plot_path != ""):
@@ -252,19 +253,22 @@ try:
     y_fit = func(x_fit, params)
     if(results_plot_path != ""):
         fig,axs = plot.subplots(1,3,figsize = (15,5))
-        fig.suptitle(f"{args.particle} Energy Prediction")
+        fig.suptitle(f"{args.particle} Energy Prediction",fontsize = 20)
         axs[0].scatter(rmse_per_bin.keys(),rmse_per_bin.values())
-        axs[0].set(xlabel="Energy",ylabel = "RMSE")
+        axs[0].set_xlabel("Energy",fontsize = 20)
+        axs[0].set_ylabel("RMSE",fontsize = 20)
         axs[1].scatter(rmse_per_bin.keys(),np.array(list(rmse_per_bin.values())) / np.array(list(rmse_per_bin.keys())))
         axs[1].plot(x_fit,y_fit)
-        axs[1].set(xlabel="Energy",ylabel = "Relative RMSE")
-        axs[1].text(rel_rmse_x,rel_rmse_y,f"A: {params[0]:.2f}")
+        axs[1].set_xlabel("Energy",fontsize = 20)
+        axs[1].set_ylabel("Relative RMSE",fontsize = 20)
+        axs[1].text(rel_rmse_x - 0.4,rel_rmse_y,f"A: {params[0]:.2f}",fontsize = 20)
         text_spacing = (max(rmse_per_bin.values()) - min(rmse_per_bin.values())) / 20
-        axs[1].text(rel_rmse_x,rel_rmse_y + text_spacing,f"f(x) = A/sqrt(E)")
+        axs[1].text(rel_rmse_x - 0.4,rel_rmse_y + text_spacing,f"f(x) = A/sqrt(E)",fontsize = 20)
         axs[2].scatter(test_truths,test_preds,alpha = 0.1,color = "r")
-        axs[2].text(scatter_x,scatter_y,f"Test Mean Squared Error:\n{np.mean(list(rmse_per_bin.values()))**2:0.4f}")
+        axs[2].text(scatter_x,scatter_y,f"Test Mean Squared Error:\n{np.mean(list(rmse_per_bin.values()))**2:0.4f}",fontsize = 20)
         axs[2].plot([min(test_truths),max(test_truths)],[min(test_truths),max(test_truths)])
-        axs[2].set(xlabel = "True Energy",ylabel = "Predicted Energy")
+        axs[2].set_xlabel("True Energy",fontsize = 20)
+        axs[2].set_ylabel("Predicted Energy",fontsize = 20)
         fig.tight_layout()
         plot.savefig(f"{results_plot_path}{run_name}.pdf")
 except Exception as e:

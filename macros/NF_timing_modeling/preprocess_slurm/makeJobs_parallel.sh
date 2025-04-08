@@ -14,9 +14,9 @@ shell_dir="${eicdir}/work_eic/macros/NF_timing_modeling/preprocess_slurm/shells_
 out_folder="${eicdir}/work_eic/macros/NF_timing_modeling/preprocess_slurm/output/output${current_date}"
 error_folder="${eicdir}/work_eic/macros/NF_timing_modeling/preprocess_slurm/error/error${current_date}"
 
-infiledir="${eicdir}/work_eic/root_files/Jan_30/slurm/run_0_vary_events_one_segment_param/"
+infiledir="${eicdir}/work_eic/root_files/March_30/slurm/run_0_vary_events_one_segment_param/"
 
-rootname="preproccess_600_z_vals"
+rootname="preprocess_200_z_vals"
 processdir="${eicdir}/work_eic/macros/NF_timing_modeling/data/"
 runJobs="${workdir}/preprocess_slurm/runJobs.sh"
 touch $runJobs
@@ -44,7 +44,7 @@ fi
 if [ ! -d "$shell_dir" ]; then
   mkdir -p "$shell_dir"
 fi
-for num in $(seq 0 600)
+for num in $(seq 0 200)
 do
     file="${workdir}/preprocess_slurm/shells_parallel/${rootname}_${num}.sh"
     touch $file
@@ -56,11 +56,11 @@ do
     content+="#SBATCH -p common\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
-    content+="#SBATCH --mem=5G\n"
+    content+="#SBATCH --mem=2G\n"
     content+="#SBATCH --mail-user=rck32@duke.edu\n"
     content+="echo began job\n"
     content+="source /hpc/group/vossenlab/rck32/ML_venv/bin/activate\n"
-    content+="python3 ${eicdir}/work_eic/macros/NF_timing_modeling/preprocess_fast.py --infile ${infiledir} --outfile ${outputdir}Vary_p_events_file_${num}_600_z_pos_fixed_z_hit_pos.pt --parallel 1 --file_num ${num}\n"
+    content+="python3 ${eicdir}/work_eic/macros/NF_timing_modeling/preprocess_fast.py --infile ${infiledir} --outfile ${outputdir}Vary_p_events_filenum${num}_600_z_vals_55_5_mm_scint.pt --file_num ${num}\n"
     echo -e "$content" > $file 
     echo "sbatch shells_parallel/${rootname}_${num}.sh" >> $runJobs
 #     bash "./runJobs.sh"

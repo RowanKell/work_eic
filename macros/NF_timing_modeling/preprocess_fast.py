@@ -10,12 +10,12 @@ parser.add_argument('--outfile', type=str, default="data/test.pt",
                         help='name of pt file to store tensor in (default: data/test.pt)') 
 parser.add_argument('--infile', type=str, default="NA",
                         help='name of root file to read in') 
-parser.add_argument('--parallel', type=int, default=0,
-                        help='name of root file to read in') 
+# parser.add_argument('--parallel', type=int, default=0,
+#                         help='name of root file to read in') 
 parser.add_argument('--file_num', type=int, default=0,
                         help='name of root file to read in') 
-parser.add_argument('--num_files', type=int, default=0,
-                        help='name of root file to read in') 
+# parser.add_argument('--num_files', type=int, default=0,
+#                         help='name of root file to read in') 
 args = parser.parse_args()
 
 file_num = args.file_num
@@ -90,7 +90,7 @@ def process_file(file_path, break_limit=-1):
         return np.vstack(all_hit_data) if all_hit_data else np.array([])
 
 # Process all files
-file_path = infile + f"vary_p_z_th_events_{file_num}_600_z_vals.edm4hep.root:events"
+file_path = infile + f"vary_p_z_th_events_filenum{file_num}_600_z_vals_55_5_mm_scint.edm4hep.root:events"
 file_data = process_file(file_path, break_limit)
 
 # Combine all data and convert to PyTorch tensor

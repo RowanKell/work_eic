@@ -210,6 +210,44 @@ def get_compiled_NF_model(thickness = "2cm", useGPU = True):
             model.load_state_dict(state_dict)
             model.to(torch.device('cpu'))
         model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
+    elif(thickness == "5.55cm"):
+        run_num = 1
+        run_num_str = str(run_num)
+
+        #NF Stuff
+
+        K = 8 #num flows
+
+        latent_size = 1 #dimension of PDF
+        hidden_layers = 26
+        hidden_units = 256 #nodes in hidden layers
+        context_size = 3 #conditional variables for PDF
+        num_context = 3
+        batch_size= 20000
+        K_str = str(K)
+        hidden_units_str = str(hidden_units)
+        hidden_layers_str = str(hidden_layers)
+        batch_size_str = str(batch_size)
+        flows = []
+        for i in range(K):
+            flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units, 
+                                                                     num_context_channels=context_size)]
+            flows += [nf.flows.LULinearPermute(latent_size)]
+
+        # Set base distribution
+        q0 = nf.distributions.DiagGaussian(1, trainable=False)
+
+        # Construct flow model
+        model = nf.ConditionalNormalizingFlow(q0, flows)
+
+        model_path = "/hpc/group/vossenlab/rck32/NF_time_res_models/thicker_5.55cm/"
+        if(useGPU):
+            model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth")
+        else:
+            state_dict = torch.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth", map_location=torch.device('cpu'))
+            model.load_state_dict(state_dict)
+            model.to(torch.device('cpu'))
+        model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     else:
         print("model not found")
     return model_compiled

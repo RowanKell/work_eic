@@ -12,7 +12,7 @@ calc_max_theta() {
     echo "import math; print(math.atan2($1 + 732,10) + 1.57080)" | python | awk '{ printf "%.5f\n", $1 }'
 }
 calc_events() {
-    echo "import math;import numpy as np; print(int(np.floor(3500 *(1 -  (732 + $1) / 1500) + 500)))" | python | awk '{ printf "%d\n", $1 }'
+    echo "import math;import numpy as np; print(int(np.floor(1500 *(1 -  (732 + $1) / 1500) + 300)))" | python | awk '{ printf "%d\n", $1 }'
 }
 
 calc_inc() {
@@ -41,7 +41,7 @@ out_folder="${eicdir}/work_eic/slurm/output/output${current_date}"
 error_folder="${eicdir}/work_eic/slurm/error/error${current_date}"
 
 rootname="600_z_vals_file_"
-rootdir="${eicdir}/work_eic/root_files/Jan_30/slurm/run_0_vary_events_one_segment_param/"
+rootdir="${eicdir}/work_eic/root_files/March_30/slurm/run_0_vary_events_one_segment_param/"
 
 processdir="${eicdir}/epic_klm/"
 runJobs="${workdir}/slurm/runJobs.sh"
@@ -65,7 +65,7 @@ if [ ! -d "$rootdir" ]; then
 fi
 z_pos=-732
 z_end=767
-num_z=600
+num_z=200
 z_inc=$(calc_inc $z_pos $z_end $num_z)
 x_pos=1769.3
 
@@ -87,11 +87,11 @@ do
     content+="#SBATCH -p common\n"
     content+="#SBATCH --account=vossenlab\n"
     content+="#SBATCH --cpus-per-task=1\n"
-    content+="#SBATCH --mem=4G\n"
+    content+="#SBATCH --mem=8G\n"
     content+="echo began job\n"
     content+="cat << EOF | ${eicdir}/eic-shell\n"
     content+="source ${eicdir}/epic_klm/install/setup.sh\n"
-    content+="/usr/local/bin/ddsim --steeringFile ${eicdir}/work_eic/steering/sensor_sensitive/variation_pos.py --compactFile ${eicdir}/epic_klm/epic_klmws_only.xml -G -N ${num_events} --gun.particle \"mu-\" --outputFile ${eicdir}/work_eic/root_files/Jan_30/slurm/run_0_vary_events_one_segment_param/vary_p_z_th_events_${i}_600_z_vals.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
+    content+="/usr/local/bin/ddsim --steeringFile ${eicdir}/work_eic/steering/sensor_sensitive/variation_pos.py --compactFile ${eicdir}/epic_klm/epic_klmws_only.xml -G -N ${num_events} --gun.particle \"mu-\" --outputFile ${eicdir}/work_eic/root_files/March_30/slurm/run_0_vary_events_one_segment_param/vary_p_z_th_events_filenum${i}_600_z_vals_55_5_mm_scint.edm4hep.root --part.userParticleHandler=\"\" --gun.position \"(${x_pos}, 0.0, ${z_pos})\" --gun.thetaMin \"${theta_min}\" --gun.thetaMax \"${theta_max}\"\n"
     content+="EOF\n"
     echo -e "$content" > $file 
     echo "sbatch shells_full_theta_vary/${rootname}${i}.sh" >> $runJobs

@@ -55,7 +55,7 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
 {request_gpu_string}
-#SBATCH --mem=12G
+#SBATCH --mem=20G
 #SBATCH --mail-user=rck32@duke.edu
 #SBATCH --mail-type=FAIL
 
@@ -192,12 +192,12 @@ def main():
     parser.add_argument("--loadEpicPath",type=str,default = "NA")
     parser.add_argument("--chPath",type=str,default = "/hpc/group/vossenlab/rck32/eic/epic_klm")
     args = parser.parse_args()
-    num_simulations = 1
-    simulation_start_num = 21
-    num_events = 1000
-    useGPU = False
+    num_simulations = 40
+    simulation_start_num = 0
+    num_events = 500
+    useGPU = True
     if(args.runNum == -1):
-        run_num = 3
+        run_num = 1
     else:
         run_num = args.runNum
     if(args.particle == "NA"):
@@ -230,7 +230,7 @@ def main():
     use_dependency = True
 #     job_ids = [""]
     num_dfs_total = num_simulations + simulation_start_num
-#     train_job_id,train_script = submit_training_job(job_ids,run_name,run_num,use_dependency,num_dfs_total, args.outFile,deleteDfs,particle,args.saveGif)
+    train_job_id,train_script = submit_training_job(job_ids,run_name,run_num,use_dependency,num_dfs_total, args.outFile,deleteDfs,particle,args.saveGif)
     print("Submitted training job with dependency on all simulation and processing jobs")
     if((args.waitForFinish == True) or (args.waitForFinish == None)):
         train_status = 0

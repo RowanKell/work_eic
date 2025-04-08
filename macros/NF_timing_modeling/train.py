@@ -80,20 +80,20 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 Timing_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/"
 logging.debug("before loading data")
 
-combined_inputs_already = True
+combined_inputs_already = False
 if(not combined_inputs_already):
 
-    raw_inputs = torch.load(Timing_path + "data/January_30/Run_1/Vary_p_events_file_0_600_z_pos_fixed_z_hit_pos.pt")
-    for i in range(600):
+    raw_inputs = torch.load(Timing_path + "data/March_31/Run_1/Vary_p_events_filenum0_600_z_vals_55_5_mm_scint.pt")
+    for i in range(200):
         clear_output(wait=True)
         logging.debug(f"loaded file #{i+1} of 600")
-        raw_inputs = torch.cat((raw_inputs, torch.load(Timing_path + f"data/January_30/Run_1/Vary_p_events_file_{i+1}_600_z_pos_fixed_z_hit_pos.pt")),0)
+        raw_inputs = torch.cat((raw_inputs, torch.load(Timing_path + f"data/March_31/Run_1/Vary_p_events_filenum{i + 1}_600_z_vals_55_5_mm_scint.pt")),0)
     inputs = raw_inputs[np.logical_and(raw_inputs[:,4] < 100,raw_inputs[:,3] < 0.06)]
     indexes = torch.randperm(inputs.shape[0])
     dataset = inputs[indexes]
-    train_frac = 0.16
-    test_frac = 0.02
-    val_frac = 0.02
+    train_frac = 0.1
+    test_frac = 0.03
+    val_frac = 0.03
     train_lim = int(np.floor(dataset.shape[0] * train_frac))
     test_lim = train_lim + int(np.floor(dataset.shape[0] * test_frac))
     val_lim = test_lim + int(np.floor(dataset.shape[0] * val_frac))
@@ -222,7 +222,7 @@ checkdir(loss_path)
 test_data_path = "../data/test/" + today + "/"
 checkdir(test_data_path)
 
-run_info = "run_" + run_num_str+"_"+num_context_str+ "context_"+ K_str + "flows_" + hidden_layers_str + "hl_" + hidden_units_str + "hu_" + batch_size_str + "bs"
+run_info = "run_" + run_num_str+"_55_5mm_scint"+num_context_str+ "context_"+ K_str + "flows_" + hidden_layers_str + "hl_" + hidden_units_str + "hu_" + batch_size_str + "bs"
 
 # Train model
 num_context = 4
@@ -235,7 +235,7 @@ validation_frequency = 2000  # Perform validation every 100 training steps
 logging.debug("beginning training loop")
 
 # Early stopping
-max_ticks = 10
+max_ticks = 3
 early_stopping_dict = {"val_loss":-1,"upticks":0}
 
 global_step = 0
