@@ -6,6 +6,7 @@ from collections import defaultdict
 import argparse
 import json
 from pathlib import Path
+import os
 
 def convert_key_to_serializable(key):
     """Convert numpy types to native Python types."""
@@ -50,7 +51,7 @@ parser = argparse.ArgumentParser(description = 'Preparing data for momentum pred
 
 parser.add_argument('--filePathName', type=str, default="NA",
                         help='directory of root file') 
-parser.add_argument('--compactFile', type=str, default="/hpc/group/vossenlab/rck32/eic/epic_klm/epic_klmws_only.xml",
+parser.add_argument('--compactFile', type=str, default="{}/epic_klmws_only.xml".format(os.environ['EPIC_HOME']),
                         help='compact file for loading geometry and decoding cellID') 
 parser.add_argument('--processedDataPath', type=str, default="NA",
                         help='directory to output np dict')
