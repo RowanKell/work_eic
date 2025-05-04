@@ -148,6 +148,7 @@ def process_root_file_old(file_path,compactFile,max_events = -1,geometry_type = 
                 else:
                     trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
 #                     trueID = find_parent_w_exclusion(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],vertex_x_MC[event_idx],vertex_y_MC[event_idx],particle_id)
+                print(f"event #{event_idx}; trueID: {trueID}")
                 try:
                     KMU_trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
                 except:

@@ -19,7 +19,7 @@ def create_directory(directory):
         except FileExistsError as e:
             print(f"Caught error while trying to create directory: {e}\n I think this is a concurrency issue where 2 jobs will pass the if statement at the same time")
 
-def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,useGPU,run_num,hepmc_bool = 1):
+def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,useGPU,run_num,deleteROOTFile = True,hepmc_bool = 1):
     current_date = datetime.now().strftime("%B_%d")
     slurm_output = f"{workdir}/root_files/Slurm"
     out_folder = f"{workdir}/slurm/output/output{current_date}"
@@ -49,6 +49,9 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
         useGPUString = "--no-useGPU"
         partition = "common"
         request_gpu_string = ""
+    deleteROOTFileString = ''
+    if(deleteROOTFile):
+        deleteROOTFileString = '--deleteROOTFile'
 
     for i in range(simulation_start_num, simulation_start_num + num_simulations):
         shell_script = f"{workdir}/slurm/shells/prediction_sims_{current_date}_{run_name}_{i}.sh"
@@ -86,7 +89,7 @@ echo "Running ddsim with steeringFile input"
 echo "DDSIM completed successfully"
 echo began process root file
 #########   PROCESS  ##########
-python3 {workdir}/macros/Timing_estimation/process_root_file.py --filePathName {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --processedDataPath {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --geometryType {geometry_type} --compactFile {compactFile} --deleteROOTFile
+python3 {workdir}/macros/Timing_estimation/process_root_file.py --filePathName {root_file_dir}/{run_name}_{num_events}_{i}.edm4hep.root  --processedDataPath {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --geometryType {geometry_type} --compactFile {compactFile} {deleteROOTFileString}
 EOF
 echo "Beginning Analysis with analyze_data_old.py"    
 source {ML_VENV_HOME}/bin/activate
@@ -209,6 +212,7 @@ def main():
     simulation_start_num = 0
     num_events = 500
     useGPU = True
+    deleteROOTFile = False
     if(args.runNum == -1):
         run_num = 1
     else:
@@ -216,11 +220,12 @@ def main():
     if(args.particle == "NA"):
         particle = "neutron"
 #         particle = "kaon0L"
+#         particle = "pi+"
     else:
         particle = args.particle
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"compact_71_test_20k_total_events_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+        run_name = f"20k_total_events_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
@@ -237,7 +242,7 @@ def main():
         loadEpicCommand = ""
     else:
         loadEpicCommand = f"source {args.loadEpicPath}"
-    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle,useGPU,run_num)
+    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle,useGPU,run_num,deleteROOTFile)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     print("Submitted training job with dependency on all simulation and processing jobs")
     
@@ -266,42 +271,42 @@ def main():
                 return
             all_data_jobs_done = True
     #Submit training job now that data jobs done
-    num_dfs_total = num_simulations + simulation_start_num
-    train_job_id,train_script = submit_training_job(run_name,run_num,num_dfs_total, outFile,deleteDfs,particle,args.saveGif)
+#     num_dfs_total = num_simulations + simulation_start_num
+#     train_job_id,train_script = submit_training_job(run_name,run_num,num_dfs_total, outFile,deleteDfs,particle,args.saveGif)
     
-    train_status = 0
-    while(train_status == 0):
-        train_status = get_job_status(train_job_id)
-        if(train_status == 1):
-            print("Train job succeeded")
-        elif(train_status == -1):
-            print("Train job failed")
-            break
-        elif(train_status == 0):
-            print("Job running... sleeping for 30")
-            time.sleep(30)
-            continue
-    for shell_script in shell_scripts:
-        script_file = Path(shell_script)
-        if(script_file.is_file()):
-            script_file.unlink()
-            print(f"deleted shell script file {shell_script}")
+#     train_status = 0
+#     while(train_status == 0):
+#         train_status = get_job_status(train_job_id)
+#         if(train_status == 1):
+#             print("Train job succeeded")
+#         elif(train_status == -1):
+#             print("Train job failed")
+#             break
+#         elif(train_status == 0):
+#             print("Job running... sleeping for 30")
+#             time.sleep(30)
+#             continue
+#     for shell_script in shell_scripts:
+#         script_file = Path(shell_script)
+#         if(script_file.is_file()):
+#             script_file.unlink()
+#             print(f"deleted shell script file {shell_script}")
 
-    for error_script in shell_errors:
-        error_file = Path(error_script)
-        if(error_file.is_file()):
-            error_file.unlink()
-            print(f"deleted error file {error_script}")
+#     for error_script in shell_errors:
+#         error_file = Path(error_script)
+#         if(error_file.is_file()):
+#             error_file.unlink()
+#             print(f"deleted error file {error_script}")
 
-    for output_script in shell_outputs:
-        output_file = Path(output_script)
-        if(output_file.is_file()):
-            output_file.unlink()
-            print(f"deleted output file {output_script}")
-    train_script_file = Path(train_script)
-    if(train_script_file.is_file()):
-        train_script_file.unlink()
-        print(f"deleted shell script file {train_script}")
+#     for output_script in shell_outputs:
+#         output_file = Path(output_script)
+#         if(output_file.is_file()):
+#             output_file.unlink()
+#             print(f"deleted output file {output_script}")
+#     train_script_file = Path(train_script)
+#     if(train_script_file.is_file()):
+#         train_script_file.unlink()
+#         print(f"deleted shell script file {train_script}")
 
 
 
