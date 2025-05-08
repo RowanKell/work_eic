@@ -29,6 +29,24 @@ def delete_files_in_dir(directory):
         if file_path.is_file():
             file_path.unlink()
 def process_df_vectorized(df, cone_angle_deg=45):
+    """
+    Check if hits are within "cluster", and reject any that are outside.
+    
+    This function creates a "cone" around the first hit for each strip 
+    and excludes all hits that are outside of this cone (in x, y).
+    This works as a sort of clustering. This function also stores a value
+    "ModifiedTrueID" for each hit, which will be -1 if the hit is outside of the cone.
+    
+    ...
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing hit information for entire dataset.
+    cone_angle_deg : float
+        Total angle of cone centered on the first hit.
+    """
+    
     # Grab positions to use as center of cone
     event_references = (
         df.groupby(['event_idx', 'file_idx'])
@@ -789,6 +807,19 @@ def test_GNN_binned(model, test_dataloader):
     return truths, preds, rmse, binned_rmse
 
 def get_text_positions(bin_centers,rel_rmse,test_truths,test_preds):
+    """
+    Calculates approximately "good" positions for text in 
+    neutron RMSE plot.
+    
+    See GNN_Energy.ipynb
+    
+    Parameters
+    ----------
+    bin_centers : np.array
+        Centers of the energy bins.
+    rel_rmse : 
+    """
+    
     rel_rmse_x = np.mean(bin_centers) 
     rel_rmse_y = np.mean(rel_rmse) +  np.max(rel_rmse) / 10
     

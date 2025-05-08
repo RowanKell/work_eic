@@ -1,0 +1,1 @@
+ddsim --steeringFile steering/sensor_sensitive/full_detector_benchmark.py --compactFile $DETECTOR_PATH/epic_klmws_only.xml --runType "batch" -G -N 10 --gun.particle "neutron" --outputFile root_files/Paper/benchmark/optical_photon_sim_neutron_10events_full_phi_limited_theta_1GeV_to_10GeV.edm4hep.root --part.userParticleHandler=""

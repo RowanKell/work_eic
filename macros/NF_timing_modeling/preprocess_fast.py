@@ -33,6 +33,31 @@ from tqdm import tqdm
 from NF_util import PVect, time_func, z_func
 
 def process_file(file_path, break_limit=-1):
+    """
+    Process root files produced by makeJobs_full_theta_vary_z.sh
+    
+    This function processes root files to create torch tensors that 
+    can be used to train a NF model. The function loops over all the events
+    and calculates the charged track kinematics, then creates
+    a tensor where the charged track information (conditions/inputs) is paired with the 
+    optical photon arrival time (label).
+    
+    ...
+    
+    Parameters
+    ----------
+    file_path : str
+        Full path of root file to open with uproot.open()
+    break_limit : int
+        If negative, all events are processed. If position, then the function processes only
+        this many events. Can be useful for debugging.
+    
+    Returns
+    -------
+    np.vstack(all_hit_data) : np.array
+        np array with all the data to convert to tensor
+    """
+    
     with uproot.open(file_path) as events:
         # Load all required branches at once
         branches = events.arrays([

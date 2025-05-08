@@ -208,11 +208,21 @@ def main():
     parser.add_argument("--chPath",type=str,default = f"{EPIC_HOME}")
     args = parser.parse_args()
     
-    num_simulations =40
+    """
+    USER DEFINED SETTINGS
+    """
+    
+    num_simulations = 2
     simulation_start_num = 0
-    num_events = 500
+    num_events = 1000
     useGPU = True
-    deleteROOTFile = False
+    deleteROOTFile = True
+    runTrainingJob = False
+    deleteShellsErrorsOutputs = False
+    
+    """
+    END SETTINGS
+    """
     if(args.runNum == -1):
         run_num = 1
     else:
@@ -225,7 +235,7 @@ def main():
         particle = args.particle
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"20k_total_events_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+        run_name = f"benchmark_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
@@ -271,42 +281,45 @@ def main():
                 return
             all_data_jobs_done = True
     #Submit training job now that data jobs done
-#     num_dfs_total = num_simulations + simulation_start_num
-#     train_job_id,train_script = submit_training_job(run_name,run_num,num_dfs_total, outFile,deleteDfs,particle,args.saveGif)
-    
-#     train_status = 0
-#     while(train_status == 0):
-#         train_status = get_job_status(train_job_id)
-#         if(train_status == 1):
-#             print("Train job succeeded")
-#         elif(train_status == -1):
-#             print("Train job failed")
-#             break
-#         elif(train_status == 0):
-#             print("Job running... sleeping for 30")
-#             time.sleep(30)
-#             continue
-#     for shell_script in shell_scripts:
-#         script_file = Path(shell_script)
-#         if(script_file.is_file()):
-#             script_file.unlink()
-#             print(f"deleted shell script file {shell_script}")
+    if(runTrainingJob):
+        num_dfs_total = num_simulations + simulation_start_num
+        train_job_id,train_script = submit_training_job(run_name,run_num,num_dfs_total, outFile,deleteDfs,particle,args.saveGif)
 
-#     for error_script in shell_errors:
-#         error_file = Path(error_script)
-#         if(error_file.is_file()):
-#             error_file.unlink()
-#             print(f"deleted error file {error_script}")
+        train_status = 0
+        while(train_status == 0):
+            train_status = get_job_status(train_job_id)
+            if(train_status == 1):
+                print("Train job succeeded")
+            elif(train_status == -1):
+                print("Train job failed")
+                break
+            elif(train_status == 0):
+                print("Job running... sleeping for 30")
+                time.sleep(30)
+                continue
+    if(deleteShellsErrorsOutputs):
+        for shell_script in shell_scripts:
+            script_file = Path(shell_script)
+            if(script_file.is_file()):
+                script_file.unlink()
+                print(f"deleted shell script file {shell_script}")
 
-#     for output_script in shell_outputs:
-#         output_file = Path(output_script)
-#         if(output_file.is_file()):
-#             output_file.unlink()
-#             print(f"deleted output file {output_script}")
-#     train_script_file = Path(train_script)
-#     if(train_script_file.is_file()):
-#         train_script_file.unlink()
-#         print(f"deleted shell script file {train_script}")
+        for error_script in shell_errors:
+            error_file = Path(error_script)
+            if(error_file.is_file()):
+                error_file.unlink()
+                print(f"deleted error file {error_script}")
+
+        for output_script in shell_outputs:
+            output_file = Path(output_script)
+            if(output_file.is_file()):
+                output_file.unlink()
+                print(f"deleted output file {output_script}")
+        if(runTrainingJob):
+            train_script_file = Path(train_script)
+            if(train_script_file.is_file()):
+                train_script_file.unlink()
+                print(f"deleted shell script file {train_script}")
 
 
 
