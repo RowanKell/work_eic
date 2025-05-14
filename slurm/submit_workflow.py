@@ -6,11 +6,15 @@ import time
 from pathlib import Path
 
 # Set env variables as python variables for ease of use
-workdir = os.environ['WORK_EIC']
-EIC_SHELL_HOME = os.environ['EIC_SHELL_HOME']
-ML_VENV_HOME = os.environ['ML_VENV_HOME']
-mail_user = os.environ['MAIL_USER']
-EPIC_HOME = os.environ['EPIC_HOME']
+try:
+    workdir = os.environ['WORK_EIC']
+    EIC_SHELL_HOME = os.environ['EIC_SHELL_HOME']
+    ML_VENV_HOME = os.environ['ML_VENV_HOME']
+    mail_user = os.environ['MAIL_USER']
+    EPIC_HOME = os.environ['EPIC_HOME']
+except KeyError as e:
+    print(f"KeyError: {e}\nProbably need to source the setup script work_eic/setup.sh")
+    exit(1)
 
 def create_directory(directory):
     if not os.path.exists(directory):
@@ -111,7 +115,7 @@ echo ENDING JOB
 
     return job_ids,shell_scripts, errors, outputs
 
-def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save_gif):
+def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save_gif,lowEnergyObjectiveFlag, highEnergyObjectiveFlag):
     current_date = datetime.now().strftime("%B_%d")
     slurm_output = f"{workdir}/root_files/Slurm"
     out_folder = f"{workdir}/slurm/output/output{current_date}"
@@ -128,6 +132,15 @@ def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save
         deleteDfsString = "--deleteDfs"
     else:
         deleteDfsString = ""
+    if(highEnergyObjectiveFlag == 1):
+        highEnergyObjective_string = "--writeHighEnergyObjective"
+    elif(highEnergyObjectiveFlag == -1):
+        highEnergyObjective_string = "--no-writeHighEnergyObjective"
+    
+    if(lowEnergyObjectiveFlag == 1):
+        lowEnergyObjective_string = "--writeLowEnergyObjective"
+    elif(lowEnergyObjectiveFlag == -1):
+        lowEnergyObjective_string = "--no-writeLowEnergyObjective"
     with open(train_script, 'w') as f:
         f.write(f"""#!/bin/bash
 #SBATCH --chdir={EPIC_HOME}
@@ -146,7 +159,7 @@ def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save
 echo began job
 echo began training NN for prediction
 source {ML_VENV_HOME}/bin/activate
-python3 {workdir}/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "{workdir}/macros/Timing_estimation/data/df/{run_name}_" --modelPath "{workdir}/macros/Timing_estimation/models/{current_date}/run_{run_num}/"  --resultsFilePath {outFile} {frame_gif_command} --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  {deleteDfsString} --particle {particle}
+python3 {workdir}/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --runNum {run_num} --inputDataPref "{workdir}/macros/Timing_estimation/data/df/{run_name}_" --modelPath "{workdir}/macros/Timing_estimation/models/{current_date}/run_{run_num}/"  --resultsFilePath {outFile} {frame_gif_command} --lossPlotPath "{Timing_path}plots/GNN_loss/" --testPlotPath "{Timing_path}plots/GNN_test/" --runName "{run_name}" --resultsPlotPath "{Timing_path}plots/GNN_results/"  {deleteDfsString} --particle {particle} {highEnergyObjective_string} {lowEnergyObjective_string} 
 """)
     sbatch_command = [
         "sbatch",
@@ -201,6 +214,8 @@ def main():
     parser.add_argument('--compactFile', type=str, default=f"{EPIC_HOME}/epic_klmws_only.xml")
     parser.add_argument('--runNum', type=int, default=-1)
     parser.add_argument("--saveGif",action=argparse.BooleanOptionalAction)
+    parser.add_argument("--lowEnergyObjective",type=int, default = 1)
+    parser.add_argument("--highEnergyObjective",type=int, default = 1)
     parser.add_argument("--deleteDfs",type =str, default ="False")
     parser.add_argument("--particle",type =str, default ="NA")
     parser.add_argument("--setupPath",type=str,default = "install/setup.sh")
@@ -212,12 +227,12 @@ def main():
     USER DEFINED SETTINGS
     """
     
-    num_simulations = 2
+    num_simulations = 40
     simulation_start_num = 0
-    num_events = 1000
+    num_events = 500
     useGPU = True
     deleteROOTFile = True
-    runTrainingJob = False
+    runTrainingJob = True
     deleteShellsErrorsOutputs = False
     
     """
@@ -245,7 +260,7 @@ def main():
         deleteDfs = True
     else:
         deleteDfs = False
-        
+    
         
     # Submit simulation and processing jobs
     if(args.loadEpicPath == "NA"):
@@ -283,7 +298,7 @@ def main():
     #Submit training job now that data jobs done
     if(runTrainingJob):
         num_dfs_total = num_simulations + simulation_start_num
-        train_job_id,train_script = submit_training_job(run_name,run_num,num_dfs_total, outFile,deleteDfs,particle,args.saveGif)
+        train_job_id,train_script = submit_training_job(run_name,run_num,num_dfs_total, outFile,deleteDfs,particle,args.saveGif,args.lowEnergyObjective, args.highEnergyObjective)
 
         train_status = 0
         while(train_status == 0):

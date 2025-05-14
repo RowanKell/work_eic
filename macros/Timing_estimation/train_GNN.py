@@ -75,7 +75,14 @@ parser.add_argument('--particle', type=str, default="",
                         help='Particle name for plotting')
 parser.add_argument('--deleteDfs', action=argparse.BooleanOptionalAction,
                         help='If true, train_GNN will first train a GNN and, if successful, it will delete the dfs created for the training run. Set this to be false if you are not generating the data at the same time.') 
+
+parser.add_argument('--writeHighEnergyObjective', action=argparse.BooleanOptionalAction) 
+parser.add_argument('--writeLowEnergyObjective', action=argparse.BooleanOptionalAction) 
+
 args = parser.parse_args()
+print("energy objective flags")
+print(args.writeLowEnergyObjective)
+print(args.writeHighEnergyObjective)
 inputDataPref = args.inputDataPref
 num_dfs = args.numDfs
 coneAngle = args.coneAngle
@@ -220,8 +227,22 @@ if(results_file_path != ""):
     else:
         results_write_path = f"{results_file_path}"
     with open(results_write_path, "w") as f:
-        f.write(f"{binned_rmses_sum[0]}\n{binned_rmses_sum[1]}")
-        print(f"writing RMSE: {binned_rmses_sum[0]} and {binned_rmses_sum[1]}")
+        if(args.writeHighEnergyObjective and args.writeLowEnergyObjective):
+            print("writing both")
+            writeString = f"{binned_rmses_sum[0]}\n{binned_rmses_sum[1]}"
+        elif(args.writeHighEnergyObjective):
+            print("writing high")
+            
+            writeString = f"{binned_rmses_sum[1]}"
+        elif(args.writeLowEnergyObjective):
+            print("writing low")
+            
+            writeString = f"{binned_rmses_sum[0]}"
+        else:
+            print("writing -1")
+            writeString = f"{-1}"
+        f.write(writeString)
+        print(f"writing RMSE: {writeString}")
         
         
 if(test_plot_path != ""):
