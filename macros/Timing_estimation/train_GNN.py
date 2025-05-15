@@ -130,6 +130,10 @@ for i in range(num_dfs):
         # I think these files fail due to DCC issues?
         print(f"skipping file #{i}...")
         continue
+    except pd.errors.EmptyDataError as e:
+        print(f"found error: {e}")
+        print(f"df index: {i}\ninputDataPref: {inputDataPref}")
+        raise Exception(f"not sure why this error occurs: {e}")
     new_df["file_idx"] = i
     dfs.append(new_df)
 if(len(dfs) > 1):
