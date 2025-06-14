@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=train_flow_5_55cm_run_3
-#SBATCH --output=/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/slurm/output/outputMarch_31/%x_mu.out
-#SBATCH --error=/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/slurm/error/errorMarch_31/%x_mu.err
+#SBATCH --job-name=train_flow_2cm_1point8_time_constant_run_6
+#SBATCH --output=/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/slurm/output/outputJune_6/%x_mu.out
+#SBATCH --error=/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/slurm/error/errorJune_6/%x_mu.err
 #SBATCH -p vossenlab-gpu
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
@@ -11,4 +11,4 @@
 #SBATCH --mail-type=END
 echo began job
 source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
-python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/train.py --useArgs --run_num 3 --num_epochs 25 --K 12 --hl 26 --hu 256 --lr 5e-4 --bs 15000
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/train.py --useArgs --run_num 6 --num_epochs 18 --K 6 --hl 8 --hu 128 --lr 1e-4 --bs 15000 --num_files 600

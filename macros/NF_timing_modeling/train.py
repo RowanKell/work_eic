@@ -1,6 +1,3 @@
-
-
-
 from datetime import date
 date = date.today().strftime("%b_%d")
 
@@ -22,6 +19,8 @@ def checkdir(path):
     if not os.path.exists(path): 
         os.makedirs(path)
 import argparse
+import logging
+
 parser = argparse.ArgumentParser(description = 'NF training')
 parser.add_argument('--K', type=int, default=1,
                         help='# of flows')
@@ -39,6 +38,8 @@ parser.add_argument('--num_epochs', type=int, default=6,
                         help='# epochs to train')
 parser.add_argument('--useArgs', action=argparse.BooleanOptionalAction,
                         help='If True, uses argparse arguments')
+parser.add_argument('--num_files', type=int, default=500,
+                        help = 'Number of data files to load')
     
 args = parser.parse_args()
 useArgs = args.useArgs
@@ -51,6 +52,7 @@ if(useArgs):
     batch_size = args.bs
     lr = args.lr
     num_epochs = args.num_epochs
+    num_files = args.num_files
 else:
     run_num = 1
     K = 2
@@ -59,10 +61,13 @@ else:
     batch_size = 2000
     lr = 1e-5
     num_epochs = 6
+    num_files = 500
 
-import logging
-import os
-log_file = f'/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/slurm/logs/train_run_{run_num}.log'
+    
+data_path_constructor = "data/June_10/Run_1/Vary_p_events_filenum{}_600_z_vals_20_mm_1point8_time_constant.pt"
+Timing_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/"
+    
+log_file = f'/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/slurm/logs/train_date_{date}_run_{run_num}.log'
 if os.path.exists(log_file):
     os.remove(log_file)
 
@@ -77,23 +82,23 @@ logging.debug('Start of train.py')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-Timing_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/"
 logging.debug("before loading data")
 
 combined_inputs_already = False
 if(not combined_inputs_already):
 
-    raw_inputs = torch.load(Timing_path + "data/March_31/Run_1/Vary_p_events_filenum0_600_z_vals_55_5_mm_scint.pt")
-    for i in range(200):
+    raw_inputs = torch.load(Timing_path + data_path_constructor.format(0))
+    for i in range(num_files):
         clear_output(wait=True)
         logging.debug(f"loaded file #{i+1} of 600")
-        raw_inputs = torch.cat((raw_inputs, torch.load(Timing_path + f"data/March_31/Run_1/Vary_p_events_filenum{i + 1}_600_z_vals_55_5_mm_scint.pt")),0)
+        raw_inputs = torch.cat((raw_inputs, torch.load(Timing_path + data_path_constructor.format(i+1))),0)
+        print(f"input file: {Timing_path + data_path_constructor.format(i+1)}")
     inputs = raw_inputs[np.logical_and(raw_inputs[:,4] < 100,raw_inputs[:,3] < 0.06)]
     indexes = torch.randperm(inputs.shape[0])
     dataset = inputs[indexes]
-    train_frac = 0.1
-    test_frac = 0.03
-    val_frac = 0.03
+    train_frac = 0.16
+    test_frac = 0.02
+    val_frac = 0.02
     train_lim = int(np.floor(dataset.shape[0] * train_frac))
     test_lim = train_lim + int(np.floor(dataset.shape[0] * test_frac))
     val_lim = test_lim + int(np.floor(dataset.shape[0] * val_frac))
@@ -222,7 +227,7 @@ checkdir(loss_path)
 test_data_path = "../data/test/" + today + "/"
 checkdir(test_data_path)
 
-run_info = "run_" + run_num_str+"_55_5mm_scint"+num_context_str+ "context_"+ K_str + "flows_" + hidden_layers_str + "hl_" + hidden_units_str + "hu_" + batch_size_str + "bs"
+run_info = "run_" + run_num_str+"_20mm_scint_1point8_time_constant"+num_context_str+ "context_"+ K_str + "flows_" + hidden_layers_str + "hl_" + hidden_units_str + "hu_" + batch_size_str + "bs"
 
 # Train model
 num_context = 4
@@ -235,7 +240,7 @@ validation_frequency = 2000  # Perform validation every 100 training steps
 logging.debug("beginning training loop")
 
 # Early stopping
-max_ticks = 3
+max_ticks = 4
 early_stopping_dict = {"val_loss":-1,"upticks":0}
 
 global_step = 0
@@ -251,13 +256,13 @@ for epoch in range(num_epochs):
         end = (it + 1) * batch_size
         it_data = train_data[begin:end]
         context = torch.empty(it_data.size()[0], 3)
-        context[:,0] = it_data[:,0]
-        context[:,1] = it_data[:,1]
-        context[:,2] = it_data[:,2]
+        context[:,0] = 0.5 + (it_data[:,0] / 1500)
+        context[:,1] = it_data[:,1] / 180
+        context[:,2] = it_data[:,2] / 10
         context = context.to(device)
-        samples = (it_data[:,4] - it_data[:,3]).unsqueeze(1).to(device)
+        samples = (it_data[:,4] - it_data[:,3]).unsqueeze(1).to(device) / 25
         # Compute loss
-        loss = model.forward_kld(samples, context)
+        loss = -model.log_prob(samples, context).mean()
         logging.debug(f"Iteration {it} loss: {loss}")
         # Do backprop and optimizer step
         if ~(torch.isnan(loss) | torch.isinf(loss)):
@@ -279,12 +284,12 @@ for epoch in range(num_epochs):
                     end = (val_it + 1) * batch_size
                     it_data = val_data[begin:end]
                     context = torch.empty(it_data.size()[0], 3)
-                    context[:,0] = it_data[:,0]
-                    context[:,1] = it_data[:,1]
-                    context[:,2] = it_data[:,2]
+                    context[:,0] = 0.5 + (it_data[:,0] / 1500)
+                    context[:,1] = it_data[:,1] / 180
+                    context[:,2] = it_data[:,2] / 10
                     context = context.to(device)
-                    samples = (it_data[:,4] - it_data[:,3]).unsqueeze(1).to(device)
-                    loss = model.forward_kld(samples, context)
+                    samples = (it_data[:,4] - it_data[:,3]).unsqueeze(1).to(device) / 25
+                    loss = -model.log_prob(samples, context).mean()
                     val_loss += loss.item()
             
             avg_val_loss = val_loss / val_iter
@@ -316,3 +321,31 @@ plot.legend()
 plot.savefig( loss_path + run_info + ".jpeg")
 
 # torch.save(test_data, test_data_path + "full_test_data_run_" + run_num_str+ "_"+ K_str + "flows_" + hidden_layers_str + "hl_" + hidden_units_str + "hu_" + batch_size_str + "bs.pt")
+
+# eval_batch_size = 10000
+# eval_max_iter = test_data.shape[0] // eval_batch_size
+
+# model = model.to("cuda")
+# test_data = test_data.to("cuda")
+# model.eval()
+# sampled_data = test_data.clone()
+# for i in tqdm(range(eval_max_iter)):
+#     begin = eval_batch_size * i
+#     end = eval_batch_size * (i + 1)
+#     with torch.no_grad():
+#          samples = abs(model.sample(num_samples = eval_batch_size, context = test_data[begin:end,:num_context])[0]).squeeze(1)
+#     sampled_data[begin:end,4] = samples.cpu() + test_data[begin:end,3].cpu()
+    
+# test_data = test_data.cpu()
+# sampled_data = sampled_data.cpu()
+
+# sample_fig, sample_axs = plot.subplots(1,1,figsize=(6,6))
+# sample_fig.suptitle("photon hit timing (p varied)")
+# sample_axs.hist(sampled_data[:,4],bins = 500, alpha = 0.5,color = 'b', label = 'learned', density = True)
+# sample_axs.set_title("learned and true distributions")
+# sample_axs.set_xlabel("time (ns)")
+# sample_axs.set_ylabel("counts")
+# sample_axs.hist(test_data[:,4],bins = 5000, color = 'r', alpha = 0.5, label = 'true', density = True)
+# sample_axs.legend(loc='upper right')
+# sample_axs.set(xlim=(0,20))
+# sample_fig.savefig(Timing_path + f"plots/Compare_learned_to_true/June_08/{run_info}.jpeg")

@@ -57,7 +57,6 @@ def process_file(file_path, break_limit=-1):
     np.vstack(all_hit_data) : np.array
         np array with all the data to convert to tensor
     """
-    
     with uproot.open(file_path) as events:
         # Load all required branches at once
         branches = events.arrays([
@@ -115,7 +114,8 @@ def process_file(file_path, break_limit=-1):
         return np.vstack(all_hit_data) if all_hit_data else np.array([])
 
 # Process all files
-file_path = infile + f"vary_p_z_th_events_filenum{file_num}_600_z_vals_55_5_mm_scint.edm4hep.root:events"
+# file_path = infile + f"vary_p_z_th_events_filenum{file_num}_500_z_vals_20_mm_scint_1point8_ns_time_constant.edm4hep.root:events"
+file_path = infile #use this if we give file name in the slurm file
 file_data = process_file(file_path, break_limit)
 
 # Combine all data and convert to PyTorch tensor
@@ -123,3 +123,4 @@ inputs = torch.tensor(file_data, dtype=torch.float32)
 # print(inputs.shape)
 # Save the tensor
 torch.save(inputs, data_save_path)
+print("successfully saved tensor")

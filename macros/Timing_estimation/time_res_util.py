@@ -210,6 +210,44 @@ def get_compiled_NF_model(thickness = "2cm", useGPU = True):
             model.load_state_dict(state_dict)
             model.to(torch.device('cpu'))
         model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
+    elif(thickness == "2cm_1point8ns_time_constant_run_6"):
+        run_num = 6
+        run_num_str = str(run_num)
+
+        #NF Stuff
+
+        K = 6 #num flows
+
+        latent_size = 1 #dimension of PDF
+        hidden_layers = 8
+        hidden_units = 128 #nodes in hidden layers
+        context_size = 3 #conditional variables for PDF
+        num_context = 3
+        batch_size= 15000
+        K_str = str(K)
+        hidden_units_str = str(hidden_units)
+        hidden_layers_str = str(hidden_layers)
+        batch_size_str = str(batch_size)
+        flows = []
+        for i in range(K):
+            flows += [nf.flows.AutoregressiveRationalQuadraticSpline(latent_size, hidden_layers, hidden_units, 
+                                                                     num_context_channels=context_size)]
+            flows += [nf.flows.LULinearPermute(latent_size)]
+
+        # Set base distribution
+        q0 = nf.distributions.DiagGaussian(1, trainable=False)
+
+        # Construct flow model
+        model = nf.ConditionalNormalizingFlow(q0, flows)
+
+        model_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/models/June_12/run_6_20mm_scint_1point8_time_constant3context_6flows_8hl_128hu_15000bs_finished.pth"
+        if(useGPU):
+            model.load(model_path)
+        else:
+            state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+            model.load_state_dict(state_dict)
+            model.to(torch.device('cpu'))
+        model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     elif(thickness == "5.55cm"):
         run_num = 1
         run_num_str = str(run_num)
