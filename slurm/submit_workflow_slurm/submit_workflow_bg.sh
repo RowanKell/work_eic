@@ -12,4 +12,4 @@
 
 WORK_EIC='/hpc/group/vossenlab/rck32/eic/work_eic/'
 source $WORK_EIC/setup.sh
-python3 $WORK_EIC/slurm/submit_workflow.py
+python3 $WORK_EIC/slurm/submit_workflow.py --deleteDfs False
