@@ -206,7 +206,7 @@ def newer_prepare_nn_input(processed_data, normalizing_flow,device, batch_size=5
                 SiPM_info[f"Charge{curr_SiPM_idx}"] = 0
                 continue
 
-            photon_times = np.array(sipm_samples[curr_SiPM_idx]) * 10**(-9)
+            photon_times = np.array(sipm_samples[curr_SiPM_idx]) * 10.0**(-9)
             time_arr, waveform = processor.generate_waveform(photon_times)
             if(useCFD):
                 timing = processor.get_pulse_timing(waveform, threshold=pixel_threshold)
@@ -219,8 +219,8 @@ def newer_prepare_nn_input(processed_data, normalizing_flow,device, batch_size=5
                 SiPM_info[f"Charge{curr_SiPM_idx}"] = 0
                 continue
 
-            curr_charge = processor.integrate_charge(waveform) * 1e6
-            curr_timing = timing * 1e8
+            curr_charge = processor.integrate_charge(waveform) * 1.0e6
+            curr_timing = timing * 1.0e8
             SiPM_info[f"Time{curr_SiPM_idx}"] = curr_timing
             SiPM_info[f"Charge{curr_SiPM_idx}"] = curr_charge
             if event_idx not in event_first_hits or curr_timing < event_first_hits[event_idx][0]:
@@ -409,7 +409,7 @@ def prepare_prediction_input_pulse(nn_input,nn_output,pixel_threshold = 5):
     
 class SiPMSignalProcessor:
     def __init__(self, 
-                 sampling_rate=0.5e9,  # 40 GHz sampling rate
+                 sampling_rate=40e9,  # 40 GHz sampling rate
                  tau_rise=1.1e-9,       # 1.1 ns rise time
                  tau_fall=15e-9,      # 15 ns fall time
                  window=200e-9,       # 200 ns time window

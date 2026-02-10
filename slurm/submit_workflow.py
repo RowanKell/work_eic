@@ -23,7 +23,7 @@ def create_directory(directory):
         except FileExistsError as e:
             print(f"Caught error while trying to create directory: {e}\n I think this is a concurrency issue where 2 jobs will pass the if statement at the same time")
 
-def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,useGPU,run_num,deleteROOTFile = True,deleteJSON = True,fastScint = False,hepmc_bool = 1):
+def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,useGPU,run_num,deleteROOTFile = True,deleteJSON = True,fastScint = False, useCFD = True, pixel_threshold = 3,hepmc_bool = 1):
     current_date = datetime.now().strftime("%B_%d")
     slurm_output = f"{workdir}/root_files/Slurm"
     out_folder = f"{workdir}/slurm/output/output{current_date}"
@@ -45,6 +45,12 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
     errors = []
     outputs = []
         
+    if(useCFD):
+        useCFDString = "--useCFD"
+    else:
+        useCFDString = "--no-useCFD"
+        
+    
     if(fastScint):
         scintThickness = "--scintThickness 2cm_1point8ns_time_constant_run_6"
     else:
@@ -106,7 +112,7 @@ echo "Beginning Analysis with analyze_data_old.py"
 source {ML_VENV_HOME}/bin/activate
 
 #########   ANALYZE    ##########
-python3 {workdir}/macros/Timing_estimation/analyze_data.py --inputProcessedData {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName {workdir}/macros/Timing_estimation/data/df/{run_name}_{i}.csv --useCFD --batchSize 10000 {deleteJSONString} {useGPUString} {scintThickness}
+python3 {workdir}/macros/Timing_estimation/analyze_data.py --inputProcessedData {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName {workdir}/macros/Timing_estimation/data/df/{run_name}_{i}.csv {useCFDString} --batchSize 10000 {deleteJSONString} {useGPUString} {scintThickness} --pixelThreshold {pixel_threshold}
 
 deactivate
 echo ENDING JOB
@@ -158,7 +164,7 @@ def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save
 #SBATCH --time=00:45:00
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=10G
+#SBATCH --mem=40G
 #SBATCH --gpus=1
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
@@ -234,7 +240,7 @@ def main():
     USER DEFINED SETTINGS
     """
     
-    num_simulations = 40
+    num_simulations = 80
     simulation_start_num = 0
     num_events = 500
     useGPU = True
@@ -243,24 +249,31 @@ def main():
     runTrainingJob = True
     deleteShellsErrorsOutputs = True
     fastScint = False
+    pixel_threshold = 3
+    useCFD = True
     
     """
     END SETTINGS
     """
     if(args.runNum == -1):
-        run_num = 1
+        run_num = 4
     else:
         run_num = args.runNum
     if(args.particle == "NA"):
-        particle = "neutron"
+#          particle = "proton"
+         particle = "neutron"
 #         particle = "kaon0L"
 #         particle = "pi+"
 #         particle = "mu-"
     else:
         particle = args.particle
+    if (useCFD):
+        useCFD_filename = "CFD"
+    else:
+        useCFD_filename = "noCFD"
     geometry_type = 1
     if(args.run_name_pref == "NA"):
-        run_name = f"50mm_preshower_steel_3_dividing_layer__NF2cm_2point8ns_time_constant_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+        run_name = f"baseline_{useCFD_filename}_pixel_threshold_{pixel_threshold}_{current_date}_{particle}_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
     else:
         run_name = f"{args.run_name_pref}_{num_events}events_run_{run_num}"
 #     run_name = f"naive_CFD_Feb_10_{num_events}events_run_{run_num}"
@@ -277,7 +290,7 @@ def main():
         loadEpicCommand = ""
     else:
         loadEpicCommand = f"source {args.loadEpicPath}"
-    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle,useGPU,run_num,deleteROOTFile,deleteJSON,fastScint)
+    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle,useGPU,run_num,deleteROOTFile,deleteJSON,fastScint, useCFD, pixel_threshold)
     print(f"Submitted {num_simulations} simulation and processing jobs")
     print("Submitted training job with dependency on all simulation and processing jobs")
     

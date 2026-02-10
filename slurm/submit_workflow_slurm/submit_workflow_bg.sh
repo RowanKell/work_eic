@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --chdir=/hpc/group/vossenlab/rck32/eic/epic_klm
-#SBATCH --job-name=submit_wkfl
+#SBATCH --job-name=submit_wkfl_n
 #SBATCH --output=/hpc/group/vossenlab/rck32/eic/work_eic/slurm/submit_workflow_slurm/%x_mu.out
 #SBATCH --error=/hpc/group/vossenlab/rck32/eic/work_eic/slurm/submit_workflow_slurm/%x_mu.err
 #SBATCH -p common
