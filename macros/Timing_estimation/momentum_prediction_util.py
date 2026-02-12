@@ -162,10 +162,27 @@ def newer_prepare_nn_input(processed_data, normalizing_flow,device, batch_size=5
         batch_end = min(i + batch_size, len(all_context))
         batch_context = all_context[i:batch_end].to(device)
         batch_time_pixels = all_time_pixels[i:batch_end]
+        current_context_cpu = all_context[i:batch_end]
+        # Check if any inputs are bad values
+        if torch.isnan(current_context_cpu).any() or torch.isinf(current_context_cpu).any():
+            print(f"CRITICAL ERROR: Batch {i} contains NaNs or Infs!, skipping...")
+            print(current_context_cpu)
+            continue 
         
-        with torch.no_grad():
-            samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
-        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                with torch.no_grad():
+                    samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
+                break
+            except RuntimeError as e:
+                if attempt < max_retries - 1:
+                    print(f"CUDA error on attempt {attempt + 1}, retrying after cache clear: {e}")
+                    torch.cuda.empty_cache()
+                    time.sleep(1)
+                else:
+                    raise
+
         sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
     end = time.time()
     print(f"sampling took {end - begin} seconds")

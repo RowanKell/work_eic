@@ -167,11 +167,11 @@ def get_compiled_NF_model(thickness = "2cm", useGPU = True):
         model_path = "/hpc/group/vossenlab/rck32/NF_time_res_models/"
         if(useGPU):
             model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth")
+            model.to(torch.device('cuda'))
         else:
             state_dict = torch.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth",  map_location=torch.device('cpu'))
             model.load_state_dict(state_dict)
             model.to(torch.device('cpu'))
-        model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     elif(thickness == "2cm"):
         run_num = 1
         run_num_str = str(run_num)
@@ -205,11 +205,11 @@ def get_compiled_NF_model(thickness = "2cm", useGPU = True):
         model_path = "/hpc/group/vossenlab/rck32/NF_time_res_models/thicker_2cm/"
         if(useGPU):
             model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs_checkpoint_e13.pth")
+            model.to(torch.device('cuda'))
         else:
             state_dict = torch.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs_checkpoint_e13.pth", map_location=torch.device('cpu'))
             model.load_state_dict(state_dict)
             model.to(torch.device('cpu'))
-        model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     elif(thickness == "2cm_1point8ns_time_constant_run_6"):
         run_num = 6
         run_num_str = str(run_num)
@@ -243,11 +243,11 @@ def get_compiled_NF_model(thickness = "2cm", useGPU = True):
         model_path = "/hpc/group/vossenlab/rck32/eic/work_eic/macros/NF_timing_modeling/models/June_12/run_6_20mm_scint_1point8_time_constant3context_6flows_8hl_128hu_15000bs_finished.pth"
         if(useGPU):
             model.load(model_path)
+            model.to(torch.device('cuda'))
         else:
             state_dict = torch.load(model_path, map_location=torch.device('cpu'))
             model.load_state_dict(state_dict)
             model.to(torch.device('cpu'))
-        model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     elif(thickness == "5.55cm"):
         run_num = 1
         run_num_str = str(run_num)
@@ -281,11 +281,11 @@ def get_compiled_NF_model(thickness = "2cm", useGPU = True):
         model_path = "/hpc/group/vossenlab/rck32/NF_time_res_models/thicker_5.55cm/"
         if(useGPU):
             model.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth")
+            model.to(torch.device('cuda'))
         else:
             state_dict = torch.load(model_path + "run_" + run_num_str + "_" + str(num_context)+ "context_" +K_str +  "flows_" + hidden_layers_str+"hl_" + hidden_units_str+"hu_" + batch_size_str+"bs.pth", map_location=torch.device('cpu'))
             model.load_state_dict(state_dict)
             model.to(torch.device('cpu'))
-        model_compiled = torch.compile(model,mode = "reduce-overhead").to(device)
     else:
         print("model not found")
-    return model_compiled
+    return model

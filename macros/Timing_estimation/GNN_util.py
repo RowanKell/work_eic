@@ -120,7 +120,7 @@ class HitDataset(DGLDataset):
         and labels that can be accessed via a dataloader.
     """
     
-    def __init__(self, data, filter_events,connection_mode = "kNN",max_distance = 0.5,k = 6):
+    def __init__(self, data, filter_events,connection_mode = "kNN",max_distance = 0.5,k = 6, function = 'momentum_reco'):
         """
         Parameters
         ----------
@@ -135,18 +135,21 @@ class HitDataset(DGLDataset):
         max_distance : float
             maximum distance between two nodes that will be connected by edges
         connection_mode : str
-            Either "kNN" or "max distance". If kNN, builds edges by connecting 
+            Either "kNN" or "max distance". If kNN, builds edges by connecting
             k nearest neighbors. If "max distance", then connects all nodes within
             max_distance.
         k : int
             k for kNN edge connecting.
+        function : str
+            'momentum_reco' for energy regression labels, 'PID' for binary classification labels.
         """
-        
+
         self.data = data
         self.filter_events = filter_events
         self.max_distance = max_distance
         self.event_data = torch.tensor([])
         self.connection_mode = connection_mode
+        self.function = function
         self.k = k
         self.dfs = []
         self.mass_dict = {
@@ -156,6 +159,13 @@ class HitDataset(DGLDataset):
             -211 : 0.139570,
             13 : 0.10566
                          }
+        self.PDG_label_dict = {
+            13 : 1,
+            211 : 0,
+            -211 : 0,
+            2112 : 1,
+            130 : 0
+        }
         super().__init__(name = "KLM_reco")
     def get_max_distance_edges(self,curr_event):
         """
@@ -295,9 +305,13 @@ class HitDataset(DGLDataset):
                 print(f"Exception: {e}")
                 print(f"Particle with truePID of {truePID} not in dictionary. Skipping...")
                 continue
+            PDG = curr_event["truePID"].to_numpy()[0]
             momentum = curr_event["P"].to_numpy()[0]
             energy = np.sqrt(mass**2 + momentum**2)
-            label = torch.tensor(energy)
+            if(self.function == 'momentum_reco'):
+                label = torch.tensor(energy)
+            elif(self.function == 'PID'):
+                label = torch.tensor(self.PDG_label_dict[PDG], dtype=torch.int64)
             strip_x = (curr_event["strip_x"].to_numpy() / 3000)
             strip_y = (curr_event["strip_y"].to_numpy() / 3000)
             radial_distance = torch.tensor(np.sqrt( strip_x** 2 + strip_y ** 2))

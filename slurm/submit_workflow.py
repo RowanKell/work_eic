@@ -84,9 +84,10 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
 {request_gpu_string}
-#SBATCH --mem=20G
+#SBATCH --mem=8G
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
+set -e
 
 echo began job
 
@@ -112,7 +113,8 @@ echo "Beginning Analysis with analyze_data_old.py"
 source {ML_VENV_HOME}/bin/activate
 
 #########   ANALYZE    ##########
-python3 {workdir}/macros/Timing_estimation/analyze_data.py --inputProcessedData {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName {workdir}/macros/Timing_estimation/data/df/{run_name}_{i}.csv {useCFDString} --batchSize 10000 {deleteJSONString} {useGPUString} {scintThickness} --pixelThreshold {pixel_threshold}
+export CUDA_LAUNCH_BLOCKING=1
+python3 {workdir}/macros/Timing_estimation/analyze_data.py --inputProcessedData {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName {workdir}/macros/Timing_estimation/data/df/{run_name}_{i}.csv {useCFDString} --batchSize 1000 {deleteJSONString} {useGPUString} {scintThickness} --pixelThreshold {pixel_threshold}
 
 deactivate
 echo ENDING JOB
@@ -160,7 +162,7 @@ def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save
 #SBATCH --job-name=train_predictor_{current_date}_{run_name}
 #SBATCH --output={out_folder}/%x_mu.out
 #SBATCH --error={error_folder}/%x_mu.err
-#SBATCH -p vossenlab-gpu
+#SBATCH -p scavenger-gpu
 #SBATCH --time=00:45:00
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
@@ -168,6 +170,7 @@ def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save
 #SBATCH --gpus=1
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
+set -e
 
 echo began job
 echo began training NN for prediction
@@ -181,6 +184,44 @@ python3 {workdir}/macros/Timing_estimation/train_GNN.py --numDfs {num_dfs} --run
     result = subprocess.run(sbatch_command, capture_output=True, text=True)
     job_id = result.stdout.strip().split()[-1]
     return job_id,train_script
+
+def submit_classification_training_job(run_name_mu, run_name_pi, run_num, num_dfs, outFile, deleteDfs, testPlotPath=""):
+    current_date = datetime.now().strftime("%B_%d")
+    out_folder = f"{workdir}/slurm/output/output{current_date}"
+    error_folder = f"{workdir}/slurm/error/error{current_date}"
+    Timing_path = f"{workdir}/macros/Timing_estimation/"
+    model_dir = f"{Timing_path}models/{current_date}/classifier_run_{run_num}/"
+
+    inputDataPrefMu = f"{Timing_path}data/df/{run_name_mu}_"
+    inputDataPrefPi = f"{Timing_path}data/df/{run_name_pi}_"
+
+    deleteDfsString = "--deleteDfs" if deleteDfs else ""
+    testPlotString = f"--testPlotPath \"{testPlotPath}\"" if testPlotPath else ""
+
+    train_script = f"{workdir}/slurm/shells/train_classifier_{current_date}_{run_name_mu}.sh"
+    with open(train_script, 'w') as f:
+        f.write(f"""#!/bin/bash
+#SBATCH --chdir={EPIC_HOME}
+#SBATCH --job-name=train_classifier_{current_date}_{run_num}
+#SBATCH --output={out_folder}/%x.out
+#SBATCH --error={error_folder}/%x.err
+#SBATCH -p scavenger-gpu
+#SBATCH --time=00:45:00
+#SBATCH --account=vossenlab
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=40G
+#SBATCH --gpus=1
+#SBATCH --mail-user={mail_user}
+#SBATCH --mail-type=FAIL
+set -e
+
+echo began classifier training job
+source {ML_VENV_HOME}/bin/activate
+python3 {Timing_path}train_GNN_classifier.py --inputDataPrefMu "{inputDataPrefMu}" --inputDataPrefPi "{inputDataPrefPi}" --numDfs {num_dfs} --resultsFilePath {outFile} --modelPath "{model_dir}" --runName "classifier_{run_num}" {deleteDfsString} {testPlotString}
+""")
+    result = subprocess.run(["sbatch", train_script], capture_output=True, text=True)
+    job_id = result.stdout.strip().split()[-1]
+    return job_id, train_script
 
 def get_job_status(jobid):
 
@@ -234,20 +275,30 @@ def main():
     parser.add_argument("--setupPath",type=str,default = "install/setup.sh")
     parser.add_argument("--loadEpicPath",type=str,default = "NA")
     parser.add_argument("--chPath",type=str,default = f"{EPIC_HOME}")
+    parser.add_argument("--skipTraining",action=argparse.BooleanOptionalAction, default=False,
+                        help='Skip training job submission, only run sim+process+analyze')
+    parser.add_argument("--classification",action=argparse.BooleanOptionalAction, default=False,
+                        help='Run mu-/pi+ classification workflow: produce data for both particles, then train GNN classifier')
     args = parser.parse_args()
     
     """
     USER DEFINED SETTINGS
     """
     
-    num_simulations = 80
+    debug_mode = False
+    if(debug_mode):
+        num_simulations = 2
+        deleteROOTFile = False
+        deleteJSON = False
+        deleteShellsErrorsOutputs = False
+    else:
+        num_simulations = 50
+        deleteROOTFile = True
+        deleteJSON = True
+        deleteShellsErrorsOutputs = True
     simulation_start_num = 0
     num_events = 500
     useGPU = True
-    deleteROOTFile = True
-    deleteJSON = True
-    runTrainingJob = True
-    deleteShellsErrorsOutputs = True
     fastScint = False
     pixel_threshold = 3
     useCFD = True
@@ -264,7 +315,7 @@ def main():
          particle = "neutron"
 #         particle = "kaon0L"
 #         particle = "pi+"
-#         particle = "mu-"
+        # particle = "mu-"
     else:
         particle = args.particle
     if (useCFD):
@@ -290,74 +341,149 @@ def main():
         loadEpicCommand = ""
     else:
         loadEpicCommand = f"source {args.loadEpicPath}"
-    job_ids,shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,args.compactFile,args.setupPath,loadEpicCommand,args.chPath,particle,useGPU,run_num,deleteROOTFile,deleteJSON,fastScint, useCFD, pixel_threshold)
-    print(f"Submitted {num_simulations} simulation and processing jobs")
-    print("Submitted training job with dependency on all simulation and processing jobs")
-    
-    
+
     if(args.outFile == "NA"):
         outFile = f"{workdir}/macros/Timing_estimation/results/"
     else:
         outFile = args.outFile
-    # Check for running jobs
-    all_data_jobs_done = False
-    num_jobs_failed = 0
-    while(all_data_jobs_done == False):
-        all_jobs_succeeded = 1
-        for job_id in job_ids:
-            job_status = get_job_status(job_id)
-            #Handle errors
-            if(job_status == -1):
-                num_jobs_failed += 1
+
+    if(args.classification):
+        # Classification workflow: produce data for mu- and pi+, then train classifier
+        run_name_base = run_name.replace(f"_{particle}_", "_").replace(particle, "")
+        if(args.run_name_pref == "NA"):
+            run_name_mu = f"baseline_{useCFD_filename}_pixel_threshold_{pixel_threshold}_{current_date}_mu-_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+            run_name_pi = f"baseline_{useCFD_filename}_pixel_threshold_{pixel_threshold}_{current_date}_pi+_0_5GeV_to_5GeV{num_events}events_run_{run_num}"
+        else:
+            run_name_mu = f"{args.run_name_pref}_mum_{num_events}events_run_{run_num}"
+            run_name_pi = f"{args.run_name_pref}_pip_{num_events}events_run_{run_num}"
+
+        # Submit mu- and pi+ sim jobs in parallel
+        job_ids_mu, scripts_mu, errors_mu, outputs_mu = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name_mu, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, "mu-", useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold)
+        print(f"Submitted {num_simulations} mu- simulation jobs")
+        job_ids_pi, scripts_pi, errors_pi, outputs_pi = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name_pi, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, "pi+", useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold)
+        print(f"Submitted {num_simulations} pi+ simulation jobs")
+
+        all_job_ids = job_ids_mu + job_ids_pi
+        all_shell_scripts = scripts_mu + scripts_pi
+        all_shell_errors = errors_mu + errors_pi
+        all_shell_outputs = outputs_mu + outputs_pi
+
+        # Wait for all data jobs
+        all_data_jobs_done = False
+        while(all_data_jobs_done == False):
+            all_jobs_succeeded = 1
+            num_jobs_failed = 0
+            for job_id in all_job_ids:
+                job_status = get_job_status(job_id)
+                if(job_status == -1):
+                    num_jobs_failed += 1
+                elif(job_status == 0):
+                    all_jobs_succeeded = 0
+            if(all_jobs_succeeded == 1):
+                if(num_jobs_failed > 0):
+                    write_failed_result(run_name_mu, outFile)
+                    print("writing failed results...")
+                    return
+                all_data_jobs_done = True
             else:
-                all_jobs_succeeded = job_status
-        if(all_jobs_succeeded == 1):
-            #Require max 2 failed data jobs
-            if(num_jobs_failed >0):
-                write_failed_result(run_name, outFile)
-                print("writing failed results...")
-                return
-            all_data_jobs_done = True
-    #Submit training job now that data jobs done
-    if(runTrainingJob):
+                print("Data jobs running... sleeping for 30")
+                time.sleep(30)
+
+        # Submit classifier training
         num_dfs_total = num_simulations + simulation_start_num
-        train_job_id,train_script = submit_training_job(run_name,run_num,num_dfs_total, outFile,deleteDfs,particle,args.saveGif,args.lowEnergyObjective, args.highEnergyObjective)
+        Timing_path = f"{workdir}/macros/Timing_estimation/"
+        testPlotPath = f"{Timing_path}plots/classifier_roc/"
+        train_job_id, train_script = submit_classification_training_job(run_name_mu, run_name_pi, run_num, num_dfs_total, outFile, deleteDfs, testPlotPath)
+        print(f"Submitted classifier training job")
 
         train_status = 0
         while(train_status == 0):
             train_status = get_job_status(train_job_id)
             if(train_status == 1):
-                print("Train job succeeded")
+                print("Classifier training job succeeded")
             elif(train_status == -1):
-                print("Train job failed")
+                print("Classifier training job failed")
                 break
             elif(train_status == 0):
-                print("Job running... sleeping for 30")
+                print("Classifier training job running... sleeping for 30")
                 time.sleep(30)
                 continue
-    if(deleteShellsErrorsOutputs):
-        for shell_script in shell_scripts:
-            script_file = Path(shell_script)
-            if(script_file.is_file()):
-                script_file.unlink()
-                print(f"deleted shell script file {shell_script}")
 
-        for error_script in shell_errors:
-            error_file = Path(error_script)
-            if(error_file.is_file()):
-                error_file.unlink()
-                print(f"deleted error file {error_script}")
+        if(deleteShellsErrorsOutputs):
+            for f in all_shell_scripts + all_shell_errors + all_shell_outputs + [train_script]:
+                p = Path(f)
+                if(p.is_file()):
+                    p.unlink()
+                    print(f"deleted {f}")
 
-        for output_script in shell_outputs:
-            output_file = Path(output_script)
-            if(output_file.is_file()):
-                output_file.unlink()
-                print(f"deleted output file {output_script}")
-        if(runTrainingJob):
-            train_script_file = Path(train_script)
-            if(train_script_file.is_file()):
-                train_script_file.unlink()
-                print(f"deleted shell script file {train_script}")
+    else:
+        # Standard single-particle workflow
+        job_ids, shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, particle, useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold)
+        print(f"Submitted {num_simulations} simulation and processing jobs")
+        print("Submitted training job with dependency on all simulation and processing jobs")
+
+        # Check for running jobs
+        all_data_jobs_done = False
+        while(all_data_jobs_done == False):
+            all_jobs_succeeded = 1
+            num_jobs_failed = 0
+            for job_id in job_ids:
+                job_status = get_job_status(job_id)
+                if(job_status == -1):
+                    num_jobs_failed += 1
+                elif(job_status == 0):
+                    all_jobs_succeeded = 0
+            if(all_jobs_succeeded == 1):
+                if(num_jobs_failed > 0):
+                    write_failed_result(run_name, outFile)
+                    print("writing failed results...")
+                    return
+                all_data_jobs_done = True
+            else:
+                print("Data jobs running... sleeping for 30")
+                time.sleep(30)
+        #Submit training job now that data jobs done
+        if(not args.skipTraining):
+            num_dfs_total = num_simulations + simulation_start_num
+            train_job_id, train_script = submit_training_job(run_name, run_num, num_dfs_total, outFile, deleteDfs, particle, args.saveGif, args.lowEnergyObjective, args.highEnergyObjective)
+
+            train_status = 0
+            while(train_status == 0):
+                train_status = get_job_status(train_job_id)
+                if(train_status == 1):
+                    print("Train job succeeded")
+                elif(train_status == -1):
+                    print("Train job failed")
+                    break
+                elif(train_status == 0):
+                    print("Train job running... sleeping for 30")
+                    time.sleep(30)
+                    continue
+        elif(args.skipTraining):
+            print("Skipping training job (--skipTraining flag set)")
+        if(deleteShellsErrorsOutputs):
+            for shell_script in shell_scripts:
+                script_file = Path(shell_script)
+                if(script_file.is_file()):
+                    script_file.unlink()
+                    print(f"deleted shell script file {shell_script}")
+
+            for error_script in shell_errors:
+                error_file = Path(error_script)
+                if(error_file.is_file()):
+                    error_file.unlink()
+                    print(f"deleted error file {error_script}")
+
+            for output_script in shell_outputs:
+                output_file = Path(output_script)
+                if(output_file.is_file()):
+                    output_file.unlink()
+                    print(f"deleted output file {output_script}")
+            if(not args.skipTraining):
+                train_script_file = Path(train_script)
+                if(train_script_file.is_file()):
+                    train_script_file.unlink()
+                    print(f"deleted shell script file {train_script}")
 
 
 
