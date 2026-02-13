@@ -32,6 +32,7 @@ import pstats
 from functools import wraps
 from io import StringIO
 from contextlib import contextmanager
+from debug_diagnostics import get_gpu_info, validate_context_tensor, clamp_context_tensor, log_error_state
 
 def profile_function(func):
     """
@@ -154,34 +155,94 @@ def newer_prepare_nn_input(processed_data, normalizing_flow,device, batch_size=5
 
     all_context = torch.cat(all_context)
     all_time_pixels = torch.cat(all_time_pixels)
-    
+
+    # Validate and clamp context to training range
+    validation = validate_context_tensor(all_context, label="all_context")
+    if validation["has_nan"] or validation["has_inf"]:
+        print(f"WARNING: Context has {validation['num_nan']} NaN and {validation['num_inf']} Inf values")
+    all_context, valid_mask = clamp_context_tensor(all_context, verbose=True)
+    if not valid_mask.all():
+        num_removed = int((~valid_mask).sum())
+        print(f"WARNING: Removed {num_removed} entries with NaN/Inf from context")
+        all_context = all_context[valid_mask]
+        all_time_pixels = all_time_pixels[valid_mask]
+        all_metadata = [m for m, v in zip(all_metadata, valid_mask.tolist()) if v]
+
+    # Capture GPU info once for error logging
+    _gpu_info = get_gpu_info()
+
+    # Warmup with actual batch size to pre-allocate CUDA memory pools
+    # Uses SYNTHETIC data (safe nominal values) to only test CUDA allocation,
+    # not data validity — real data issues are handled by the skip logic below
+    if device.type == 'cuda':
+        warmup_size = min(batch_size, len(all_context))
+        print(f"Running CUDA warmup with batch_size={warmup_size} (synthetic data)...")
+        try:
+            torch.cuda.synchronize()
+            with torch.no_grad():
+                # Nominal context: z=0, theta=90, p=2.5 (center of training range)
+                warmup_ctx = torch.tensor([[0.0, 90.0, 2.5]], dtype=torch.float32).repeat(warmup_size, 1).to(device)
+                _ = normalizing_flow.sample(num_samples=warmup_size, context=warmup_ctx)
+                del warmup_ctx
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+            print("CUDA warmup successful")
+        except AssertionError as e:
+            # Spline error even with nominal data — model may be corrupt
+            print(f"WARNING: CUDA warmup got AssertionError with nominal data: {e}")
+            print("This suggests the NF model itself may have issues. Continuing anyway...")
+            torch.cuda.empty_cache()
+        except RuntimeError as e:
+            if "CUDA" in str(e) or "cuda" in str(e):
+                print(f"FATAL: CUDA warmup failed with batch_size={warmup_size}: {type(e).__name__}: {e}")
+                print(f"GPU: {_gpu_info.get('device_name', 'unknown')} on node {_gpu_info.get('slurm_node', 'unknown')}")
+                try:
+                    log_error_state(e, torch.zeros(warmup_size, 3), _gpu_info, batch_idx=-1)
+                except Exception:
+                    pass
+                raise RuntimeError(f"CUDA warmup failed — GPU cannot handle batch_size={warmup_size}. "
+                                 f"Node: {_gpu_info.get('slurm_node', 'unknown')}, "
+                                 f"GPU: {_gpu_info.get('device_name', 'unknown')}") from e
+            else:
+                print(f"WARNING: CUDA warmup got non-CUDA RuntimeError: {e}. Continuing...")
+
     print("Sampling data...")
     sampled_data = []
     begin = time.time()
     for i in tqdm(range(0, len(all_context), batch_size)):
         batch_end = min(i + batch_size, len(all_context))
+        # Keep CPU copy for error logging (GPU copy may become inaccessible after CUDA error)
+        current_context_cpu = all_context[i:batch_end].clone()
         batch_context = all_context[i:batch_end].to(device)
         batch_time_pixels = all_time_pixels[i:batch_end]
-        current_context_cpu = all_context[i:batch_end]
         # Check if any inputs are bad values
         if torch.isnan(current_context_cpu).any() or torch.isinf(current_context_cpu).any():
             print(f"CRITICAL ERROR: Batch {i} contains NaNs or Infs!, skipping...")
             print(current_context_cpu)
-            continue 
-        
-        max_retries = 3
-        for attempt in range(max_retries):
+            continue
+
+        try:
+            if device.type == 'cuda':
+                torch.cuda.synchronize()
+            with torch.no_grad():
+                samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
+        except (RuntimeError, AssertionError) as e:
+            print(f"Error during sampling batch {i}: {type(e).__name__}: {e}")
+            # Log error with CPU copy (safe even if CUDA is corrupted)
             try:
-                with torch.no_grad():
-                    samples = abs(normalizing_flow.sample(num_samples=len(batch_context), context=batch_context)[0]).squeeze(1)
-                break
-            except RuntimeError as e:
-                if attempt < max_retries - 1:
-                    print(f"CUDA error on attempt {attempt + 1}, retrying after cache clear: {e}")
-                    torch.cuda.empty_cache()
-                    time.sleep(1)
-                else:
-                    raise
+                log_error_state(e, current_context_cpu, _gpu_info, batch_idx=i)
+            except Exception as log_e:
+                print(f"  (Could not save diagnostics: {log_e})")
+
+            if "CUDA" in str(e) or "cuda" in str(e):
+                # CUDA context is fatally corrupted — cannot recover in this process
+                # The warmup should catch most of these; if we get here, re-raise
+                print("CUDA context corrupted during sampling. Cannot recover.")
+                raise
+            else:
+                # AssertionError or non-CUDA RuntimeError — skip this batch
+                print(f"  Skipping batch {i} ({len(current_context_cpu)} samples)")
+                continue
 
         sampled_data.extend(samples.cpu() + batch_time_pixels[:, 0])
     end = time.time()

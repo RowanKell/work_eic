@@ -5,7 +5,7 @@ if [ "$#" != 1 ]; then
     exit 1
 fi
 
-read -r state exit_code <<< $(sacct -j $1 --format=State,ExitCode --noheader | awk '{print $1,$2}')
+read -r state exit_code <<< $(sacct -j $1 --format=State%20,ExitCode --noheader | awk '{print $1,$2}')
 
 if [ "$state" == "COMPLETED" ] && [ "$exit_code" == "0:0" ]; then
     echo 1
