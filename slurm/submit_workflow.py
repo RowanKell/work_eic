@@ -116,15 +116,15 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH --output={out_folder}/%x.out
 #SBATCH --error={error_folder}/%x.err
 #SBATCH -p {partition}
-#SBATCH --time=00:30:00
+#SBATCH --time=00:60:00
 #SBATCH --account=vossenlab
 #SBATCH --cpus-per-task=1
 {request_gpu_string}
 #SBATCH --mem={mem_limit}
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
-#SBATCH --exclude=dcc-youlab-gpu-28
-set -e
+#SBATCH --exclude=dcc-youlab-gpu-28,dcc-gehmlab-gpu-ferc-s-z25-18,dcc-brunellab-gpu-[01-04],dcc-carlsonlab-gpu-[09-12],dcc-chsi-gpu-[05-08]
+set -eo pipefail
 
 echo began job
 echo "=== GPU DIAGNOSTICS ==="
@@ -134,6 +134,7 @@ echo "SLURM_JOB_ID: $SLURM_JOB_ID"
 echo "=== END GPU DIAGNOSTICS ==="
 
 cat << EOF | {EIC_SHELL_HOME}/eic-shell
+set -e
 echo "compactFile: {compactFile}"
 source {workdir}/setup.sh
 source {setupPath}
@@ -156,7 +157,7 @@ source {ML_VENV_HOME}/bin/activate
 #########   ANALYZE    ##########
 export CUDA_LAUNCH_BLOCKING=1
 export TORCH_USE_CUDA_DSA=1
-python3 {workdir}/macros/Timing_estimation/analyze_data.py --inputProcessedData {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName {workdir}/macros/Timing_estimation/data/df/{run_name}_{i}.csv {useCFDString} --batchSize 1000 {deleteJSONString} {useGPUString} {scintThickness} --pixelThreshold {pixel_threshold}
+python3 {workdir}/macros/Timing_estimation/analyze_data.py --inputProcessedData {workdir}/macros/Timing_estimation/data/processed_data/{run_name}_{i}.json --outputDataframePathName {workdir}/macros/Timing_estimation/data/df/{run_name}_{i}.csv {useCFDString} --batchSize 50000 {deleteJSONString} {useGPUString} {scintThickness} --pixelThreshold {pixel_threshold}
 
 deactivate
 echo ENDING JOB
@@ -212,7 +213,7 @@ def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save
 #SBATCH --gpus=1
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
-#SBATCH --exclude=dcc-youlab-gpu-28
+#SBATCH --exclude=dcc-youlab-gpu-28,dcc-gehmlab-gpu-ferc-s-z25-18,dcc-brunellab-gpu-[01-04],dcc-carlsonlab-gpu-[09-12],dcc-chsi-gpu-[05-08]
 set -e
 
 echo began job
@@ -256,7 +257,7 @@ def submit_classification_training_job(run_name_mu, run_name_pi, run_num, num_df
 #SBATCH --gpus=1
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
-#SBATCH --exclude=dcc-youlab-gpu-28
+#SBATCH --exclude=dcc-youlab-gpu-28,dcc-gehmlab-gpu-ferc-s-z25-18,dcc-brunellab-gpu-[01-04],dcc-carlsonlab-gpu-[09-12],dcc-chsi-gpu-[05-08]
 set -e
 
 echo began classifier training job
