@@ -153,6 +153,7 @@ def process_root_file_old(file_path,compactFile,max_events = -1,geometry_type = 
                     KMU_trueID = find_parent(pid_branch[event_idx],parent_idx_branch[event_idx],parent_begin_branch[event_idx],parent_end_branch[event_idx],generatorStatus_branch[event_idx],particle_id)
                 except:
                     print(f"event_idx: {event_idx}")
+                    KMU_trueID = trueID
                 truePID = pid_branch[event_idx][trueID]
                 KMU_truePID = pid_branch[event_idx][KMU_trueID]
                 true_momentum_mag = np.linalg.norm((momentum_x_MC[event_idx][trueID],

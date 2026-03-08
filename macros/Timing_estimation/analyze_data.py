@@ -32,7 +32,7 @@ parser.add_argument('--outputDataframePathName', type=str, default="NA",
                         help='directory of output df') 
 parser.add_argument('--scintThickness', type=str, default="2cm",
                         help='Thickness of scintillator in geometry') 
-parser.add_argument('--batchSize', type=int, default=50000,
+parser.add_argument('--batchSize', type=int, default=64000,
                         help='Size of batches for inference') 
 parser.add_argument('--pixelThreshold', type=int, default=3,
                         help='Constant threshold timing threshold') 

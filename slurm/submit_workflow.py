@@ -4,7 +4,7 @@ from datetime import datetime
 import argparse
 import time
 from pathlib import Path
-import xml.etree.ElementTree as ET
+from workflow_util import get_mem_limit, describe_geometry
 
 # Set env variables as python variables for ease of use
 try:
@@ -18,46 +18,9 @@ except KeyError as e:
     exit(1)
 
 def create_directory(directory):
-    if not os.path.exists(directory):
-        try:
-            os.makedirs(directory)
-        except FileExistsError as e:
-            print(f"Caught error while trying to create directory: {e}\n I think this is a concurrency issue where 2 jobs will pass the if statement at the same time")
+    os.makedirs(directory, exist_ok=True)
 
-def get_scint_thickness_mm(compact_file):
-    """Read HcalScintillatorThickness from a compact XML file. Returns thickness in mm, or None."""
-    def _find_thickness(filepath):
-        try:
-            tree = ET.parse(filepath)
-            root = tree.getroot()
-            for const in root.iter('constant'):
-                if const.get('name') == 'HcalScintillatorThickness':
-                    val = const.get('value', '').replace('*mm', '')
-                    return float(val)
-        except Exception:
-            pass
-        return None
-
-    # Try the compact file directly
-    result = _find_thickness(compact_file)
-    if result is not None:
-        return result
-
-    # If not found, check <include> refs for klmws XML files
-    try:
-        tree = ET.parse(compact_file)
-        root = tree.getroot()
-        parent_dir = os.path.dirname(compact_file)
-        for inc in root.iter('include'):
-            ref = inc.get('ref', '')
-            if 'klmws' in ref:
-                resolved = ref.replace('${DETECTOR_PATH}', parent_dir)
-                result = _find_thickness(resolved)
-                if result is not None:
-                    return result
-    except Exception:
-        pass
-    return None
+# XML geometry readers and memory limit logic live in workflow_util.py
 
 def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, num_events,run_name,geometry_type,compactFile,setupPath,loadEpicCommand,chPath,particle,useGPU,run_num,deleteROOTFile = True,deleteJSON = True,fastScint = False, useCFD = True, pixel_threshold = 3,hepmc_bool = 1, mem_limit = "8G"):
     current_date = datetime.now().strftime("%B_%d")
@@ -123,7 +86,7 @@ def submit_simulation_and_processing_jobs(num_simulations,simulation_start_num, 
 #SBATCH --mem={mem_limit}
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
-#SBATCH --exclude=dcc-youlab-gpu-28,dcc-gehmlab-gpu-ferc-s-z25-18,dcc-brunellab-gpu-[01-04],dcc-carlsonlab-gpu-[09-12],dcc-chsi-gpu-[05-08]
+#SBATCH --exclude=dcc-gehmlab-gpu-ferc-s-z25-18
 set -eo pipefail
 
 echo began job
@@ -213,7 +176,7 @@ def submit_training_job(run_name,run_num,num_dfs,outFile,deleteDfs,particle,save
 #SBATCH --gpus=1
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
-#SBATCH --exclude=dcc-youlab-gpu-28,dcc-gehmlab-gpu-ferc-s-z25-18,dcc-brunellab-gpu-[01-04],dcc-carlsonlab-gpu-[09-12],dcc-chsi-gpu-[05-08]
+#SBATCH --exclude=dcc-gehmlab-gpu-ferc-s-z25-18
 set -e
 
 echo began job
@@ -257,7 +220,7 @@ def submit_classification_training_job(run_name_mu, run_name_pi, run_num, num_df
 #SBATCH --gpus=1
 #SBATCH --mail-user={mail_user}
 #SBATCH --mail-type=FAIL
-#SBATCH --exclude=dcc-youlab-gpu-28,dcc-gehmlab-gpu-ferc-s-z25-18,dcc-brunellab-gpu-[01-04],dcc-carlsonlab-gpu-[09-12],dcc-chsi-gpu-[05-08]
+#SBATCH --exclude=dcc-gehmlab-gpu-ferc-s-z25-18
 set -e
 
 echo began classifier training job
@@ -324,6 +287,12 @@ def main():
                         help='Skip training job submission, only run sim+process+analyze')
     parser.add_argument("--classification",action=argparse.BooleanOptionalAction, default=False,
                         help='Run mu-/pi+ classification workflow: produce data for both particles, then train GNN classifier')
+    parser.add_argument("--num_simulations", type=int, default=None,
+                        help='Override number of simulation jobs (default: 5 in debug mode, 50 otherwise)')
+    parser.add_argument("--geo_config", type=str, default="basic", choices=["basic", "preshower"],
+                        help='MOBO parameter space configuration: "basic" (num_layers × steel_ratio) '
+                             'or "preshower" (preshower_steel_value × division_layer_number). '
+                             'Selects the memory limit model used for sim/process SLURM jobs.')
     args = parser.parse_args()
     
     """
@@ -332,17 +301,20 @@ def main():
     
     debug_mode = False
     if(debug_mode):
-        num_simulations = 5
+        num_simulations = 2
+        num_events = 500
         deleteROOTFile = False
         deleteJSON = False
         deleteShellsErrorsOutputs = False
     else:
-        num_simulations = 50
+        num_simulations = 20
+        num_events = 500
         deleteROOTFile = True
         deleteJSON = True
         deleteShellsErrorsOutputs = True
+    if args.num_simulations is not None:
+        num_simulations = args.num_simulations
     simulation_start_num = 0
-    num_events = 500
     useGPU = True
     fastScint = False
     pixel_threshold = 3
@@ -364,15 +336,8 @@ def main():
     else:
         particle = args.particle
 
-    scint_thickness = get_scint_thickness_mm(args.compactFile)
-    thick_scint = scint_thickness is not None and scint_thickness > 30.0
-    def get_mem_limit(particle_name):
-        if thick_scint and particle_name in ("pi+", "neutron", "kaon0L", "proton"):
-            return "16G"
-        elif thick_scint:  # mu-
-            return "10G"
-        return "8G"
-    print(f"Scintillator thickness: {scint_thickness}mm, thick_scint={thick_scint}, mem_limit for {particle}: {get_mem_limit(particle)}")
+    print(f"geo_config={args.geo_config}, {describe_geometry(args.compactFile, args.geo_config)}, "
+          f"mem_limit for {particle}: {get_mem_limit(args.compactFile, particle, args.geo_config)}")
 
     if (useCFD):
         useCFD_filename = "CFD"
@@ -414,9 +379,9 @@ def main():
             run_name_pi = f"{args.run_name_pref}_pip_{num_events}events_run_{run_num}"
 
         # Submit mu- and pi+ sim jobs in parallel
-        job_ids_mu, scripts_mu, errors_mu, outputs_mu = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name_mu, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, "mu-", useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold, mem_limit=get_mem_limit("mu-"))
+        job_ids_mu, scripts_mu, errors_mu, outputs_mu = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name_mu, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, "mu-", useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold, mem_limit=get_mem_limit(args.compactFile, "mu-", args.geo_config))
         print(f"Submitted {num_simulations} mu- simulation jobs")
-        job_ids_pi, scripts_pi, errors_pi, outputs_pi = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name_pi, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, "pi+", useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold, mem_limit=get_mem_limit("pi+"))
+        job_ids_pi, scripts_pi, errors_pi, outputs_pi = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name_pi, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, "pi+", useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold, mem_limit=get_mem_limit(args.compactFile, "pi+", args.geo_config))
         print(f"Submitted {num_simulations} pi+ simulation jobs")
 
         all_job_ids = job_ids_mu + job_ids_pi
@@ -474,7 +439,7 @@ def main():
 
     else:
         # Standard single-particle workflow
-        job_ids, shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, particle, useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold, mem_limit=get_mem_limit(particle))
+        job_ids, shell_scripts, shell_errors, shell_outputs = submit_simulation_and_processing_jobs(num_simulations, simulation_start_num, num_events, run_name, geometry_type, args.compactFile, args.setupPath, loadEpicCommand, args.chPath, particle, useGPU, run_num, deleteROOTFile, deleteJSON, fastScint, useCFD, pixel_threshold, mem_limit=get_mem_limit(args.compactFile, particle, args.geo_config))
         print(f"Submitted {num_simulations} simulation and processing jobs")
         print("Submitted training job with dependency on all simulation and processing jobs")
 
