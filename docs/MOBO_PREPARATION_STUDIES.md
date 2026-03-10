@@ -155,19 +155,37 @@ NUMDF_VALUES_MGEO = [10, 20, 30, 50]  # production
 
 ## 3. Memory Stress Test
 
-**Script**: `slurm/test_memory_limits.py`
+Two scripts exist — one per MOBO parameter space configuration:
+
+| Script | MOBO Parameters | Configs |
+|--------|----------------|---------|
+| `slurm/test_memory_limits.py` | `num_layers` × `steel_ratio` (old space) | 16 (4L × 4 ratios) |
+| `slurm/test_memory_limits_preshower.py` | `preshower_steel_value` × `division_layer_number` | 16 (4 steel × 4 div) |
+
 **Question answered**: *What SLURM memory allocation does each geometry need? Will any geometry in the MOBO search space cause OOM?*
 
-### What it does
+### test_memory_limits_preshower.py — Preshower Configuration
 
-Creates 8 test geometries spanning the MOBO parameter space (scintillator thickness 20–50mm, 14 or 18 layers), submits 5 SLURM jobs per geometry/particle combination (120 total), monitors completion, then uses `sacct` to extract peak memory usage (MaxRSS) and compute headroom vs. the allocated limit.
+**MOBO parameter space** (`parameters.config`):
+- `preshower_steel_value`: 10–101 mm
+- `division_layer_number`: 1–7
 
-| Geometry | Layers | Steel (mm) | Scint (mm) | Memory Limit |
-|----------|--------|------------|------------|--------------|
-| normal_14L/18L | 14/18 | 55.5 | 20.0 | 8G |
-| boundary_14L/18L | 14/18 | 40.0 | 30.0 | 8G (at threshold) |
-| thick_14L/18L | 14/18 | 18.0 | 40.0 | 16G (pi+/n) / 10G (mu-) |
-| worst_14L/18L | 14/18 | 10.0 | 50.0 | 16G (pi+/n) / 10G (mu-) |
+Fixed constants not varied: `HcalScintillatorThickness=20mm`, `HcalScintillatorNbLayers=14`
+
+Test grid (16 geometries = 4 × 4):
+
+| Preshower Steel | Division Layers | Config Name |
+|----------------|-----------------|-------------|
+| 10, 37, 68, 101 mm | 1, 3, 5, 7 | `{div}div_ps{steel}` |
+
+Current limits under test (based on fixed scint=20mm, layers=14 in `submit_workflow.py`):
+- pi+: 12G, neutron: 7G, mu-: 5G
+
+Worst-case hypothesis: `div=7, preshower_steel=10mm` → min absorption + max segmentation.
+
+### test_memory_limits.py — Original (num_layers × steel_ratio) Configuration
+
+Creates 16 test geometries spanning the original MOBO parameter space (scintillator thickness 20–50mm, 5–18 layers), submits 3 SLURM jobs per geometry/particle combination (144 total).
 
 ### Outputs
 
@@ -184,20 +202,28 @@ The console table shows: geometry name, particle, mean MaxRSS, max MaxRSS, alloc
 ### How to regenerate
 
 ```bash
-# Full run (120 jobs, takes ~1 hour for all to complete)
+# Preshower config — full run (144 jobs)
+python3 /hpc/group/vossenlab/rck32/eic/work_eic/slurm/test_memory_limits_preshower.py
+
+# Preshower config — quick mode (worst-case only: div=7, preshower_steel=10mm, 9 jobs)
+python3 slurm/test_memory_limits_preshower.py --quick
+
+# Preshower config — re-analyze today's completed jobs without resubmitting
+python3 slurm/test_memory_limits_preshower.py --analyze-only
+
+# Original (num_layers × steel_ratio) config — full run (144 jobs)
 python3 /hpc/group/vossenlab/rck32/eic/work_eic/slurm/test_memory_limits.py
 
-# Quick mode (only worst-case geometry = worst_18L, 15 jobs)
+# Original config — quick mode (worst-case geometry only)
 python3 slurm/test_memory_limits.py --quick
 ```
 
 ### How dynamic memory allocation works in production
 
-The memory limits tested here match the logic in `submit_workflow.py`:
-- Scintillator thickness <= 30mm: all particles get **8G**
-- Scintillator thickness > 30mm: pi+/neutron get **16G**, mu- gets **10G**
+`submit_workflow.py`'s `get_mem_limit()` reads `HcalScintillatorThickness` and `HcalScintillatorNbLayers` from the compact XML. For the preshower configuration these are fixed (20mm, 14 layers), so the limits are constant:
+- pi+: 12G, neutron: 7G, mu-: 5G
 
-This threshold was validated by this stress test.
+The preshower stress test validates whether `preshower_steel_value` and `division_layer_number` push actual memory usage above these fixed limits. If they do, `get_mem_limit()` will need to be updated to also read `division_layer_number` from the XML.
 
 ---
 
@@ -365,6 +391,69 @@ Quick reference for all scripts and their locations relative to `work_eic/`:
 
 ---
 
+---
+
+## 8. MOBO Convergence Analysis
+
+**Script**: `dRICH-MOBO/MOBO-tools/analyze_convergence.py`
+**Question answered**: *Did the optimization converge? Should I use more or fewer trials next time?*
+
+### Background
+
+The standard metric for multi-objective BO convergence is the **hypervolume indicator (HVI)**: the volume of objective space dominated by the Pareto front. If HVI is still growing at the last trial, you need more trials. If it plateaued 20 trials early, you used more than you needed.
+
+### What the script produces
+
+| Output | Path | What to look for |
+|--------|------|-----------------|
+| **HVI curve** | `plots/convergence/hvi_curve.pdf` | Plateau = converged; still rising = need more trials |
+| **Best-so-far per objective** | `plots/convergence/best_so_far.pdf` | Which phase (Sobol vs BoTorch) found the improvements |
+| **Pareto scatter** | `plots/convergence/pareto_scatter.pdf` | Visual spread of Sobol vs BoTorch points |
+| **Convergence report** | `plots/convergence/convergence_report.txt` | Plateau trial, HVI gain by phase, status quo vs best delta |
+
+### How to regenerate
+
+```bash
+source /hpc/group/vossenlab/rck32/ML_venv/bin/activate
+cd /hpc/group/vossenlab/rck32/eic/dRICH-MOBO/MOBO-tools
+
+# Default: analyzes the March 6 2026 experiment
+python3 analyze_convergence.py
+
+# Specify a different CSV
+python3 analyze_convergence.py --csv path/to/test_scheduler_df.csv
+
+# Compare two runs side-by-side on the HVI plot
+python3 analyze_convergence.py --csv run1/test_scheduler_df.csv --csv run2/test_scheduler_df.csv
+```
+
+### How to interpret the results
+
+**HVI curve**:
+- A dashed vertical line marks the Sobol → BoTorch transition
+- If HVI plateaus soon after BoTorch starts → fewer trials would suffice
+- If HVI is still climbing at trial 60 → more trials needed
+- The report prints what fraction of total HVI gain came from each phase
+
+**Plateau detection** (in `convergence_report.txt`):
+- Defined as: rolling 5-trial HVI gain drops below 0.5% of total gain
+- If no plateau detected → the run was too short
+
+**Rule of thumb for next run**:
+- `n_sobol ≈ 10 × n_parameters` (you have 2 parameters → ~20 Sobol is plenty)
+- `n_botorch ≈ plateau_trial - n_sobol + 10` (add a small buffer)
+
+### Reference point
+
+The hypervolume reference point (nadir) is set in the script:
+```python
+HV_REFERENCE = np.array([-1.2, -1.2, 0.85, 0.85])
+# [-max_low_RMSE, -max_high_RMSE, min_low_AUC, min_high_AUC]
+```
+If you change the objective ranges (e.g., wider parameter space), update this.
+
+---
+
 ## Quick Regeneration Cheat Sheet
 
 ```bash
@@ -378,8 +467,11 @@ python3 slurm/learning_curve.py --skip-data --skip-training
 # Re-plot multi-geometry rank stability from existing results
 python3 slurm/multi_geo_learning_curve.py --skip-data --skip-training
 
-# Re-run memory stress test (submits 120 SLURM jobs)
+# Re-run memory stress test — original config (submits 144 SLURM jobs)
 python3 slurm/test_memory_limits.py
+
+# Re-run memory stress test — preshower config (submits 144 SLURM jobs)
+python3 slurm/test_memory_limits_preshower.py
 
 # Re-run batch size benchmark (needs GPU node)
 python3 macros/Timing_estimation/benchmark_batch_size.py --synthetic

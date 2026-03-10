@@ -289,9 +289,10 @@ def main():
                         help='Run mu-/pi+ classification workflow: produce data for both particles, then train GNN classifier')
     parser.add_argument("--num_simulations", type=int, default=None,
                         help='Override number of simulation jobs (default: 5 in debug mode, 50 otherwise)')
-    parser.add_argument("--geo_config", type=str, default="basic", choices=["basic", "preshower"],
+    parser.add_argument("--geo_config", type=str, default="basic", choices=["basic", "preshower", "linear_ratio"],
                         help='MOBO parameter space configuration: "basic" (num_layers × steel_ratio) '
-                             'or "preshower" (preshower_steel_value × division_layer_number). '
+                             '"preshower" (preshower_steel_value × division_layer_number), '
+                             'or "linear_ratio" (steel_slope × scint_slope × and steel_ratio)'
                              'Selects the memory limit model used for sim/process SLURM jobs.')
     args = parser.parse_args()
     
