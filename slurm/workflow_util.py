@@ -148,21 +148,24 @@ def _get_mem_limit_basic(compact_file, particle_name):
 
     if particle_name in ("pi+", "kaon0L", "proton"):
         if scint <= 30.0:                        # thin scint
+            if   load > 450: return "20G"        # boundary scint (~30mm) + many layers → use thick tier
             return "12G" if layers > 12 else "8G"
         else:                                    # thick scint
             if   load > 750: return "26G"        # worst 20.48 GB → ×1.25=25.6 → 26G
             elif load > 450: return "20G"        # worst 15.79 GB → ×1.25=19.7 → 20G
             else:            return "16G"        # worst 12.55 GB (scint=46.96mm, 9L) → ×1.25=15.7 → 16G
     elif particle_name == "neutron":
-        if scint <= 30.0:                        # worst 5.63 GB → ×1.25=7.0 → 7G
-            return "7G"
+        if scint <= 30.0:
+            if   load > 450: return "16G"        # boundary scint (~30mm) + many layers → use thick tier
+            return "7G"                          # worst 5.63 GB → ×1.25=7.0 → 7G
         else:
             if   load > 750: return "18G"        # worst 14.72 GB → ×1.25=18.4 → 18G
             elif load > 450: return "16G"        # worst 11.97 GB (scint=53.75mm, 13L) → ×1.25=15.0 → 16G
             else:            return "10G"        # worst  7.60 GB (scint=44.16mm,  9L) → ×1.25=9.5 → 10G
     else:                                        # mu-
-        if scint <= 30.0:                        # worst 4.08 GB → ×1.25=5.1 → 5G
-            return "5G"
+        if scint <= 30.0:
+            if   load > 450: return "8G"         # boundary scint (~30mm) + many layers → use thick tier
+            return "5G"                          # worst 4.08 GB → ×1.25=5.1 → 5G
         else:
             return "11G" if load > 750 else "8G" # >750: 8.63→×1.25=10.8→11G, ≤750: 6.04→×1.25=7.6→8G
 
