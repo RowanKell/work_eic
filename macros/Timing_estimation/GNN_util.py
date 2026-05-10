@@ -904,3 +904,81 @@ def calculate_bin_rmse(test_dataloader, model, bin_width=0.5, bin_min=1.0, bin_m
             rmse_per_bin[bin_center] = float('nan')  # Assign NaN if no predictions fall into the bin
     
     return rmse_per_bin
+
+
+def visualize_many_detector_graphs(dataset,num_graphs = 1, include_edges = False, figsize=(6, 6), ax=None, title=None):
+    """
+    Visualizes the detector hits and their connections.
+
+    Parameters:
+    dataset: HitDataset containing graphs and dataframes
+    num_graphs (int): Number of graphs to overlay
+    include_edges (bool): Whether to draw graph edges
+    figsize (tuple): Figure size in inches (only used if ax is None)
+    ax: Optional matplotlib Axes to plot into. If None, creates a new figure.
+    title (str): Optional title for the subplot
+    """
+
+    if ax is None:
+        fig, axs = plot.subplots(1,2,figsize = (13,6))
+        target_ax = axs[0]
+        standalone = True
+    else:
+        target_ax = ax
+        standalone = False
+
+    num_hits = 0
+    total_charge = 0
+    total_layer_idx = 0
+    for graph_idx in range(num_graphs):
+        graph = dataset[graph_idx][0]
+        curr_event = dataset.dfs[graph_idx]
+        colors = curr_event['ModifiedTrueID'].apply(lambda x: 'red' if x == -1 else 'blue')
+        sizes = curr_event['Charge0'] + curr_event['Charge1']
+        total_charge += np.sum(sizes)
+        total_layer_idx += np.mean(curr_event['layer_idx'])
+
+        # Plot nodes (hits)
+        target_ax.scatter(curr_event['strip_x'], curr_event['strip_y'],
+                   c=colors, s=sizes * 1, alpha=0.05, label='Detector hits')
+        num_hits += len(curr_event['strip_x'])
+        sources,destinations = graph.edges()
+
+        if(include_edges):
+            # Plot edges
+            for src, dst in zip(sources, destinations):
+                x1, y1 = curr_event.iloc[int(src)][['strip_x', 'strip_y']]
+                x2, y2 = curr_event.iloc[int(dst)][['strip_x', 'strip_y']]
+                target_ax.plot([x1, x2], [y1, y2], 'gray', alpha=0.05, linewidth=0.5)
+
+    # Add labels and title
+    target_ax.set_xlabel('X Position')
+    target_ax.set_ylabel('Y Position')
+    n_edges = len(sources) / 2
+    if title is not None:
+        target_ax.set_title(title)
+    elif standalone:
+        target_ax.set_title(f'Detector Graph Visualization\n{len(curr_event)} nodes, {n_edges//2} edges')
+
+    target_ax.grid(True, alpha=0.3)
+    target_ax.axis('equal')
+    target_ax.set_xlim(-4070,4070)
+    target_ax.set_ylim(-4070,4070)
+    print(f"Avg # of hits per event: {num_hits / num_graphs}")
+    print(f"Avg charge per event: {total_charge / num_graphs}")
+    print(f"Avg layer_idx per hit: {total_layer_idx / num_graphs}")
+    for i in range(2):
+        if(i == 0):
+            r = 1770
+        else:
+            r = 2835
+        angles = np.linspace(0, 2 * np.pi, 9)[:-1]
+        angles += np.pi / 8
+        R = r / np.cos(np.pi / 8)
+        x = R * np.cos(angles)
+        y = R * np.sin(angles)
+        x = np.append(x, x[0])
+        y = np.append(y, y[0])
+
+        target_ax.plot(x, y, 'black')
+#         fig.savefig("plots/GNN/March_17_graph_viz.pdf")

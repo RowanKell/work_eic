@@ -300,9 +300,9 @@ def main():
     USER DEFINED SETTINGS
     """
     
-    debug_mode = False
+    debug_mode = True
     if(debug_mode):
-        num_simulations = 2
+        num_simulations = 50
         num_events = 500
         deleteROOTFile = False
         deleteJSON = False
@@ -325,7 +325,7 @@ def main():
     END SETTINGS
     """
     if(args.runNum == -1):
-        run_num = 4
+        run_num = 40
     else:
         run_num = args.runNum
     if(args.particle == "NA"):
